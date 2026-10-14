@@ -1,29 +1,18 @@
 [CmdletBinding()]
 param(
+  [ValidateSet('Plan', 'Check', 'Apply')]
+  [string]$Mode = 'Plan',
   [string]$Owner = 'James-FE',
-  [string]$Repository = 'CAPPtron-web'
+  [string]$Repository = 'CAPPtron-web',
+  [switch]$Yes
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location (Split-Path -Parent $PSScriptRoot)
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-  throw 'GitHub CLI is required: https://cli.github.com/'
-}
-& gh auth status
-if ($LASTEXITCODE -ne 0) { throw 'Run gh auth login first.' }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js 22+ is required.' }
+if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'GitHub CLI (gh) is required; run gh auth login.' }
 
-$target = "$Owner/$Repository"
-$existing = & gh api "repos/$target/rulesets"
-if ($LASTEXITCODE -ne 0) { throw 'Cannot read rulesets; verify admin access and GitHub plan.' }
-$existingRules = $existing | ConvertFrom-Json
-if ($existingRules | Where-Object { $_.name -eq 'Protect default branch' }) {
-  Write-Host 'Ruleset already exists. Edit it in GitHub Settings > Rules > Rulesets.'
-  exit 0
-}
-
-Write-Host 'Make sure Frontend Quality completed successfully on main before adding a required check.'
-& gh api --method POST "repos/$target/rulesets" --input '.github/rulesets/main.json'
-if ($LASTEXITCODE -ne 0) {
-  throw 'Ruleset creation failed. GitHub Pro/Team may be required for a private repository.'
-}
-Write-Host "Ruleset created for $target"
+$scriptPath = Join-Path $PSScriptRoot 'sync-ruleset.mjs'
+$nodeArgs = @($scriptPath, $Mode.ToLowerInvariant(), '--repo', "$Owner/$Repository")
+if ($Yes) { $nodeArgs += '--yes' }
+& node @nodeArgs
+if ($LASTEXITCODE -ne 0) { throw "Ruleset IaC $Mode failed with exit code $LASTEXITCODE." }

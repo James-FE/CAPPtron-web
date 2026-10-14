@@ -1,0 +1,36 @@
+name: Package
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Web Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build static web application
+        run: npm run build
+      - name: Upload reproducible web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: capptron-web-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

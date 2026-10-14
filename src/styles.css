@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif;
+  color: #f0f5f3;
+  background: #101516;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button {
+  font: inherit;
+}
+
+.shell {
+  max-width: 1600px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 30px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.masthead,
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.masthead {
+  border-bottom: 1px solid #3b4b4e;
+  padding-bottom: 24px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+h2 {
+  font-size: clamp(21px, 2vw, 30px);
+  line-height: 1.35;
+}
+
+h3 {
+  font-size: 24px;
+}
+
+.eyebrow {
+  color: #64dfc4;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.subtle,
+.footer {
+  color: #a8b8b7;
+  font-size: 14px;
+}
+
+.subtle {
+  margin-top: 14px;
+}
+
+.status-tag,
+.mock-tag {
+  border: 1px solid #3b4b4e;
+  border-radius: 7px;
+  padding: 10px 14px;
+  color: #64dfc4;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.workspace {
+  background: #192123;
+  border: 1px solid #3b4b4e;
+  border-radius: 14px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.stage-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stage {
+  cursor: pointer;
+  border: 1px solid #3b4b4e;
+  border-radius: 8px;
+  background: #101516;
+  color: #a8b8b7;
+  padding: 14px 20px;
+}
+
+.stage:hover,
+.stage:focus-visible {
+  border-color: #64dfc4;
+  outline: none;
+}
+
+.stage.active {
+  background: #24433e;
+  color: #f0f5f3;
+  border-color: #64dfc4;
+}
+
+.detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 250px;
+  border-radius: 10px;
+  border: 1px solid #3b4b4e;
+  background: #101516;
+  padding: 28px;
+}
+
+.detail-panel > p:not(.eyebrow) {
+  line-height: 1.7;
+  color: #a8b8b7;
+}
+
+.detail-panel .notice {
+  margin-top: auto;
+  color: #f1bf70 !important;
+  font-size: 13px;
+}
+
+.footer {
+  margin-top: auto;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    padding: 20px 16px;
+  }
+
+  .masthead,
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workspace {
+    padding: 18px;
+  }
+
+  .status-tag {
+    white-space: normal;
+  }
+}

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
-  // Keep this scaffold suite independent of backend and internet availability.
+  // 工程基础测试必须独立于真实后端与外部网络。
   await page.route('**/*', (route) => {
     const url = new URL(route.request().url())
     return url.origin === 'http://127.0.0.1:5173' ? route.continue() : route.abort()
@@ -64,7 +64,7 @@ test('switches workflow selection and matching details', async ({ page }) => {
   await expect(
     navigation.getByRole('button', { name: stages[0].name, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true')
-  // Include returning to the initial stage to catch one-way state transitions.
+  // 最后返回初始阶段，以发现只能单向切换的状态问题。
   for (const stage of [stages[1], stages[2], stages[0]]) {
     await navigation.getByRole('button', { name: stage.name, exact: true }).click()
     for (const candidate of stages) {

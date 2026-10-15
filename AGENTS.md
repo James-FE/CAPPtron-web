@@ -1,38 +1,57 @@
-# CAPPtron-web agent instructions
+# CAPPtron-web｜AI 开发指令
 
-## Project purpose
+## 项目定位
 
-Build and maintain a desktop-first CNC Agentic Programming web UI based on the approved Figma r06 design. The core flow is Model Input -> Process Planning -> Program Review; the Data Foundation is a separate page. This repository is the browser frontend, not a CAM controller.
+本仓库是面向桌面端的 CNC Agentic Programming 浏览器前端，依据已确认的 Figma r06 进行实现。主流程为**模型输入 → 工艺决策 → 程序审核**；数据底座是独立页面。本仓库不是 CAM 控制器。
 
-Read `docs/architecture/frontend-architecture.md` before changing application boundaries or substantial UI behavior. Keep the code modular, typed, and practical. New dependencies must have a concrete P0/P1 use case. Do not introduce an elaborate workflow engine, backend-for-frontend, 3D CAD engine, or real-time transport to implement a placeholder.
+改变应用架构边界或重要交互前，必须阅读 `docs/architecture/frontend-architecture.md`。保持组件职责清楚、类型明确、实现务实。新增依赖应有明确的 P0/P1 使用场景；不得为了占位功能提前建设复杂工作流引擎、BFF、三维 CAD 引擎或实时通信系统。
 
-## Development checks
+## 开发与验证约定
 
-- Prefer feature branches and PRs rather than direct pushes to main.
-- Run `npm run quality` before requesting review; CI is the hard quality gate.
-- Keep the lockfile in sync when changing dependencies. CI uses `npm ci`.
-- For frontend PRs that change page layout, interaction, or visuals, run the existing Playwright browser tests at both agreed desktop viewports (1920x1080 and 1440x900). Provide real browser screenshots and test evidence. Passing TypeScript, Vitest, and builds does not constitute visual acceptance.
-- Keep API transport and source-to-view-model mapping in `src/api`; pages should not call Mastercam, local Windows endpoints, or arbitrary business HTTP URLs.
-- Use stable IDs for tasks, operations, steps, results and revisions; do not use array indices as business identifiers.
+- 优先在独立功能分支开发，通过 PR 提交；不得未经维护者同意直接修改或合并 `main`。
+- 提交评审前执行 `npm run quality`；CI 是工程质量门槛，不是产品验收的替代品。
+- 改动依赖时同步提交锁文件；CI 使用 `npm ci`。
+- 修改页面布局、交互或视觉的 PR，必须运行现有 Playwright 测试，在 **1920×1080** 和 **1440×900** 两种桌面视口检查实际页面，并提供浏览器截图及测试证据。TypeScript、Vitest 和构建通过不等于视觉验收通过。
+- API 请求及后端数据到 ViewModel 的映射放在 `src/api`；页面不得直接访问 Mastercam、本地 Windows 端点或未经设计的业务 HTTP 地址。
+- 任务、工序、工步、结果及修订使用稳定 ID；不能将数组下标作为业务标识。
 
-## Code Review Rules
+## TypeScript 开发规范
 
-### 1. Protect real-versus-Mock boundaries
+- 新增前端应用代码、React 组件、业务逻辑、API Adapter、状态管理、类型定义、单元测试以及 Playwright 测试，默认使用 TypeScript（`.ts` / `.tsx`）。
+- 不得无故使用 `.js` / `.jsx` 新增前端业务功能。
+- 已稳定运行的 Node.js 工程脚本（`.js` / `.mjs`）可以保留，不为统一扩展名而改写。
+- 对现有 JavaScript 工程脚本进行重大重构时，可以评估迁移至 TypeScript，但必须核实 Node.js 执行方式及测试、CI 兼容性。
+- 工具链确实需要 JavaScript 配置或其他例外时，说明技术原因即可，无需强行转换。
 
-Flag code that labels client-only selections, sample process plans, fake NC text, placeholder 3D models or simulated Agent replies as successful server-side preparation, CAM execution, NC validation, or real approval. Safe behavior is to label the fixture/source and keep simulated actions from triggering downstream real workflows.
+## 中文文档与注释规范
 
-### 2. Preserve task, revision, and review semantics
+- README、`AGENTS.md`、贡献指南、架构/工作流文档、PR 模板及新增人工代码注释，默认使用**简体中文**。
+- 既有英文说明可逐步翻译，但须保留技术含义，并核对内容是否仍符合实际实现。
+- 代码标识符、组件/函数/类型名称、文件路径、API 字段、协议枚举、配置键和命令参数，仍遵循英文技术命名。
+- React、TypeScript、Playwright、FastAPI、Mock、ViewModel 等技术术语允许保留英文；首次出现较难理解的术语时可补充中文解释。
+- 不得为汉化而修改影响行为的运行时文本、测试断言、错误码、接口契约、机器解析数据或自动生成文件。
+- 注释应说明重要的业务约束、设计意图或非直观原因，不对显而易见的代码逐行解释。
+- 发现文档过时时，根据可核实的源码、CI 或实际运行证据修订；无法验证的内容须标明待确认。
+- 面向用户的 UI 文案属于产品设计，不在普通文档翻译任务中擅自改动。
 
-Flag a code path that uses stale task/revision/feedback versions to submit a mutation or that equates process-card approval with NC-program approval or machining safety. `CAPPtron-core` owns business state and version checks. Displaying an approved process card must not automatically mark an NC program verified or executable.
+## Code Review Rules（代码审查规则）
 
-### 3. Render manufacturing data dynamically
+### 1. 严格区分真实能力与 Mock
 
-Flag hard-coded assumptions about the demo `Ring_A.step`, exactly nine operations, fixed numbers of steps, or guaranteed presence of parameters, tools, and measurements in shared components. An explicit named demo fixture is acceptable if the general component supports zero, one and many operations and missing fields.
+如果代码把浏览器本地选择、演示工艺计划、虚构 NC 文本、占位三维模型或模拟 Agent 回复标记成服务端已准备、CAM 已执行、NC 已验证或真实审批成功，应提出问题。演示数据必须有来源说明，模拟操作不能触发真实下游流程。
 
-### 4. Keep the browser outside the CAM trust boundary
+### 2. 保持任务、修订及审核语义一致
 
-Flag browser code that reaches Mastercam, SSH, IPC, Windows worker controls or sensitive manufacturing credentials directly. Only authenticated/authorized backend APIs may eventually request machine-side actions. Public `VITE_` variables are not a secret store.
+如果使用过期的任务/修订/反馈版本提交变更，或把工艺卡审批等同于 NC 程序审批及加工安全，应提出问题。权威业务状态与版本检查属于 `CAPPtron-core`。工艺卡已批准不能自动意味着 NC 程序通过验证或可以执行。
 
-## Review scope
+### 3. 制造数据必须动态呈现
 
-Prioritize serious behavioral regressions, contract mismatches, false verification claims and security boundaries. Leave stylistic formatting to ESLint, Prettier and TypeScript CI. For every issue, cite the changed code path and an input scenario that triggers it; avoid hypothetical low-confidence findings.
+应指出共享组件中针对 `Ring_A.step` 演示零件、固定九道工序、固定工步数量，以及参数/刀具/实测数据必然存在的硬编码假设。可以有具名演示 Fixture，但通用组件必须支持零道、一道和多道工序，以及字段缺失情况。
+
+### 4. 浏览器不得越过 CAM 信任边界
+
+应指出浏览器直接连接 Mastercam、SSH、IPC、Windows Worker 控制端或敏感制造凭据的代码。未来机器侧操作只能由经过身份验证及授权的后端 API 发起。公开的 `VITE_` 环境变量不是秘密存储位置。
+
+## 审查重点
+
+优先检查严重的行为回归、API 契约不匹配、虚假的验证结论和安全边界问题。格式问题交由 ESLint、Prettier 与 TypeScript CI 处理。每条问题必须指明受影响的代码路径和触发场景，避免缺乏依据的低置信度猜测。

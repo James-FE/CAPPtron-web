@@ -1,4 +1,4 @@
-/** Pure planning and reconciliation helpers for the repository Ruleset IaC. */
+/** GitHub Ruleset IaC 的纯函数：生成变更计划并比较期望状态。 */
 
 const OWNED_FIELDS = ['name', 'target', 'enforcement', 'conditions', 'rules', 'bypass_actors']
 const UNORDERED_ARRAYS = new Set([
@@ -66,7 +66,7 @@ function normalize(value, key = '') {
   return value
 }
 
-/** Drop GitHub read-only metadata, while retaining every managed policy field. */
+/** 去掉 GitHub 返回的只读元数据，同时保留所有由本工具管理的策略字段。 */
 export function canonicalRuleset(value) {
   if (!isObject(value)) throw new Error('Ruleset must be an object.')
   const owned = Object.fromEntries(
@@ -133,7 +133,7 @@ export function printPlan({repo, desired, existingId, plan, log}) {
   }
 }
 
-/** All writes require apply mode and approval. Rechecks after approval to catch races. */
+/** 远程写入必须进入 apply 模式并获得确认；确认后再次核查，以避免并发修改。 */
 export async function reconcile({mode, repo, desired, api, approve = async () => false, log = console.log}) {
   validateDesired(desired)
   if (!['plan', 'check', 'apply'].includes(mode)) throw new Error(`Unknown mode: ${mode}`)

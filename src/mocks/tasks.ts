@@ -22,20 +22,27 @@ function syntheticOperation(name: string, index: number): ProcessOperation {
     name,
     source: '合成工艺演示数据 / 非实际加工指导',
     setup: index === 2 || index === 8 ? undefined : '示意：确认工件装夹方式与加工基准。',
-    steps: index === 2 || index === 8
-      ? []
-      : [
-          { id: `${id}-step-a`, description: `示意：检查${name}的工艺准备条件` },
-          { id: `${id}-step-b`, description: `示意：执行${name}相关加工步骤（无真实刀路）` },
-        ],
-    resources: index === 2 ? [] : [
-      { id: `${id}-machine`, label: '设备', value: '演示机床 M-002', source: 'Mock' },
-      { id: `${id}-tool`, label: '刀具', value: '演示刀具 T-003', source: 'Mock' },
-    ],
-    parameters: index === 2 || index === 8 ? [] : [
-      { id: `${id}-speed`, label: '主轴转速', value: '仅演示 / 待工程校核', source: 'Mock' },
-      { id: `${id}-feed`, label: '进给量', value: '仅演示 / 待工程校核', source: 'Mock' },
-    ],
+    steps:
+      index === 2 || index === 8
+        ? []
+        : [
+            { id: `${id}-step-a`, description: `示意：检查${name}的工艺准备条件` },
+            { id: `${id}-step-b`, description: `示意：执行${name}相关加工步骤（无真实刀路）` },
+          ],
+    resources:
+      index === 2
+        ? []
+        : [
+            { id: `${id}-machine`, label: '设备', value: '演示机床 M-002', source: 'Mock' },
+            { id: `${id}-tool`, label: '刀具', value: '演示刀具 T-003', source: 'Mock' },
+          ],
+    parameters:
+      index === 2 || index === 8
+        ? []
+        : [
+            { id: `${id}-speed`, label: '主轴转速', value: '仅演示 / 待工程校核', source: 'Mock' },
+            { id: `${id}-feed`, label: '进给量', value: '仅演示 / 待工程校核', source: 'Mock' },
+          ],
     measurements: index === 7 ? ['外轮廓关键尺寸待人工实测', '装夹余量待现场确认'] : [],
   }
 }
@@ -55,12 +62,14 @@ export const demoTasks: DemoTask[] = [
     fileName: 'Short_Part.step',
     title: '短流程（合成演示）',
     source: 'DEMO',
-    operations: [syntheticOperation('粗车', 0), syntheticOperation('检测', 1)].map((item, index) => ({
-      ...item,
-      id: `short-op-${index + 1}`,
-      sequence: index + 1,
-      source: '合成短流程数据',
-    })),
+    operations: [syntheticOperation('粗车', 0), syntheticOperation('检测', 1)].map(
+      (item, index) => ({
+        ...item,
+        id: `short-op-${index + 1}`,
+        sequence: index + 1,
+        source: '合成短流程数据',
+      }),
+    ),
     ncPreviewName: 'Short_Part_demo_v01.nc',
   },
   {
@@ -90,6 +99,9 @@ export function createDemoNcPreview(task: DemoTask, operation: ProcessOperation 
     'N030 S... F... ; NO CUTTING PARAMETERS',
     'N040 G... X... Z... ; NO VALID TOOLPATH',
     '; CAM, simulation and post-processing are NOT connected',
-    ...Array.from({ length: 18 }, (_, index) => `; 演示滚动占位 ${String(index + 1).padStart(2, '0')}`),
+    ...Array.from(
+      { length: 18 },
+      (_, index) => `; 演示滚动占位 ${String(index + 1).padStart(2, '0')}`,
+    ),
   ]
 }

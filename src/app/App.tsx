@@ -117,7 +117,15 @@ export default function App() {
       <header className="topbar">
         <h1>CNC Agentic Programming</h1>
         <div className="top-actions">
-          <button type="button" className="button secondary top-foundation" onClick={() => page === 'data' ? navigate(returnPage === 'data' ? 'input' : returnPage) : openFoundation()}>
+          <button
+            type="button"
+            className="button secondary top-foundation"
+            onClick={() =>
+              page === 'data'
+                ? navigate(returnPage === 'data' ? 'input' : returnPage)
+                : openFoundation()
+            }
+          >
             {page === 'data' ? '返回工作台' : '数据底座'}
           </button>
           <span className="product-label">智能工艺决策</span>
@@ -134,7 +142,10 @@ export default function App() {
                 key={stage.id}
                 className={page === stage.id ? 'stage-tab active' : 'stage-tab'}
                 aria-current={page === stage.id ? 'step' : undefined}
-                disabled={(stage.id === 'planning' && !task) || (stage.id === 'review' && !selectedOperation)}
+                disabled={
+                  (stage.id === 'planning' && !task) ||
+                  (stage.id === 'review' && !selectedOperation)
+                }
                 onClick={() => navigate(stage.id)}
               >
                 {stage.text}
@@ -143,13 +154,24 @@ export default function App() {
           </nav>
           <div className="file-bar">
             <p>
-              {task ? `${task.fileName} / 当前工序 ${selectedOperation ? String(selectedOperation.sequence).padStart(2, '0') + ' ' + selectedOperation.name : '暂无工序'} / Demo`
-                : localFile ? `${localFile.fileName} / 仅本地选择 · 未上传`
-                : '尚未上传模型文件 / 使用示例可预览完整流程'}
+              {task
+                ? `${task.fileName} / 当前工序 ${selectedOperation ? String(selectedOperation.sequence).padStart(2, '0') + ' ' + selectedOperation.name : '暂无工序'} / Demo`
+                : localFile
+                  ? `${localFile.fileName} / 仅本地选择 · 未上传`
+                  : '尚未上传模型文件 / 使用示例可预览完整流程'}
             </p>
             <div className="file-actions">
-              <button type="button" className="button secondary" onClick={changeFile}>更换文件</button>
-              <button type="button" className="button secondary" disabled={!task} onClick={openInformationPanel}>查看解读结果</button>
+              <button type="button" className="button secondary" onClick={changeFile}>
+                更换文件
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={!task}
+                onClick={openInformationPanel}
+              >
+                查看解读结果
+              </button>
             </div>
           </div>
         </>
@@ -183,21 +205,39 @@ export default function App() {
             onReturn={() => navigate('planning')}
           />
         )}
-        {page === 'data' && <DataFoundationPage onBack={() => navigate(returnPage === 'data' ? 'input' : returnPage)} />}
+        {page === 'data' && (
+          <DataFoundationPage
+            onBack={() => navigate(returnPage === 'data' ? 'input' : returnPage)}
+          />
+        )}
         {page === 'interpretation' && (
           <section className="page-body interpretation-page">
-            <div className="page-title-block"><h2>设计文件解读</h2><p>当前仅展示功能边界</p></div>
-            <div className="empty-state">设计特征识别 / STEP 几何解析尚未接入。当前 Mock 工艺数据并不是从上传文件中提取的。</div>
-            <button type="button" className="button secondary" onClick={() => navigate(returnPage)}>返回上一页面</button>
+            <div className="page-title-block">
+              <h2>设计文件解读</h2>
+              <p>当前仅展示功能边界</p>
+            </div>
+            <div className="empty-state">
+              设计特征识别 / STEP 几何解析尚未接入。当前 Mock 工艺数据并不是从上传文件中提取的。
+            </div>
+            <button type="button" className="button secondary" onClick={() => navigate(returnPage)}>
+              返回上一页面
+            </button>
           </section>
         )}
       </div>
 
-      <footer className="app-footer">P0 Mock 演示 · Agent / CAM 接口待接入；人工确认不等于仿真通过或实际加工验证。</footer>
+      <footer className="app-footer">
+        P0 Mock 演示 · Agent / CAM 接口待接入；人工确认不等于仿真通过或实际加工验证。
+      </footer>
 
       {(page === 'planning' || page === 'review') && task && (
         <>
-          <button type="button" className="agent-bubble" onClick={() => setAgentOpen(!agentOpen)} aria-expanded={agentOpen}>
+          <button
+            type="button"
+            className="agent-bubble"
+            onClick={() => setAgentOpen(!agentOpen)}
+            aria-expanded={agentOpen}
+          >
             ✦ Agent
           </button>
           <AgentDrawer
@@ -210,17 +250,46 @@ export default function App() {
 
       {onsiteOpen && selectedOperation && (
         <div className="modal-backdrop">
-          <section className="onsite-modal" role="dialog" aria-modal="true" aria-labelledby="onsite-heading">
+          <section
+            className="onsite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onsite-heading"
+          >
             <div className="modal-heading">
               <h2 id="onsite-heading">补充现场情况 · Demo</h2>
-              <button type="button" className="icon-button" aria-label="关闭现场信息" onClick={() => setOnsiteOpen(false)}>×</button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="关闭现场信息"
+                onClick={() => setOnsiteOpen(false)}
+              >
+                ×
+              </button>
             </div>
-            <p className="subtle-note">工序：{selectedOperation.name}。这里仅保存当前页面的临时草稿，不会修改 CAM、后端工艺或实际参数。</p>
+            <p className="subtle-note">
+              工序：{selectedOperation.name}。这里仅保存当前页面的临时草稿，不会修改
+              CAM、后端工艺或实际参数。
+            </p>
             <label htmlFor="onsite-note">现场补充说明</label>
-            <textarea id="onsite-note" rows={5} value={onsiteDraft} onChange={(event) => setOnsiteDraft(event.target.value)} placeholder="例如：装夹方式和待人工核对项目（勿输入机密生产数据）" />
+            <textarea
+              id="onsite-note"
+              rows={5}
+              value={onsiteDraft}
+              onChange={(event) => setOnsiteDraft(event.target.value)}
+              placeholder="例如：装夹方式和待人工核对项目（勿输入机密生产数据）"
+            />
             <div className="bottom-actions">
-              <button type="button" className="button secondary" onClick={() => setOnsiteOpen(false)}>取消</button>
-              <button type="button" className="button primary" onClick={saveOnsite}>保存演示草稿</button>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setOnsiteOpen(false)}
+              >
+                取消
+              </button>
+              <button type="button" className="button primary" onClick={saveOnsite}>
+                保存演示草稿
+              </button>
             </div>
           </section>
         </div>

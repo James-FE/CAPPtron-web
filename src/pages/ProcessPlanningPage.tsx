@@ -9,7 +9,13 @@ type Props = {
   onOpenReview: () => void
 }
 
-export function ProcessPlanningPage({ task, operation, onSelectOperation, onOpenOnsite, onOpenReview }: Props) {
+export function ProcessPlanningPage({
+  task,
+  operation,
+  onSelectOperation,
+  onOpenOnsite,
+  onOpenReview,
+}: Props) {
   return (
     <section className="page-body planning-page" aria-labelledby="planning-heading">
       <div className="page-title-block">
@@ -26,7 +32,9 @@ export function ProcessPlanningPage({ task, operation, onSelectOperation, onOpen
           {operation ? (
             <>
               <div className="operation-detail-head">
-                <h3>{String(operation.sequence).padStart(2, '0')} {operation.name}</h3>
+                <h3>
+                  {String(operation.sequence).padStart(2, '0')} {operation.name}
+                </h3>
                 <p>来源：{operation.source}</p>
               </div>
               <div className="operation-detail-content custom-scroll">
@@ -38,14 +46,20 @@ export function ProcessPlanningPage({ task, operation, onSelectOperation, onOpen
                   <h4>加工内容 / 工步</h4>
                   {operation.steps.length ? (
                     <ol className="steps-list">
-                      {operation.steps.map((step) => <li key={step.id}>{step.description}</li>)}
+                      {operation.steps.map((step) => (
+                        <li key={step.id}>{step.description}</li>
+                      ))}
                     </ol>
-                  ) : <p className="missing-value">暂无工步数据（保持为空）。</p>}
+                  ) : (
+                    <p className="missing-value">暂无工步数据（保持为空）。</p>
+                  )}
                 </div>
                 {operation.measurements.length > 0 && (
                   <div className="detail-group warning-group">
                     <h4>待人工实测</h4>
-                    {operation.measurements.map((item) => <p key={item}>{item}</p>)}
+                    {operation.measurements.map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
                   </div>
                 )}
                 <div className="detail-group">
@@ -53,20 +67,36 @@ export function ProcessPlanningPage({ task, operation, onSelectOperation, onOpen
                   {operation.resources.length ? (
                     <dl className="property-list">
                       {operation.resources.map((value) => (
-                        <div key={value.id}><dt>{value.label}</dt><dd>{value.value}<small>{value.source}</small></dd></div>
+                        <div key={value.id}>
+                          <dt>{value.label}</dt>
+                          <dd>
+                            {value.value}
+                            <small>{value.source}</small>
+                          </dd>
+                        </div>
                       ))}
                     </dl>
-                  ) : <p className="missing-value">暂无资源匹配结果。</p>}
+                  ) : (
+                    <p className="missing-value">暂无资源匹配结果。</p>
+                  )}
                 </div>
                 <div className="detail-group">
                   <h4>推荐切削参数 · Mock</h4>
                   {operation.parameters.length ? (
                     <dl className="property-list">
                       {operation.parameters.map((value) => (
-                        <div key={value.id}><dt>{value.label}</dt><dd>{value.value}<small>{value.source}</small></dd></div>
+                        <div key={value.id}>
+                          <dt>{value.label}</dt>
+                          <dd>
+                            {value.value}
+                            <small>{value.source}</small>
+                          </dd>
+                        </div>
                       ))}
                     </dl>
-                  ) : <p className="missing-value">暂无切削参数，不推断数值。</p>}
+                  ) : (
+                    <p className="missing-value">暂无切削参数，不推断数值。</p>
+                  )}
                 </div>
               </div>
             </>
@@ -78,10 +108,20 @@ export function ProcessPlanningPage({ task, operation, onSelectOperation, onOpen
       <div className="planning-bottom">
         <p className="muted-note">工步信息仅为合成演示；缺失工步保持为空，不代表真实工艺决策。</p>
         <div className="bottom-actions">
-          <button type="button" className="button secondary" onClick={onOpenOnsite} disabled={!operation}>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={onOpenOnsite}
+            disabled={!operation}
+          >
             补充 / 确认工序信息
           </button>
-          <button type="button" className="button primary" onClick={onOpenReview} disabled={!operation}>
+          <button
+            type="button"
+            className="button primary"
+            onClick={onOpenReview}
+            disabled={!operation}
+          >
             进入程序审核 · Demo
           </button>
         </div>

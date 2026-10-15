@@ -42,13 +42,18 @@ describe('P0 synthetic demonstration workflow', () => {
     expect(screen.getByRole('heading', { name: '08 精车外' })).toBeInTheDocument()
     fireEvent.click(within(list).getByRole('button', { name: '01 粗车' }))
     expect(screen.getByRole('heading', { name: '01 粗车' })).toBeInTheDocument()
-    expect(within(list).getByRole('button', { name: '01 粗车' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(list).getByRole('button', { name: '01 粗车' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('supports smaller and empty plans without hard-coded operation counts', () => {
     render(<App />)
     fireEvent.change(screen.getByLabelText('其他测试场景'), { target: { value: 'demo-short' } })
-    expect(within(screen.getByRole('navigation', { name: '工序列表' })).getAllByRole('button')).toHaveLength(2)
+    expect(
+      within(screen.getByRole('navigation', { name: '工序列表' })).getAllByRole('button'),
+    ).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: '更换文件' }))
     fireEvent.change(screen.getByLabelText('其他测试场景'), { target: { value: 'demo-empty' } })
     expect(screen.getByText(/当前任务尚无工序/)).toBeInTheDocument()
@@ -63,7 +68,10 @@ describe('P0 synthetic demonstration workflow', () => {
     expect(screen.getByText(/非真实加工程序 · 不可执行/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '程序下载' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '展开代码' }))
-    expect(screen.getByRole('button', { name: '收起代码' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: '收起代码' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
     fireEvent.click(screen.getByRole('button', { name: '确认可用 · 仅演示' }))
     expect(screen.getByRole('status')).toHaveTextContent(/不是工艺卡批准、NC 验证通过或实机许可/)
   })

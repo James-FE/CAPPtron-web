@@ -36,5 +36,7 @@ jobs:
         run: npm run typecheck
       - name: Vitest
         run: npm run test:ci
+      - name: IaC Ruleset offline tests
+        run: npm run test:infra
       - name: Production build
         run: npm run build

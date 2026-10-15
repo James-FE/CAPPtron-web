@@ -17,7 +17,11 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "verify:repo": "node scripts/verify-repo.mjs",
-    "quality": "npm run verify:repo && npm run lint && npm run format:check && npm run typecheck && npm run test:ci && npm run build"
+    "quality": "npm run verify:repo && npm run lint && npm run format:check && npm run typecheck && npm run test:ci && npm run build",
+    "test:infra": "node --test scripts/tests/*.check.mjs",
+    "ruleset:plan": "node scripts/sync-ruleset.mjs plan",
+    "ruleset:check": "node scripts/sync-ruleset.mjs check",
+    "ruleset:apply": "node scripts/sync-ruleset.mjs apply"
   },
   "dependencies": {
     "react": "^19.2.0",

@@ -29,9 +29,30 @@ npm run preview
 
 The `dist/` directory is a static Web build. It is not a Python wheel and does not need a published npm package.
 
+## Browser acceptance tests
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:e2e
+npm run test:e2e:report
+```
+
+On Linux/CI, use `npx playwright install --with-deps chromium` to also install system dependencies. Re-run browser installation after upgrading Playwright. Browser binaries stay in Playwright's user cache, outside Git.
+
+Playwright automatically starts Vite at `http://127.0.0.1:5173`. Local runs may reuse a running server at that address; CI always starts its own server. For live preview with HMR, run `npm run dev` separately and open that address. Stop it with Ctrl+C. `npm run test:e2e:ui` opens the interactive test runner; `npm run test:e2e -- --headed` runs visible Chromium.
+
+The scaffold smoke suite runs in real Chromium at **1920x1080** and **1440x900**. It checks the workspace, uncaught runtime errors, key elements in the viewport, horizontal overflow, and all three workflow selections and matching details. Browser requests to other origins are blocked, so no FastAPI, Mastercam, or internet service is required during tests.
+
+Each viewport's loading test attaches a full-page `workspace.png` screenshot to the HTML report (`playwright-report/index.html`); original PNGs are under `test-results/`. Failed tests retain a failure screenshot, error context, and `trace.zip` there, linked from the report. Open a trace locally with `npx playwright show-trace <path-to-trace.zip>`. Reports are generated even for failed tests; server/browser installation failures may happen before screenshots can be captured.
+
+On the PR's **Quality / Chromium E2E** job, download the **playwright-results** artifact (14-day retention). Extract it and run `npx playwright show-report <extracted-path>/playwright-report` to browse screenshots and failure diagnostics. Both generated directories are ignored by Git.
+
+These screenshots are evidence, not approved visual regression baselines. No `toHaveScreenshot` comparisons are enabled. For FE-001, extend the suite for actual r06 navigation, dynamic fixtures, empty/loading/error states, drawers, and review interactions; establish visual baselines only after Figma comparison and human visual approval.
+
 ## Automated checks
 
-- `.github/workflows/quality.yml`: on each PR and `main` push, run repository validation, ESLint, Prettier, `tsc`, Vitest and a production Vite build.
+- `.github/workflows/quality.yml`: on each PR and `main` push, run repository validation, ESLint, Prettier, `tsc`, Vitest and a production Vite build, plus an independent Chromium E2E job for both desktop viewports with report/diagnostic artifacts.
 - `.github/workflows/package.yml`: on `main` push or manual dispatch, build and upload `dist/` as a GitHub Actions artifact, retained for 30 days.
 - `.github/rulesets/main.json`: desired protected-main policy; it is **not activated merely by committing the JSON file**.
 - `AGENTS.md`: Codex development conventions and dedicated `## Code Review Rules` for PR reviews; it **does not enable Codex automatic review by itself**.

@@ -11,6 +11,7 @@ Read `docs/architecture/frontend-architecture.md` before changing application bo
 - Prefer feature branches and PRs rather than direct pushes to main.
 - Run `npm run quality` before requesting review; CI is the hard quality gate.
 - Keep the lockfile in sync when changing dependencies. CI uses `npm ci`.
+- For frontend PRs that change page layout, interaction, or visuals, run the existing Playwright browser tests at both agreed desktop viewports (1920x1080 and 1440x900). Provide real browser screenshots and test evidence. Passing TypeScript, Vitest, and builds does not constitute visual acceptance.
 - Keep API transport and source-to-view-model mapping in `src/api`; pages should not call Mastercam, local Windows endpoints, or arbitrary business HTTP URLs.
 - Use stable IDs for tasks, operations, steps, results and revisions; do not use array indices as business identifiers.
 

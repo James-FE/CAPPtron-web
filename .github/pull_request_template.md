@@ -1,19 +1,20 @@
-## Change summary
+## 变更摘要
 
-Describe the user-facing or engineering change. Link an issue when one exists.
+用中文说明本次用户可见或工程层面的变更。如有关联 Issue，请附链接。
 
-## Validation
+## 验证记录
 
-- [ ] `npm run quality` completed successfully (or explained below)
-- [ ] Added or updated tests for behavior changes
-- [ ] Verified the behavior with at least one non-demo data shape if relevant
-- [ ] Real vs Mock UI states remain clearly distinguishable
-- [ ] No secrets, machine credentials, or customer CAD data committed
+- [ ] `npm run quality` 已通过（否则在下方说明原因）
+- [ ] 涉及代码行为的变更已增加或更新测试
+- [ ] 涉及页面、交互或视觉时，已执行 `npm run test:e2e` 并附实际浏览器截图
+- [ ] 如适用，已使用至少一种非演示数据规模验证
+- [ ] 真实数据与 Mock 界面状态清晰可区分
+- [ ] 未提交密钥、机器凭据或客户 CAD 数据
 
-## Backend/API compatibility
+## 后端 / API 兼容性
 
-Mention API schema changes, new endpoints, or Mock-only features. State when no backend interface exists.
+说明 API Schema、接口端点是否变化，以及功能是否仅为 Mock；若不涉及后端接口，请明确写“无”。
 
-## Risks and screenshots
+## 风险、截图与待确认事项
 
-Include screenshots for visible UI changes and note any remaining limitations.
+涉及 UI 的变更请附截图、测试证据、未解决的限制及人工验收状态。通过 CI 不代表业务或视觉已通过验收。

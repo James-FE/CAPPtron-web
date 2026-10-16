@@ -1,73 +1,54 @@
-import { useState } from 'react'
-
-const stages = [
-  {
-    id: 'input',
-    name: '01 / Model Input',
-    detail: 'Model selection and structured input will be implemented in P0.',
-  },
-  {
-    id: 'planning',
-    name: '02 / Process Planning',
-    detail: 'Operations, steps, parameters, and resources will use dynamic task data.',
-  },
-  {
-    id: 'review',
-    name: '03 / Program Review',
-    detail: 'NC review is distinct from process-card approval and CAM verification.',
-  },
-] as const
-
-type StageId = (typeof stages)[number]['id']
+import { useRef, useState } from 'react'
+import { AppShell } from './AppShell'
+import { FileInfoBar } from '../features/model-input/FileInfoBar'
+import { useModelInput } from '../features/model-input/useModelInput'
+import { ModelInputPage } from '../pages/model-input/ModelInputPage'
 
 export default function App() {
-  const [selectedStage, setSelectedStage] = useState<StageId>('input')
-  const stage = stages.find((entry) => entry.id === selectedStage) ?? stages[0]
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [notice, setNotice] = useState('')
+  const { selection, error, selectFiles, selectDemo } = useModelInput()
+
+  function openFilePicker() {
+    inputRef.current?.click()
+  }
 
   return (
-    <main className="shell">
-      <header className="masthead">
-        <div>
-          <p className="eyebrow">CAPPtron / Engineering workspace</p>
-          <h1>CNC Agentic Programming</h1>
+    <AppShell
+      currentStage="input"
+      onUnavailable={setNotice}
+      fileBar={
+        <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
+      }
+    >
+      <input
+        ref={inputRef}
+        className="visually-hidden"
+        type="file"
+        accept=".step,.stp"
+        aria-label="选择 STEP 模型文件"
+        tabIndex={-1}
+        onChange={(event) => {
+          selectFiles(Array.from(event.currentTarget.files ?? []))
+          // 清空控件值以支持重复选择同一文件；有效选择保存在 React 状态中。
+          event.currentTarget.value = ''
+        }}
+      />
+      <ModelInputPage
+        selection={selection}
+        error={error}
+        onChoose={openFilePicker}
+        onFiles={selectFiles}
+        onDemo={selectDemo}
+      />
+      {notice && (
+        <div className="availability-notice">
+          <p role="status">{notice}</p>
+          <button type="button" onClick={() => setNotice('')} aria-label="关闭功能提示">
+            关闭
+          </button>
         </div>
-        <span className="status-tag">UI foundation / No CAM integration</span>
-      </header>
-      <section className="workspace" aria-label="Frontend project foundation">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Web application skeleton</p>
-            <h2>Frontend infrastructure is ready for implementation</h2>
-            <p className="subtle">
-              This is an engineering bootstrap screen, not the finished Figma r06 interface.
-            </p>
-          </div>
-          <span className="mock-tag">Scaffold only</span>
-        </div>
-        <nav className="stage-list" aria-label="Planned workflow stages">
-          {stages.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={selectedStage === item.id}
-              className={selectedStage === item.id ? 'stage active' : 'stage'}
-              onClick={() => setSelectedStage(item.id)}
-            >
-              {item.name}
-            </button>
-          ))}
-        </nav>
-        <article className="detail-panel" aria-live="polite">
-          <p className="eyebrow">Selected implementation workstream</p>
-          <h3>{stage.name}</h3>
-          <p>{stage.detail}</p>
-          <p className="notice">
-            No STEP parsing, Agent reasoning, CAM generation, NC validation, or approval is
-            performed by this starter screen.
-          </p>
-        </article>
-      </section>
-      <footer className="footer">Design baseline: Figma r06. Backend: CAPPtron-core.</footer>
-    </main>
+      )}
+    </AppShell>
   )
 }

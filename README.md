@@ -2,7 +2,7 @@
 
 CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React + TypeScript + Vite**。
 
-**当前状态：工程基础阶段。** 当前页面仅用于验证前端工程与基础交互，**不是**已完成的 Figma r06 业务界面；尚不具备 STEP 几何解析、真实 Agent 规划、CAM 刀路生成、可执行 NC 程序审核或 Mastercam 调用能力。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
+**当前状态：FE-001 全局 Shell 与模型输入页，待人工视觉验收。** 页面支持本地 STEP / STP 文件选择、更换、拖放和 Demo 输入元数据展示；文件仅保留在当前页面内存中，刷新后重置。没有服务器上传、STEP 解析、真实 Agent 规划、CAM、NC 或 Mastercam 能力。工艺决策、程序审核、数据底座和文件解读入口仅显示未实现说明。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
 
 ## 设计与相关仓库
 
@@ -11,6 +11,8 @@ CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React 
 - [工程参考仓库](https://github.com/cosmic-snail/CAPPtron-core)
 
 当前产品决策：**先高保真实现 r06，r07 布局重设计暂缓**。UI 是否完成以浏览器实际使用与人工验收为准，不能仅凭 CI 通过判定。
+
+已讨论但暂不实施的功能统一记录在[待做功能](docs/待做功能.md)，后续按条目补充依赖、验收条件与实施进展。
 
 ## 本地开发
 
@@ -60,14 +62,14 @@ npm run test:e2e:report
 
 Playwright 会通过 `webServer` 自动启动 Vite（本地可复用已在运行的 `127.0.0.1:5173` 服务；CI 不复用）。`npm run test:e2e -- --headed` 可显示 Chromium 测试窗口。Chromium 浏览器文件在本机 Playwright 缓存中，不提交到 Git。
 
-目前的 `e2e/smoke.spec.ts` 是**工程基础页面**的 Smoke Test，使用 **1920×1080** 和 **1440×900** 两种桌面视口，检查页面加载、运行时错误、关键元素可见、横向溢出以及三个阶段按钮的切换反馈。测试通过不代表 r06 页面已实现或其视觉质量已获认可。测试屏蔽非本地服务请求，不依赖真实 FastAPI、Mastercam 或外部服务。
+`e2e/smoke.spec.ts` 覆盖 FE-001 模型输入页，在 **1920×1080** 和 **1440×900** 两种桌面视口检查页面加载、运行时错误、控件可见性与遮挡、横向溢出、文件选择器、更换与取消、长文件名、非法格式、拖放、Demo 来源及未实现入口的鼠标/键盘反馈。测试同时确认没有上传请求，不依赖真实 FastAPI、Mastercam 或外部服务。通过测试仍不代表人工视觉验收通过。
 
-- 运行时截图作为测试附件出现在 `playwright-report/index.html`，原始附件位于 `test-results/`。
+- 初始、本地文件、Demo 三种状态的真实截图作为附件出现在 `playwright-report/index.html`，原始 PNG 位于 `test-results/` 各视口目录，分别名为 `model-input-empty.png`、`model-input-local.png`、`model-input-demo.png`。
 - 失败时可查看错误、截图与 `trace.zip`；使用 `npx playwright show-trace <trace.zip的实际路径>` 调试。
 - GitHub PR 的 **Quality / Chromium E2E** Job 会上传 `playwright-results` Artifact（保留 14 天）。下载、解压后可用 `npx playwright show-report <解压后playwright-report目录>` 查看。
 - 当前截图是**运行证据，不是已批准的视觉回归基准**。只有页面对照 Figma 并经人工验收后，才建立 `toHaveScreenshot` 基准。
 
-未来 FE-001 应补充实际 r06 导航、动态工序数据、空/加载/错误状态、Agent 抽屉以及审核操作等浏览器测试。
+FE-001 的设计来源、组件边界、对照方法及有意的状态文案差异见 [FE-001 验收说明](docs/workflows/FE-001-ACCEPTANCE.md)。后续页面任务再补充工艺决策、动态工序、Agent 抽屉和审核操作测试，这些能力不属于 FE-001。
 
 ## GitHub 自动检查与分支协作
 

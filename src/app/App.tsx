@@ -46,7 +46,11 @@ export default function App() {
           error={error}
           onChoose={openFilePicker}
           onFiles={selectFiles}
-          onDemo={selectDemo}
+          onDemo={() => {
+            selectDemo()
+            setStage('planning')
+            setNotice('')
+          }}
         />
       )}
       <ProcessPlanningPage

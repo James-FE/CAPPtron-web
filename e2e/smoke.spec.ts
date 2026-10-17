@@ -131,7 +131,7 @@ test('无效格式保留有效文件，再次选择同名文件可以恢复', as
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
-test('示例元数据与同名本地文件区分来源且不跳转', async ({ page }, testInfo) => {
+test('使用示例直接进入工艺决策，返回后保留元数据并区分同名本地文件', async ({ page }, testInfo) => {
   await page.goto('/')
   const bar = page.getByRole('region', { name: '当前模型文件' })
   const preparation = page.getByRole('region', { name: '输入准备' })
@@ -139,6 +139,14 @@ test('示例元数据与同名本地文件区分来源且不跳转', async ({ pa
   await page.getByRole('button', { name: '使用示例 Ring_A.step' }).click()
   await expect(bar).toContainText('Demo · 示例元数据')
   await expect(bar).not.toContainText('本地选择')
+  await expect(page.getByRole('heading', { name: '工艺决策', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+    'aria-current',
+    'step',
+  )
+  await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  await screenshot(page, testInfo, 'model-input-demo-planning')
+  await page.getByRole('button', { name: '01 模型输入' }).click()
   await expect(preparation).toContainText('使用演示输入')
   await expect(preparation).toContainText('待提供')
   await expect(preparation).toContainText('待接入')

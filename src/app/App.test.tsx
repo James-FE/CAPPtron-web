@@ -83,11 +83,18 @@ describe('r06 模型输入', () => {
     },
   )
 
-  it('Demo 与同名本地文件可互相切换，来源不会混淆', () => {
+  it('使用示例进入工艺决策，返回后可切换同名本地文件且来源不会混淆', () => {
     render(<App />)
     chooseFile('Ring_A.step')
     fireEvent.click(screen.getByRole('button', { name: '使用示例 Ring_A.step' }))
     expect(fileBar().getByText('Demo · 示例元数据')).toBeVisible()
+    expect(screen.getByRole('heading', { name: '工艺决策' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+    expect(screen.getByText('暂无可用工艺方案')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: '01 模型输入' }))
     expect(preparation().getByText('使用演示输入')).toBeVisible()
     expect(fileBar().queryByText(/本地选择/)).not.toBeInTheDocument()
     chooseFile('Ring_A.step')

@@ -1,17 +1,19 @@
 import { ParameterFields } from './ParameterFields'
 import type { Drafts } from './ParameterFields'
-import type { ProcessOperation } from './processPlan'
+import type { ProcessOperation, ProcessPlan } from './processPlan'
 
 export type DetailView = 'steps' | 'resources' | 'onsite'
 
 export function OperationDetails({
   operation,
+  plan,
   view,
   onView,
   drafts,
   onDraft,
 }: {
   operation: ProcessOperation
+  plan: ProcessPlan
   view: DetailView
   onView: (view: DetailView) => void
   drafts: Drafts
@@ -80,6 +82,11 @@ export function OperationDetails({
             </section>
             <section>
               <h4>现场信息与说明</h4>
+              {!!plan.taskMeasurements?.length && (
+                <p className="muted-text">
+                  另有 {plan.taskMeasurements.length} 项任务共用现场信息，可在“现场信息”中统一补充。
+                </p>
+              )}
               <p className="warning-text">
                 {operation.onsiteMeasurements.length
                   ? `${operation.onsiteMeasurements.length} 项现场信息待人工核对。`
@@ -92,8 +99,10 @@ export function OperationDetails({
         {view === 'resources' && (
           <>
             <section>
-              <h4>推荐参数 · Mock 演示</h4>
-              <p className="muted-text">预设数值，未进行真实参数推荐或 CAM 仿真。</p>
+              <h4>工艺参数 · Mock 演示</h4>
+              <p className="muted-text">
+                预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。
+              </p>
               <div
                 className="parameter-scroll"
                 role="region"
@@ -128,7 +137,10 @@ export function OperationDetails({
             </section>
             <section className="onsite-callout">
               <h4>现场参数与约束</h4>
-              <p>{operation.onsiteMeasurements.length} 项信息 · 填写草稿不代表现场确认</p>
+              <p>
+                任务共用 {plan.taskMeasurements?.length ?? 0} 项 / 当前工序{' '}
+                {operation.onsiteMeasurements.length} 项 · 填写草稿不代表现场确认
+              </p>
               <button className="button" onClick={() => onView('onsite')}>
                 查看并补充现场信息
               </button>
@@ -140,14 +152,31 @@ export function OperationDetails({
             <section>
               <h4>现场参数与约束</h4>
               <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
-              <p className="muted-text">按当前工序展示；实测值、图纸要求与工艺约束需分别核对。</p>
+              <p className="muted-text">任务共用信息只需填写一次；工序专用信息按实际关联展示。</p>
             </section>
-            <ParameterFields
-              {...fieldProps}
-              section="onsite"
-              parameters={operation.onsiteMeasurements}
-              emptyText="暂无现场测量项，等待上游提供；不代表无需确认。"
-            />
+            {!!plan.taskMeasurements?.length && (
+              <section aria-label="任务共用现场信息">
+                <h4>任务共用信息 · 所有工序共享</h4>
+                <p className="muted-text">以下必填项为 Demo 填写门槛，尚未定义正式制造必填清单。</p>
+                <ParameterFields
+                  operationId={plan.id}
+                  section="task"
+                  parameters={plan.taskMeasurements}
+                  drafts={drafts}
+                  onDraft={onDraft}
+                  emptyText="暂无任务共用信息"
+                />
+              </section>
+            )}
+            <section aria-label="当前工序专用现场信息">
+              <h4>当前工序专用信息</h4>
+              <ParameterFields
+                {...fieldProps}
+                section="onsite"
+                parameters={operation.onsiteMeasurements}
+                emptyText="暂无现场测量项，等待上游提供；不代表无需确认。"
+              />
+            </section>
           </>
         )}
       </div>

@@ -139,6 +139,7 @@ export function ProcessPlanningPage({
           </nav>
           {operation ? (
             <OperationDetails
+              plan={session.plan}
               operation={operation}
               view={session.view}
               onView={(view) => updateSession((current) => ({ ...current, view }))}
@@ -186,9 +187,12 @@ export function ProcessPlanningPage({
                 const next = readiness?.missing.find((item) => item.parameter.editable)
                 updateSession((current) => ({
                   ...current,
-                  selectedId: next?.operationId ?? current.selectedId,
+                  selectedId:
+                    next?.section === 'task'
+                      ? current.selectedId
+                      : (next?.operationId ?? current.selectedId),
                   view: next
-                    ? next.section === 'onsite'
+                    ? next.section === 'onsite' || next.section === 'task'
                       ? 'onsite'
                       : next.section === 'parameters'
                         ? 'resources'

@@ -3,6 +3,7 @@ import type {
   ProcessOperation,
   ProcessPlan,
 } from '../../features/process-planning/processPlan'
+import { createRingPlan } from './ringPlan'
 
 export type DemoPlanId = 'ring' | 'simple' | 'complex' | 'incomplete' | 'empty'
 
@@ -80,7 +81,6 @@ function operation(id: string, sequence: number, name: string, stepCount = 2): P
 }
 
 function createOperations(id: DemoPlanId): ProcessOperation[] {
-  if (id === 'ring') return createRingOperations()
   if (id === 'empty') return []
   if (id === 'incomplete')
     return [
@@ -141,93 +141,15 @@ function createOperations(id: DemoPlanId): ProcessOperation[] {
 
 // 每次显式加载返回独立对象；不接收 File，也不推断本地模型对应的工艺。
 export function loadDemoPlan(id: DemoPlanId): ProcessPlan {
+  if (id === 'ring') return createRingPlan()
   const option = demoPlanOptions.find((item) => item.id === id)
   if (!option) throw new Error('未知的演示方案')
   return {
     id: `demo-${id}`,
     name: option.label,
-    partName:
-      id === 'ring'
-        ? 'Ring_A.step'
-        : id === 'complex'
-          ? '演示壳体'
-          : id === 'simple'
-            ? '演示支架'
-            : '演示毛坯',
+    partName: id === 'complex' ? '演示壳体' : id === 'simple' ? '演示支架' : '演示毛坯',
     origin: 'mock',
     sourceDescription: '预设 Mock 数据 · 未关联本地 STEP 文件 · 未经制造校核',
     operations: createOperations(id),
-    initialOperationId: id === 'ring' ? 'ring-finish-exterior' : undefined,
   }
-}
-
-// 环件是独立的具名 Fixture；通用工作台不按名称、工序数量或显示序号分支。
-function createRingOperations(): ProcessOperation[] {
-  const definitions: [string, string][] = [
-    ['ring-rough', '粗车'],
-    ['ring-rough-spheres', '粗车内外球面'],
-    ['ring-heat-treatment', '热处理'],
-    ['ring-reference', '车基准'],
-    ['ring-semi-exterior', '半精车外'],
-    ['ring-finish-interior', '半精车、精车内'],
-    ['ring-inspect-intermediate', '精测'],
-    ['ring-finish-exterior', '精车外'],
-    ['ring-inspect-final', '精测'],
-  ]
-  return definitions.map(([id, name], index) => {
-    const item = operation(id, index + 1, name, 1)
-    item.steps = [
-      {
-        id: `${id}-content`,
-        sequence: 1,
-        name: `${name}（演示内容）`,
-        description: '预设演示步骤，实际工艺内容及适用性待上游提供。',
-        parameters: [],
-      },
-    ]
-    item.parameters = []
-    item.resources = []
-    item.onsiteMeasurements = []
-    if (id === 'ring-finish-exterior') {
-      item.setup = '按内止口配车吸具止口，以内止口及止口底面定位。（Figma 示例，未校核）'
-      item.steps = ['精车法兰外圆', '精车外型面及法兰背面', '锐边倒钝，去毛刺', '保留编号'].map(
-        (stepName, stepIndex) => ({
-          id: `${id}-step-${stepIndex + 1}`,
-          sequence: stepIndex + 1,
-          name: stepName,
-          parameters: [],
-        }),
-      )
-      item.parameters = [
-        parameter('speed', '主轴转速', 1200, 'r/min'),
-        parameter('feed', '每转进给', 0.18, 'mm/r'),
-        parameter('depth', '切深', 0.3, 'mm'),
-      ]
-      item.resources = [
-        { id: 'ring-machine', kind: 'machine', name: '机床 M-002 · Demo', status: 'demo' },
-        { id: 'ring-tool', kind: 'tool', name: '刀具 T-003 · Demo', status: 'demo' },
-      ]
-      const fields: [string, string, string, 'number' | 'text'][] = [
-        ['sphere-radius', '外球面半径', 'mm', 'number'],
-        ['recess-depth', '内止口深度', 'mm', 'number'],
-        ['work-offset', '工件零点 / 偏置', '', 'text'],
-        ['part-length', '零件实际长度', 'mm', 'number'],
-        ['tolerance', '尺寸公差', '', 'text'],
-        ['allowance', '加工余量', 'mm', 'number'],
-        ['fixture', '定位基准 / 装夹', '', 'text'],
-      ]
-      item.onsiteMeasurements = fields.map(([fieldId, fieldName, unit, inputKind]) => ({
-        id: fieldId,
-        name: fieldName,
-        value: null,
-        unit,
-        inputKind,
-        editable: true,
-        required: true,
-        source: 'unknown',
-        status: 'missing',
-      }))
-    }
-    return item
-  })
 }

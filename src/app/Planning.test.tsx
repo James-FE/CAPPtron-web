@@ -60,8 +60,8 @@ describe('工艺决策与模型来源', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50')
     expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
     finishPlanning()
-    expect(operations().getAllByRole('button')).toHaveLength(9)
-    expect(screen.getByRole('region', { name: '当前工序详情' })).toHaveTextContent('08 精车外')
+    expect(operations().getAllByRole('button')).toHaveLength(6)
+    expect(screen.getByRole('region', { name: '当前工序详情' })).toHaveTextContent('01 端面车削')
   })
 
   it('同一页面动态展示多工序与缺失数据，并支持零工序', () => {
@@ -92,23 +92,30 @@ describe('工艺决策与模型来源', () => {
     expect(generate()).toBeDisabled()
     view('补充工序信息')
     const fields = [
-      '外球面半径',
-      '内止口深度',
-      '工件零点 / 偏置',
-      '零件实际长度',
-      '尺寸公差',
-      '加工余量',
-      '定位基准 / 装夹',
+      '现场毛坯外径',
+      '现场毛坯预孔直径',
+      '现场毛坯长度',
+      '工件零点 / 偏置核对',
+      '装夹方式与伸出量',
     ]
     for (const name of fields)
       fireEvent.change(screen.getByLabelText(name), { target: { value: '1' } })
+    expect(generate()).toBeDisabled()
+    select(/03 外圆精车/)
+    expect(screen.getByLabelText('现场毛坯外径')).toHaveValue('1')
+    expect(screen.queryByLabelText('切断刀具与刀柄装配核对')).not.toBeInTheDocument()
+    view('补充工序信息')
+    expect(screen.getByRole('region', { name: '当前工序详情' })).toHaveTextContent('06 切断')
+    fireEvent.change(screen.getByLabelText('切断刀具与刀柄装配核对'), {
+      target: { value: '演示装配记录' },
+    })
     expect(generate()).toBeEnabled()
     for (const value of [' ', 'abc', 'Infinity']) {
-      fireEvent.change(screen.getByLabelText('外球面半径'), { target: { value } })
+      fireEvent.change(screen.getByLabelText('现场毛坯外径'), { target: { value } })
       expect(generate()).toBeDisabled()
     }
-    fireEvent.change(screen.getByLabelText('外球面半径'), { target: { value: '125' } })
-    select(/01 粗车$/)
+    fireEvent.change(screen.getByLabelText('现场毛坯外径'), { target: { value: '43' } })
+    select(/01 端面车削$/)
     expect(generate()).toBeEnabled()
     demo('simple')
     expect(generate()).toBeDisabled()

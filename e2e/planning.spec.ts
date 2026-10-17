@@ -93,26 +93,32 @@ test('示例输入连贯完成进度、查看结果和必填信息门槛', async
   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '100')
   await shot(page, info, 'demo-planning-ready')
   await view.click()
-  await expect(list(page).getByRole('button')).toHaveCount(9)
+  await expect(list(page).getByRole('button')).toHaveCount(6)
+  await expect(list(page)).not.toContainText('球面')
   const generate = page.getByRole('button', { name: '生成程序并进入审核', exact: true })
   await expect(generate).toBeDisabled()
   await shot(page, info, 'demo-ring-result')
   await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
   for (const [name, value] of [
-    ['外球面半径', '125'],
-    ['内止口深度', '8'],
-    ['工件零点 / 偏置', '演示 G54'],
-    ['零件实际长度', '42'],
-    ['尺寸公差', '按演示图纸核对'],
-    ['加工余量', '0.3'],
-    ['定位基准 / 装夹', '演示内止口定位'],
+    ['现场毛坯外径', '43'],
+    ['现场毛坯预孔直径', '38'],
+    ['现场毛坯长度', '100'],
+    ['工件零点 / 偏置核对', '演示 G54 核对记录'],
+    ['装夹方式与伸出量', '演示装夹记录'],
   ])
     await page.getByLabel(name, { exact: true }).fill(value)
-  await expect(generate).toBeEnabled()
-  await page.getByLabel('外球面半径', { exact: true }).fill('abc')
   await expect(generate).toBeDisabled()
-  await page.getByLabel('外球面半径', { exact: true }).fill('125')
+  await shot(page, info, 'demo-ring-shared-fields')
+  await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
+  await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('06 切断')
+  await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
+  await page.getByLabel('切断刀具与刀柄装配核对', { exact: true }).fill('演示装配核对记录')
   await expect(generate).toBeEnabled()
+  await page.getByLabel('现场毛坯外径', { exact: true }).fill('abc')
+  await expect(generate).toBeDisabled()
+  await page.getByLabel('现场毛坯外径', { exact: true }).fill('43')
+  await expect(generate).toBeEnabled()
+  await page.getByLabel('切断刀具与刀柄装配核对', { exact: true }).scrollIntoViewIfNeeded()
   await shot(page, info, 'demo-ring-fields-complete')
   await generate.click()
   await expect(page.getByRole('status')).toContainText('未调用 CAM，未生成或验证 NC')

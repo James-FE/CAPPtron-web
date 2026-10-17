@@ -144,7 +144,8 @@ test('使用示例直接进入工艺决策，返回后保留元数据并区分�
     'aria-current',
     'step',
   )
-  await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  await expect(page.getByRole('progressbar', { name: 'Demo 规划进度' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
   await screenshot(page, testInfo, 'model-input-demo-planning')
   await page.getByRole('button', { name: '01 模型输入' }).click()
   await expect(preparation).toContainText('使用演示输入')

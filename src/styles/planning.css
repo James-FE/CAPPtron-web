@@ -2,6 +2,75 @@
   height: 100svh;
   min-height: 760px;
 }
+.planning-progress-columns {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 32px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+.planning-references {
+  background: var(--surface-canvas);
+  border-radius: var(--radius-panel);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.planning-references h3 {
+  color: var(--accent-primary);
+  font-size: 17px;
+  font-weight: 500;
+}
+.planning-references p {
+  font-size: 14px;
+  line-height: 24px;
+}
+.planning-progress-status {
+  padding: 12px 0;
+}
+.planning-progress-status h3 {
+  font-size: 26px;
+  line-height: 36px;
+  font-weight: 500;
+}
+.planning-progress-status p {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 24px;
+}
+.planning-progress-status progress {
+  width: 100%;
+  height: 12px;
+  margin-top: 28px;
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--border-subtle);
+}
+.planning-progress-status progress::-webkit-progress-bar {
+  background: var(--border-subtle);
+}
+.planning-progress-status progress::-webkit-progress-value {
+  background: var(--accent-primary);
+  transition: width 100ms linear;
+}
+.planning-progress-status progress::-moz-progress-bar {
+  background: var(--accent-primary);
+}
+.progress-percentage {
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+}
+.button.primary-button:disabled {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .planning-shell .app-main {
   min-height: 0;
   padding: 36px;

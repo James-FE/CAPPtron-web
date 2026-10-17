@@ -1,12 +1,9 @@
 import { useId } from 'react'
-import { validateDraft } from './processPlan'
+import { draftKey, validateDraft } from './processPlan'
 import type { Parameter } from './processPlan'
 
-export type Drafts = Record<string, string>
-
-function draftKey(operationId: string, section: string, parameterId: string) {
-  return JSON.stringify([operationId, section, parameterId])
-}
+import type { Drafts } from './processPlan'
+export type { Drafts } from './processPlan'
 
 const sources: Record<Parameter['source'], string> = {
   mock: 'Mock 演示值',
@@ -29,11 +26,20 @@ function ParameterField({
   const error = value !== undefined ? validateDraft(parameter, value) : null
   return (
     <div className="parameter-field">
-      <label htmlFor={parameter.editable ? id : undefined}>{parameter.name}</label>
+      <label htmlFor={parameter.editable ? id : undefined}>
+        {parameter.name}
+        {parameter.required && (
+          <span aria-hidden="true" className="warning-text">
+            {' '}
+            · 必填
+          </span>
+        )}
+      </label>
       <div className="parameter-value">
         {parameter.editable ? (
           <input
             id={id}
+            aria-label={parameter.name}
             type="text"
             inputMode={parameter.inputKind === 'number' ? 'decimal' : 'text'}
             value={value ?? String(parameter.value ?? '')}
@@ -41,6 +47,7 @@ function ParameterField({
             onChange={(event) => onChange(event.target.value)}
             aria-describedby={`${id}-help`}
             aria-invalid={!!error}
+            aria-required={parameter.required || undefined}
             placeholder="待补充"
           />
         ) : (

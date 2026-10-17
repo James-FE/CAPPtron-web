@@ -7,6 +7,7 @@ export type Parameter = {
   source: 'mock' | 'template' | 'upstream' | 'human' | 'unknown'
   status: 'provided' | 'missing' | 'pending'
   editable: boolean
+  required?: boolean
   inputKind: 'number' | 'text'
 }
 
@@ -46,6 +47,45 @@ export type ProcessPlan = {
   origin: 'mock'
   sourceDescription: string
   operations: ProcessOperation[]
+  initialOperationId?: string
+}
+
+export type Drafts = Record<string, string>
+
+export function draftKey(operationId: string, section: string, parameterId: string) {
+  return JSON.stringify([operationId, section, parameterId])
+}
+
+// 仅控制演示按钮的填写门槛；不表示工艺审批、现场确认或制造安全。
+export function getPlanReadiness(plan: ProcessPlan, drafts: Drafts) {
+  const missing = plan.operations.flatMap((operation) => {
+    const groups = [
+      { section: 'onsite', parameters: operation.onsiteMeasurements },
+      { section: 'parameters', parameters: operation.parameters },
+      ...operation.steps.map((step) => ({
+        section: `step-${step.id}`,
+        parameters: step.parameters,
+      })),
+    ]
+    return groups.flatMap(({ section, parameters }) =>
+      parameters
+        .filter((parameter) => {
+          if (!parameter.required) return false
+          const value =
+            drafts[draftKey(operation.id, section, parameter.id)] ?? String(parameter.value ?? '')
+          return (
+            !value.trim() || (parameter.inputKind === 'number' && !Number.isFinite(Number(value)))
+          )
+        })
+        .map((parameter) => ({ operationId: operation.id, section, parameter })),
+    )
+  })
+  const incompleteOperations = plan.operations.filter((operation) => !operation.steps.length)
+  return {
+    missing,
+    incompleteOperations,
+    ready: plan.operations.length > 0 && !missing.length && !incompleteOperations.length,
+  }
 }
 
 export function resolveOperation(plan: ProcessPlan, selectedId: string | null) {

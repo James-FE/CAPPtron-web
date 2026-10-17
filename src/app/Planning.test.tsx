@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 // jsdom 没有原生 dialog 行为；焦点闭环、Escape 和背景隔离由真实 Chromium 验证。
@@ -15,9 +15,17 @@ beforeAll(() => {
 function planning() {
   fireEvent.click(screen.getByRole('button', { name: '02 工艺决策' }))
 }
+beforeEach(() => vi.useFakeTimers())
+afterEach(() => vi.useRealTimers())
+function finishPlanning() {
+  act(() => vi.advanceTimersByTime(4000))
+  const button = screen.queryByRole('button', { name: '查看工艺规划结果' })
+  if (button) fireEvent.click(button)
+}
 function demo(id = 'simple') {
   fireEvent.change(screen.getByLabelText('演示方案'), { target: { value: id } })
   fireEvent.click(screen.getByRole('button', { name: '加载 Demo 方案' }))
+  finishPlanning()
 }
 function operations() {
   return within(screen.getByRole('navigation', { name: '工序列表' }))
@@ -35,7 +43,7 @@ function choose(name: string) {
 }
 
 describe('工艺决策与模型来源', () => {
-  it('导航保留文件，进入工艺决策不会生成方案；输入示例也不会自动加载工艺', () => {
+  it('本地文件不会生成方案；显式使用输入示例会加载独立环件演示', () => {
     render(<App />)
     choose('Local.step')
     planning()
@@ -46,8 +54,14 @@ describe('工艺决策与模型来源', () => {
     expect(screen.queryByRole('button', { name: '打开 Agent 协同' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: '当前模型文件' })).toHaveTextContent('Local.step')
     view('使用示例 Ring_A.step')
-    planning()
-    expect(screen.getByText('暂无可用工艺方案')).toBeVisible()
+    expect(screen.queryByText('暂无可用工艺方案')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
+    act(() => vi.advanceTimersByTime(2000))
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50')
+    expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
+    finishPlanning()
+    expect(operations().getAllByRole('button')).toHaveLength(9)
+    expect(screen.getByRole('region', { name: '当前工序详情' })).toHaveTextContent('08 精车外')
   })
 
   it('同一页面动态展示多工序与缺失数据，并支持零工序', () => {
@@ -68,6 +82,57 @@ describe('工艺决策与模型来源', () => {
     demo('empty')
     expect(operations().queryAllByRole('button')).toHaveLength(0)
     expect(screen.getByText('暂无工序详情')).toBeVisible()
+  })
+
+  it('环件必填项补齐才启用生成，空白与无效数值重新阻止生成，切换任务不串用', () => {
+    render(<App />)
+    view('使用示例 Ring_A.step')
+    finishPlanning()
+    const generate = () => screen.getByRole('button', { name: '生成程序并进入审核' })
+    expect(generate()).toBeDisabled()
+    view('补充工序信息')
+    const fields = [
+      '外球面半径',
+      '内止口深度',
+      '工件零点 / 偏置',
+      '零件实际长度',
+      '尺寸公差',
+      '加工余量',
+      '定位基准 / 装夹',
+    ]
+    for (const name of fields)
+      fireEvent.change(screen.getByLabelText(name), { target: { value: '1' } })
+    expect(generate()).toBeEnabled()
+    for (const value of [' ', 'abc', 'Infinity']) {
+      fireEvent.change(screen.getByLabelText('外球面半径'), { target: { value } })
+      expect(generate()).toBeDisabled()
+    }
+    fireEvent.change(screen.getByLabelText('外球面半径'), { target: { value: '125' } })
+    select(/01 粗车$/)
+    expect(generate()).toBeEnabled()
+    demo('simple')
+    expect(generate()).toBeDisabled()
+    demo('ring')
+    expect(generate()).toBeEnabled()
+    choose('Ring_A.step')
+    expect(screen.getByText('暂无可用工艺方案')).toBeVisible()
+    expect(generate()).toBeDisabled()
+  })
+
+  it('进度中换有效文件取消旧演示；无效文件保留进度，重新使用示例重新计时', () => {
+    render(<App />)
+    view('使用示例 Ring_A.step')
+    act(() => vi.advanceTimersByTime(2000))
+    choose('bad.pdf')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50')
+    choose('Local.step')
+    act(() => vi.advanceTimersByTime(5000))
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.getByText('暂无可用工艺方案')).toBeVisible()
+    view('01 模型输入')
+    view('使用示例 Ring_A.step')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', '0')
+    expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
   })
 
   it('非切削工序没有推荐参数，不补造资源和实测信息', () => {
@@ -125,6 +190,15 @@ describe('工艺决策与模型来源', () => {
   it('程序入口明确未调用 CAM 或生成 NC', () => {
     render(<App />)
     planning()
+    expect(screen.getByRole('button', { name: '生成程序并进入审核' })).toBeDisabled()
+    demo()
+    view('补充工序信息')
+    for (const name of [/基准面加工/, /轮廓与孔加工/]) {
+      select(name)
+      fireEvent.change(screen.getByLabelText('毛坯实测高度'), { target: { value: '42' } })
+      fireEvent.change(screen.getByLabelText('现场约束说明'), { target: { value: '演示装夹' } })
+    }
+    expect(screen.getByRole('button', { name: '生成程序并进入审核' })).toBeEnabled()
     view('生成程序并进入审核')
     expect(screen.getByRole('status')).toHaveTextContent('未调用 CAM，未生成或验证 NC')
     expect(screen.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(

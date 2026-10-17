@@ -93,7 +93,8 @@ describe('r06 模型输入', () => {
       'aria-current',
       'step',
     )
-    expect(screen.getByText('暂无可用工艺方案')).toBeVisible()
+    expect(screen.getByRole('progressbar', { name: 'Demo 规划进度' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '01 模型输入' }))
     expect(preparation().getByText('使用演示输入')).toBeVisible()
     expect(fileBar().queryByText(/本地选择/)).not.toBeInTheDocument()

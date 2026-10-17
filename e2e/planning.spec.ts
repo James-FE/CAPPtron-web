@@ -4,6 +4,7 @@ import type { Page, TestInfo } from '@playwright/test'
 const test = base.extend<{ browserChecks: void }>({
   browserChecks: [
     async ({ page }, use) => {
+      await page.clock.install()
       const errors: string[] = [],
         mutations: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
@@ -30,6 +31,12 @@ async function enter(page: Page) {
 async function demo(page: Page, id = 'simple') {
   await page.getByLabel('演示方案').selectOption(id)
   await page.getByRole('button', { name: '加载 Demo 方案' }).click()
+  const view = page.getByRole('button', { name: '查看工艺规划结果' })
+  if (await view.count()) {
+    await page.clock.fastForward(4100)
+    await expect(view).toBeEnabled()
+    await view.click()
+  }
 }
 async function shot(page: Page, info: TestInfo, name: string) {
   await page.evaluate(() => document.fonts.ready)
@@ -73,6 +80,54 @@ test('导航与模型来源隔离，加载 Demo 不改写本地文件信息', as
   await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
 })
 
+test('示例输入连贯完成进度、查看结果和必填信息门槛', async ({ page }, info) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '使用示例 Ring_A.step' }).click()
+  const view = page.getByRole('button', { name: '查看工艺规划结果' })
+  await expect(view).toBeDisabled()
+  await expect(page.getByText('暂无可用工艺方案')).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '演示参考输入' })).toContainText('Ring_A.step')
+  await shot(page, info, 'demo-planning-progress')
+  // 此用例让真实浏览器计时器走完演示进度；其他 Fixture 切换用快进缩短回归耗时。
+  await expect(view).toBeEnabled({ timeout: 6500 })
+  await expect(page.getByRole('progressbar')).toHaveAttribute('value', '100')
+  await shot(page, info, 'demo-planning-ready')
+  await view.click()
+  await expect(list(page).getByRole('button')).toHaveCount(9)
+  const generate = page.getByRole('button', { name: '生成程序并进入审核', exact: true })
+  await expect(generate).toBeDisabled()
+  await shot(page, info, 'demo-ring-result')
+  await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
+  for (const [name, value] of [
+    ['外球面半径', '125'],
+    ['内止口深度', '8'],
+    ['工件零点 / 偏置', '演示 G54'],
+    ['零件实际长度', '42'],
+    ['尺寸公差', '按演示图纸核对'],
+    ['加工余量', '0.3'],
+    ['定位基准 / 装夹', '演示内止口定位'],
+  ])
+    await page.getByLabel(name, { exact: true }).fill(value)
+  await expect(generate).toBeEnabled()
+  await page.getByLabel('外球面半径', { exact: true }).fill('abc')
+  await expect(generate).toBeDisabled()
+  await page.getByLabel('外球面半径', { exact: true }).fill('125')
+  await expect(generate).toBeEnabled()
+  await shot(page, info, 'demo-ring-fields-complete')
+  await generate.click()
+  await expect(page.getByRole('status')).toContainText('未调用 CAM，未生成或验证 NC')
+  await page.getByRole('button', { name: '01 模型输入' }).click()
+  await page.getByRole('button', { name: '02 工艺决策' }).click()
+  await expect(generate).toBeEnabled()
+  await page.getByLabel('选择 STEP 模型文件').setInputFiles({
+    name: 'Ring_A.step',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('local only'),
+  })
+  await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  await expect(generate).toBeDisabled()
+})
+
 test('工作台默认与工序切换，程序生成入口保持准确反馈', async ({ page }, info) => {
   await enter(page)
   await demo(page)
@@ -85,6 +140,15 @@ test('工作台默认与工序切换，程序生成入口保持准确反馈', as
     .click()
   await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('3 个工步')
   await shot(page, info, 'planning-selected-operation')
+  const generate = page.getByRole('button', { name: '生成程序并进入审核', exact: true })
+  await expect(generate).toBeDisabled()
+  await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
+  for (const name of [/基准面加工/, /轮廓与孔加工/]) {
+    await list(page).getByRole('button', { name }).click()
+    await page.getByLabel('毛坯实测高度').fill('42')
+    await page.getByLabel('现场约束说明').fill('演示装夹')
+  }
+  await expect(generate).toBeEnabled()
   await page.getByRole('button', { name: '生成程序并进入审核', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('未调用 CAM，未生成或验证 NC')
   await expect(page.getByRole('heading', { name: '工艺决策', exact: true })).toBeVisible()

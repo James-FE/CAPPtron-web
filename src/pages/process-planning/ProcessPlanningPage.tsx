@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { demoPlanOptions, loadDemoPlan } from '../../api/mock/processPlans'
 import type { DemoPlanId } from '../../api/mock/processPlans'
 import { OperationDetails } from '../../features/process-planning/OperationDetails'
 import type { DetailView } from '../../features/process-planning/OperationDetails'
 import type { Drafts } from '../../features/process-planning/ParameterFields'
-import { resolveOperation } from '../../features/process-planning/processPlan'
+import { getPlanReadiness, resolveOperation } from '../../features/process-planning/processPlan'
+import { DemoPlanningProgress } from '../../features/process-planning/DemoPlanningProgress'
 import type { ProcessPlan } from '../../features/process-planning/processPlan'
 import { AgentBubble } from '../../features/agent/AgentBubble'
 import { AgentDrawer } from '../../features/agent/AgentDrawer'
@@ -18,21 +19,47 @@ type PlanningSession = {
   drafts: Drafts
   messages: AgentMessage[]
   input: string
+  startedAt: number
+  resultViewed: boolean
+}
+
+function createSession(id: DemoPlanId): PlanningSession {
+  const plan = loadDemoPlan(id)
+  return {
+    plan,
+    selectedId: plan.initialOperationId ?? null,
+    view: 'steps',
+    drafts: {},
+    messages: [],
+    input: '',
+    startedAt: Date.now(),
+    resultViewed: false,
+  }
 }
 
 export function ProcessPlanningPage({
   active,
   onUnavailable,
+  initialDemoPlan,
 }: {
   active: boolean
   onUnavailable: (message: string) => void
+  initialDemoPlan?: DemoPlanId
 }) {
-  const [demoChoice, setDemoChoice] = useState<DemoPlanId>('simple')
-  const [currentId, setCurrentId] = useState<DemoPlanId | null>(null)
-  const [sessions, setSessions] = useState<Partial<Record<DemoPlanId, PlanningSession>>>({})
+  const [demoChoice, setDemoChoice] = useState<DemoPlanId>(initialDemoPlan ?? 'simple')
+  const [currentId, setCurrentId] = useState<DemoPlanId | null>(initialDemoPlan ?? null)
+  const [sessions, setSessions] = useState<Partial<Record<DemoPlanId, PlanningSession>>>(() =>
+    initialDemoPlan ? { [initialDemoPlan]: createSession(initialDemoPlan) } : {},
+  )
   const [agentOpen, setAgentOpen] = useState(false)
   const session = currentId ? sessions[currentId] : undefined
   const operation = session ? resolveOperation(session.plan, session.selectedId) : null
+  const readiness = session ? getPlanReadiness(session.plan, session.drafts) : null
+  const selectedButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (active && session?.resultViewed)
+      selectedButtonRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [active, operation?.id, session?.resultViewed])
   function updateSession(update: (current: PlanningSession) => PlanningSession) {
     if (!currentId) return
     setSessions((current) => {
@@ -46,14 +73,7 @@ export function ProcessPlanningPage({
         ? current
         : {
             ...current,
-            [demoChoice]: {
-              plan: loadDemoPlan(demoChoice),
-              selectedId: null,
-              view: 'steps',
-              drafts: {},
-              messages: [],
-              input: '',
-            },
+            [demoChoice]: createSession(demoChoice),
           },
     )
     setCurrentId(demoChoice)
@@ -91,7 +111,14 @@ export function ProcessPlanningPage({
           ? `${session.plan.partName} · ${session.plan.sourceDescription}`
           : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
-      {session ? (
+      {session && !session.resultViewed ? (
+        <DemoPlanningProgress
+          key={session.plan.id}
+          startedAt={session.startedAt}
+          partName={session.plan.partName}
+          onView={() => updateSession((current) => ({ ...current, resultViewed: true }))}
+        />
+      ) : session ? (
         <div className="decision-columns">
           <nav className="operation-list" aria-label="工序列表">
             <p className="list-heading">工序 · {session.plan.operations.length}</p>
@@ -99,6 +126,7 @@ export function ProcessPlanningPage({
             {session.plan.operations.map((item) => (
               <button
                 key={item.id}
+                ref={operation?.id === item.id ? selectedButtonRef : undefined}
                 type="button"
                 className="button operation-button"
                 aria-pressed={operation?.id === item.id}
@@ -136,32 +164,57 @@ export function ProcessPlanningPage({
           <p className="muted-text">所选本地 STEP 文件未上传、未解析，也不会与演示工艺自动关联。</p>
         </div>
       )}
-      <footer className="planning-actions">
-        <p className="muted-text">
-          工步以实际方案为准，缺失信息保持为空。
-          <br />
-          Mock 方案未经机加工专家确认。
-        </p>
-        <div>
-          <button
-            type="button"
-            className="button"
-            disabled={!operation}
-            onClick={() => updateSession((current) => ({ ...current, view: 'onsite' }))}
-          >
-            补充工序信息
-          </button>
-          <button
-            type="button"
-            className="button primary-button"
-            onClick={() =>
-              onUnavailable('程序审核属于 FE-003，当前尚未开放；未调用 CAM，未生成或验证 NC 程序。')
-            }
-          >
-            生成程序并进入审核
-          </button>
-        </div>
-      </footer>
+      {(!session || session.resultViewed) && (
+        <footer className="planning-actions">
+          <p className="muted-text" id="planning-readiness">
+            {!session
+              ? '请先加载演示方案。'
+              : readiness?.missing.length
+                ? `还有 ${readiness.missing.length} 项必填信息待补充；填写完整且格式有效后启用生成入口。`
+                : !readiness?.ready
+                  ? '工序或工步信息不完整，暂不能进入下一步。'
+                  : '必填信息已补齐 · 仅完成演示填写，未完成制造校核。'}
+            <br />
+            Mock 方案未经机加工专家确认。
+          </p>
+          <div>
+            <button
+              type="button"
+              className="button"
+              disabled={!operation}
+              onClick={() => {
+                const next = readiness?.missing.find((item) => item.parameter.editable)
+                updateSession((current) => ({
+                  ...current,
+                  selectedId: next?.operationId ?? current.selectedId,
+                  view: next
+                    ? next.section === 'onsite'
+                      ? 'onsite'
+                      : next.section === 'parameters'
+                        ? 'resources'
+                        : 'steps'
+                    : 'onsite',
+                }))
+              }}
+            >
+              补充工序信息
+            </button>
+            <button
+              type="button"
+              className="button primary-button"
+              disabled={!readiness?.ready}
+              aria-describedby="planning-readiness"
+              onClick={() =>
+                onUnavailable(
+                  '程序审核属于 FE-003，当前尚未开放；未调用 CAM，未生成或验证 NC 程序。',
+                )
+              }
+            >
+              生成程序并进入审核
+            </button>
+          </div>
+        </footer>
+      )}
       {active && <AgentBubble onOpen={() => setAgentOpen(true)} />}
       <AgentDrawer
         open={active && agentOpen}

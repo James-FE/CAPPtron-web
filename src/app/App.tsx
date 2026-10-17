@@ -56,6 +56,7 @@ export default function App() {
       <ProcessPlanningPage
         key={sourceVersion}
         active={stage === 'planning'}
+        initialDemoPlan={selection.kind === 'demo' ? 'ring' : undefined}
         onUnavailable={setNotice}
       />
       {stage === 'planning' && error && (

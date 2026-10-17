@@ -74,7 +74,8 @@ test('模型输入初始页面与共享 Shell 可见且无溢出', async ({ page
   )
   for (const name of ['02 工艺决策', '03 程序审核']) {
     await expect(page.getByRole('button', { name })).not.toHaveAttribute('aria-current')
-    await expect(page.getByRole('button', { name })).toHaveAttribute('title', /尚未实现/)
+    if (name === '03 程序审核')
+      await expect(page.getByRole('button', { name })).toHaveAttribute('title', /尚未实现/)
   }
   for (const name of [
     '01 模型输入',
@@ -155,7 +156,6 @@ test('示例元数据与同名本地文件区分来源且不跳转', async ({ pa
 test('未实现入口提供可关闭说明，鼠标和键盘操作均不推进业务阶段', async ({ page }) => {
   await page.goto('/')
   for (const [name, message] of [
-    ['02 工艺决策', '工艺决策页面尚未实现'],
     ['03 程序审核', '程序审核页面尚未实现'],
     ['数据底座', '数据底座页面尚未实现'],
     ['查看解读结果', '设计文件解读尚未接入'],

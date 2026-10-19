@@ -42,6 +42,7 @@ export type ProcessOperation = {
 }
 
 export type ProcessPlan = {
+  caseReference?: { caseId: string; version: string; planId: string; contentDigest: string }
   id: string
   name: string
   partName: string

@@ -11,8 +11,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest",
     "test:ci": "vitest run",
@@ -24,9 +24,11 @@
     "test:infra": "node --test scripts/tests/*.check.mjs",
     "ruleset:plan": "node scripts/sync-ruleset.mjs plan",
     "ruleset:check": "node scripts/sync-ruleset.mjs check",
-    "ruleset:apply": "node scripts/sync-ruleset.mjs apply"
+    "ruleset:apply": "node scripts/sync-ruleset.mjs apply",
+    "validate:catalog": "vitest run src/api/case-catalog/catalogFiles.test.ts"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

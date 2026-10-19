@@ -1,0 +1,548 @@
+{
+  "schemaVersion": "1.0",
+  "case": {
+    "id": "golden-b7",
+    "name": "Golden-B7 环件",
+    "description": "六道车削工序的历史工程参考；在工作台中以 Demo 会话使用。",
+    "partType": "ring",
+    "sourceCategory": "engineering_reference",
+    "tags": ["车削", "环件", "Golden-B7"]
+  },
+  "caseVersion": {
+    "caseId": "golden-b7",
+    "version": "v1"
+  },
+  "contentDigest": "560cb245471b25bb83fec83a3318969173ed81263edbc8d760f66e9d82ed0dec",
+  "processPlan": {
+    "id": "golden-b7-plan",
+    "name": "Ring_A · Golden-B7 环件示例",
+    "partName": "Ring_A.step · 圆环 Ø41 / Ø39 × 5 mm",
+    "operations": [
+      {
+        "id": "ring-facing",
+        "sequence": 1,
+        "name": "端面车削",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-facing-face",
+            "sequence": 1,
+            "name": "端面车削",
+            "description": "按基线端面刀路车削前端面；基线保留前端 +0.1 mm，不作为现场零点已确认的依据。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 295,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.3,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-1",
+            "name": "T0101 · VNMG 16 04 08",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": []
+      },
+      {
+        "id": "ring-rough-od",
+        "sequence": 2,
+        "name": "外圆粗车",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-rough-od-rough-od",
+            "sequence": 1,
+            "name": "外圆粗车",
+            "description": "按基线外圆轮廓分层粗车，为后续外圆精车保留余量；具体留量以原工程为准。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 295,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.3,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-1",
+            "name": "T0101 · VNMG 16 04 08",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": []
+      },
+      {
+        "id": "ring-finish-od",
+        "sequence": 3,
+        "name": "外圆精车",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-finish-od-finish-od",
+            "sequence": 1,
+            "name": "外圆精车",
+            "description": "按基线外圆精车轮廓加工，参考成品外径为 41 mm。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 295,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.3,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-1",
+            "name": "T0101 · VNMG 16 04 08",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": []
+      },
+      {
+        "id": "ring-rough-id",
+        "sequence": 4,
+        "name": "内孔粗车",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-rough-id-rough-id",
+            "sequence": 1,
+            "name": "内孔粗车",
+            "description": "在基线预孔条件下粗车内孔，为后续内孔精车保留余量；不是钻孔工序。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 330,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.1,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-2",
+            "name": "T0202 · CCMT 09 T3 04",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": []
+      },
+      {
+        "id": "ring-finish-id",
+        "sequence": 5,
+        "name": "内孔精车",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-finish-id-finish-id",
+            "sequence": 1,
+            "name": "内孔精车",
+            "description": "按基线内孔精车轮廓加工，参考成品内径为 39 mm。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 330,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.1,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-2",
+            "name": "T0202 · CCMT 09 T3 04",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": []
+      },
+      {
+        "id": "ring-cutoff",
+        "sequence": 6,
+        "name": "切断",
+        "source": "Golden-B7 基线离线摘录 · Mock 展示",
+        "setup": "共用本任务毛坯、工件零点和装夹信息；原验证记录未完整证明卡盘与夹具条件。",
+        "notes": "工步为基线工序和 NC 动作的界面摘要，不是新增加工指令。实际加工仍需完整工艺核对。",
+        "steps": [
+          {
+            "id": "ring-cutoff-precut",
+            "sequence": 1,
+            "name": "预切保留连接料",
+            "description": "预切至基线 NC X39.5，保留连接料。",
+            "parameters": []
+          },
+          {
+            "id": "ring-cutoff-retract",
+            "sequence": 2,
+            "name": "退刀",
+            "description": "按基线刀路退刀。",
+            "parameters": []
+          },
+          {
+            "id": "ring-cutoff-chamfer",
+            "sequence": 3,
+            "name": "倒角处理",
+            "description": "在最终分离前完成倒角处理。",
+            "parameters": []
+          },
+          {
+            "id": "ring-cutoff-separate",
+            "sequence": 4,
+            "name": "最终切断",
+            "description": "最终切至基线 NC X37.9，分离环件；X 为直径坐标。",
+            "parameters": []
+          }
+        ],
+        "parameters": [
+          {
+            "id": "surface-speed",
+            "name": "恒线速 G96",
+            "value": 115,
+            "unit": "m/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "feed-per-rev",
+            "name": "每转进给 G99",
+            "value": 0.1,
+            "unit": "mm/r",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          },
+          {
+            "id": "spindle-limit",
+            "name": "主轴转速上限 G50",
+            "value": 3600,
+            "unit": "r/min",
+            "status": "provided",
+            "inputKind": "number",
+            "description": "Golden-B7 NC 离线记录 · 仅供 Demo 展示",
+            "source": "historical_record",
+            "editPolicy": "read_only",
+            "requirement": "optional"
+          }
+        ],
+        "resources": [
+          {
+            "id": "ring-tool-4",
+            "name": "T0404 · N151.2-185-20-5G",
+            "kind": "tool",
+            "description": "刀号与刀片名称摘自对应基线 NC；实际装配和可用性待核对。",
+            "status": "pending"
+          }
+        ],
+        "onsiteFields": [
+          {
+            "id": "cutoff-assembly",
+            "name": "切断刀具与刀柄装配核对",
+            "description": "本工序专用：原验证仅覆盖基线建模装配，实际刀具、刀柄及伸出情况尚未提供。Demo 必填，不代表正式工艺审批。",
+            "value": null,
+            "status": "missing",
+            "inputKind": "text",
+            "source": "unknown",
+            "editPolicy": "demo_input",
+            "requirement": "demo_required"
+          }
+        ]
+      }
+    ],
+    "initialOperationId": "ring-facing",
+    "sourceDescription": "Golden-B7 离线参考 · Mock 展示 · 未关联本地 STEP 文件 · 本次未执行制造校核",
+    "taskFields": [
+      {
+        "id": "stock-od",
+        "name": "现场毛坯外径",
+        "description": "任务共用：基线毛坯外径 43 mm；当前实测值未知，需人工记录。",
+        "unit": "mm",
+        "value": null,
+        "status": "missing",
+        "inputKind": "number",
+        "source": "unknown",
+        "editPolicy": "demo_input",
+        "requirement": "demo_required"
+      },
+      {
+        "id": "stock-id",
+        "name": "现场毛坯预孔直径",
+        "description": "任务共用：基线预孔直径 38 mm；当前实测值未知，内孔加工与切断均依赖该条件。",
+        "unit": "mm",
+        "value": null,
+        "status": "missing",
+        "inputKind": "number",
+        "source": "unknown",
+        "editPolicy": "demo_input",
+        "requirement": "demo_required"
+      },
+      {
+        "id": "stock-length",
+        "name": "现场毛坯长度",
+        "description": "任务共用：基线毛坯长度 100 mm；当前实测值未知，不能用成品厚度代替。",
+        "unit": "mm",
+        "value": null,
+        "status": "missing",
+        "inputKind": "number",
+        "source": "unknown",
+        "editPolicy": "demo_input",
+        "requirement": "demo_required"
+      },
+      {
+        "id": "work-offset",
+        "name": "工件零点 / 偏置核对",
+        "description": "任务共用：基线使用 G54；当前现场偏置未知，且基线前端保留 +0.1 mm。",
+        "value": null,
+        "status": "missing",
+        "inputKind": "text",
+        "source": "unknown",
+        "editPolicy": "demo_input",
+        "requirement": "demo_required"
+      },
+      {
+        "id": "fixture",
+        "name": "装夹方式与伸出量",
+        "description": "任务共用：原记录未完整验证卡盘和夹具，现场装夹条件尚未提供。",
+        "value": null,
+        "status": "missing",
+        "inputKind": "text",
+        "source": "unknown",
+        "editPolicy": "demo_input",
+        "requirement": "demo_required"
+      }
+    ]
+  },
+  "programAssets": [
+    {
+      "id": "golden-b7-nc",
+      "caseId": "golden-b7",
+      "caseVersion": "v1",
+      "planId": "golden-b7-plan",
+      "kind": "nc",
+      "source": "Golden-B7 冻结基线 baseline.nc；对应记录见 docs/workflows/FE-002-RING-SOURCE.md",
+      "sha256": "9930cd6114a6b175c372aa1d797d615df7daca0a9a765b812e25fe60c090a57e",
+      "sizeBytes": 1752,
+      "availability": "metadata_only",
+      "boundary": "仅保存历史程序元数据，未公开 NC 文件；不是当前任务生成物，不提供下载或执行。"
+    }
+  ],
+  "verificationEvidence": [
+    {
+      "id": "golden-b7-historical-verification",
+      "caseId": "golden-b7",
+      "caseVersion": "v1",
+      "planId": "golden-b7-plan",
+      "programAssetIds": ["golden-b7-nc"],
+      "subject": "Golden-B7 历史建模装配、刀路及切断后成品；对应 MCAM SHA-256 e1f8db1deb09404346be0a83d12f95de662fdcf596479c8c98fe9a1ee23f800e（706772 字节）",
+      "method": "历史 CAM 验证记录与 STL 顶点极值/分离状态检查；前端迁移只核对既有资料摘要。",
+      "result": "passed_with_limits",
+      "conditions": [
+        "仅适用于原冻结 Golden-B7 工程及其已建模装配。",
+        "原记录报告限定建模范围无碰撞、成品尺寸及分离状态通过。"
+      ],
+      "sources": [
+        "docs/workflows/FE-002-RING-SOURCE.md",
+        "CAPPtron-ApiTest: experiments/lathe_level4_verify/cutoff_ab/Golden-B7/manifest.json",
+        "CAPPtron-ApiTest: LEVEL4_SEMIAUTO_WORKFLOW.md"
+      ],
+      "limitations": [
+        "保留前端 +0.1 mm，轴向约 [-4.9, +0.1]，未与设计绝对范围 [-5, 0] 对齐。",
+        "没有完整卡盘/夹具证明；STL 顶点极值不等于全表面拟合。",
+        "本次未重跑 CAM 或实机验证；历史证据不确认当前任务、现场草稿或加工安全。"
+      ]
+    }
+  ]
+}

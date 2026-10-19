@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { demoPlanOptions, loadDemoPlan } from '../../api/mock/processPlans'
+import { loadDemoPlan } from '../../api/mock/processPlans'
 import type { DemoPlanId } from '../../api/mock/processPlans'
+import { caseCatalogReader, caseChoiceKey } from '../../api/case-catalog'
+import { caseToProcessPlan } from '../../api/case-catalog/adapter'
+import { PlanningSourceSelector } from '../../features/process-planning/PlanningSourceSelector'
 import { OperationDetails } from '../../features/process-planning/OperationDetails'
 import type { DetailView } from '../../features/process-planning/OperationDetails'
 import type { Drafts } from '../../features/process-planning/ParameterFields'
@@ -23,8 +26,7 @@ type PlanningSession = {
   resultViewed: boolean
 }
 
-function createSession(id: DemoPlanId): PlanningSession {
-  const plan = loadDemoPlan(id)
+function createSession(plan: ProcessPlan): PlanningSession {
   return {
     plan,
     selectedId: plan.initialOperationId ?? null,
@@ -40,17 +42,51 @@ function createSession(id: DemoPlanId): PlanningSession {
 export function ProcessPlanningPage({
   active,
   onUnavailable,
-  initialDemoPlan,
+  initialCaseReference,
 }: {
   active: boolean
   onUnavailable: (message: string) => void
-  initialDemoPlan?: DemoPlanId
+  initialCaseReference?: { caseId: string; version: string }
 }) {
-  const [demoChoice, setDemoChoice] = useState<DemoPlanId>(initialDemoPlan ?? 'simple')
-  const [currentId, setCurrentId] = useState<DemoPlanId | null>(initialDemoPlan ?? null)
-  const [sessions, setSessions] = useState<Partial<Record<DemoPlanId, PlanningSession>>>(() =>
-    initialDemoPlan ? { [initialDemoPlan]: createSession(initialDemoPlan) } : {},
+  const [demoChoice, setDemoChoice] = useState(
+    initialCaseReference
+      ? caseChoiceKey(initialCaseReference.caseId, initialCaseReference.version)
+      : 'simple',
   )
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<Record<string, PlanningSession>>({})
+  const [caseRequest, setCaseRequest] = useState(
+    initialCaseReference ? { ...initialCaseReference, attempt: 0 } : null,
+  )
+  const [caseLoad, setCaseLoad] = useState<{
+    state: 'idle' | 'loading' | 'error'
+    message?: string
+  }>({ state: initialCaseReference ? 'loading' : 'idle' })
+  useEffect(() => {
+    if (!caseRequest) return
+    let cancelled = false
+    caseCatalogReader
+      .getCaseVersion(caseRequest.caseId, caseRequest.version)
+      .then((document) => {
+        if (cancelled) return
+        const plan = caseToProcessPlan(document)
+        setSessions((current) =>
+          current[plan.id] ? current : { ...current, [plan.id]: createSession(plan) },
+        )
+        setCurrentId(plan.id)
+        setCaseLoad({ state: 'idle' })
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled)
+          setCaseLoad({
+            state: 'error',
+            message: reason instanceof Error ? reason.message : '案例加载失败',
+          })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [caseRequest])
   const [agentOpen, setAgentOpen] = useState(false)
   const session = currentId ? sessions[currentId] : undefined
   const operation = session ? resolveOperation(session.plan, session.selectedId) : null
@@ -67,16 +103,25 @@ export function ProcessPlanningPage({
       return existing ? { ...current, [currentId]: update(existing) } : current
     })
   }
-  function loadDemo() {
+  function loadDemo(reference?: { caseId: string; version: string }) {
+    if (reference) {
+      setCurrentId(null)
+      setCaseLoad({ state: 'loading' })
+      setCaseRequest({ caseId: reference.caseId, version: reference.version, attempt: Date.now() })
+      return
+    }
+    setCaseRequest(null)
+    setCaseLoad({ state: 'idle' })
+    const plan = loadDemoPlan(demoChoice as DemoPlanId)
     setSessions((current) =>
-      current[demoChoice]
+      current[plan.id]
         ? current
         : {
             ...current,
-            [demoChoice]: createSession(demoChoice),
+            [plan.id]: createSession(plan),
           },
     )
-    setCurrentId(demoChoice)
+    setCurrentId(plan.id)
   }
   function selectOperation(id: string) {
     updateSession((current) => ({ ...current, selectedId: id }))
@@ -88,30 +133,41 @@ export function ProcessPlanningPage({
           <h2 id="planning-title">工艺决策</h2>
           <p className="page-subtitle">工艺规划 · 参数推荐 · 生产资源匹配</p>
         </div>
-        <div className="demo-loader">
-          <label htmlFor="demo-plan">演示方案</label>
-          <select
-            id="demo-plan"
-            value={demoChoice}
-            onChange={(event) => setDemoChoice(event.target.value as DemoPlanId)}
-          >
-            {demoPlanOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <button className="button" onClick={loadDemo}>
-            加载 Demo 方案
-          </button>
-        </div>
+        <PlanningSourceSelector
+          active={active}
+          choice={demoChoice}
+          onChoice={setDemoChoice}
+          onLoad={loadDemo}
+        />
       </header>
       <p className="plan-source">
         {session
           ? `${session.plan.partName} · ${session.plan.sourceDescription}`
           : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
-      {session && !session.resultViewed ? (
+      {caseLoad.state !== 'idle' ? (
+        <div className="planning-empty">
+          {caseLoad.state === 'loading' ? (
+            <h3 role="status">正在加载并校验参考案例…</h3>
+          ) : (
+            <>
+              <h3>参考案例加载失败</h3>
+              <p role="alert">{caseLoad.message}</p>
+              <button
+                className="button"
+                onClick={() => {
+                  setCaseLoad({ state: 'loading' })
+                  setCaseRequest((current) =>
+                    current ? { ...current, attempt: current.attempt + 1 } : null,
+                  )
+                }}
+              >
+                重试案例加载
+              </button>
+            </>
+          )}
+        </div>
+      ) : session && !session.resultViewed ? (
         <DemoPlanningProgress
           key={session.plan.id}
           startedAt={session.startedAt}

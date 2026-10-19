@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { validateCaseDocument } from '../../api/case-catalog/validation'
+import { caseToProcessPlan } from '../../api/case-catalog/adapter'
 import { describe, expect, it } from 'vitest'
 import { demoPlanOptions, loadDemoPlan } from '../../api/mock/processPlans'
 import { resolveOperation, validateDraft } from './processPlan'
@@ -40,7 +43,11 @@ describe('演示方案与前端展示契约', () => {
   })
 
   it('环件按 Golden-B7 六工序展示，共用现场信息不挂在外圆精车上', () => {
-    const plan = loadDemoPlan('ring')
+    const plan = caseToProcessPlan(
+      validateCaseDocument(
+        JSON.parse(readFileSync('public/case-catalog/golden-b7/v1.json', 'utf8')),
+      ),
+    )
     expect(plan.operations.map((item) => item.name)).toEqual([
       '端面车削',
       '外圆粗车',

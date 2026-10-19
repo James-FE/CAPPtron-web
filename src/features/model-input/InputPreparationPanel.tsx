@@ -25,7 +25,7 @@ export function InputPreparationPanel({ selection }: { selection: ModelSelection
         </div>
       </dl>
       <p className="preparation-note">
-        示例仅展示输入元数据；
+        使用示例将进入 Demo 工艺规划流程；
         <br />
         模型上传与解析接口待接入。
       </p>

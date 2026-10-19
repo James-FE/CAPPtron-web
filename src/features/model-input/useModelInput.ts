@@ -6,6 +6,8 @@ import type { ModelSelection } from './modelInput'
 export function useModelInput() {
   const [selection, setSelection] = useState<ModelSelection>({ kind: 'empty' })
   const [error, setError] = useState('')
+  // 仅用于重建当前浏览器中的工作台上下文，不是服务器任务或业务修订号。
+  const [sourceVersion, setSourceVersion] = useState(0)
 
   function selectFiles(files: readonly File[]) {
     const file = files[0]
@@ -21,13 +23,15 @@ export function useModelInput() {
       return
     }
     setSelection({ kind: 'local', file, extension })
+    setSourceVersion((version) => version + 1)
     setError('')
   }
 
   function selectDemo() {
     setSelection({ kind: 'demo', model: demoModel })
+    setSourceVersion((version) => version + 1)
     setError('')
   }
 
-  return { selection, error, selectFiles, selectDemo }
+  return { selection, error, selectFiles, selectDemo, sourceVersion }
 }

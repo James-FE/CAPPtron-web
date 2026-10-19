@@ -3,11 +3,14 @@ import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
 import { ModelInputPage } from '../pages/model-input/ModelInputPage'
+import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
+import { inputExampleCase } from '../api/case-catalog'
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
-  const { selection, error, selectFiles, selectDemo } = useModelInput()
+  const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
+  const [stage, setStage] = useState<'input' | 'planning'>('input')
 
   function openFilePicker() {
     inputRef.current?.click()
@@ -15,7 +18,11 @@ export default function App() {
 
   return (
     <AppShell
-      currentStage="input"
+      currentStage={stage}
+      onNavigate={(next) => {
+        setStage(next)
+        setNotice('')
+      }}
       onUnavailable={setNotice}
       fileBar={
         <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
@@ -34,13 +41,30 @@ export default function App() {
           event.currentTarget.value = ''
         }}
       />
-      <ModelInputPage
-        selection={selection}
-        error={error}
-        onChoose={openFilePicker}
-        onFiles={selectFiles}
-        onDemo={selectDemo}
+      {stage === 'input' && (
+        <ModelInputPage
+          selection={selection}
+          error={error}
+          onChoose={openFilePicker}
+          onFiles={selectFiles}
+          onDemo={() => {
+            selectDemo()
+            setStage('planning')
+            setNotice('')
+          }}
+        />
+      )}
+      <ProcessPlanningPage
+        key={sourceVersion}
+        active={stage === 'planning'}
+        initialCaseReference={selection.kind === 'demo' ? inputExampleCase : undefined}
+        onUnavailable={setNotice}
       />
+      {stage === 'planning' && error && (
+        <p className="availability-notice" role="alert">
+          {error}
+        </p>
+      )}
       {notice && (
         <div className="availability-notice">
           <p role="status">{notice}</p>

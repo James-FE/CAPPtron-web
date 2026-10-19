@@ -1,6 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { installCatalogFetchMock } from '../test/caseCatalog'
+beforeEach(installCatalogFetchMock)
+afterEach(() => vi.unstubAllGlobals())
 
 function chooseFile(name: string, contents = 'test-only STEP input') {
   const file = new File([contents], name, { type: 'application/octet-stream' })
@@ -83,11 +86,20 @@ describe('r06 模型输入', () => {
     },
   )
 
-  it('Demo 与同名本地文件可互相切换，来源不会混淆', () => {
+  it('使用示例进入工艺决策，返回后可切换同名本地文件且来源不会混淆', async () => {
     render(<App />)
     chooseFile('Ring_A.step')
     fireEvent.click(screen.getByRole('button', { name: '使用示例 Ring_A.step' }))
+    await act(async () => {})
     expect(fileBar().getByText('Demo · 示例元数据')).toBeVisible()
+    expect(screen.getByRole('heading', { name: '工艺决策' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+    expect(screen.getByRole('progressbar', { name: 'Demo 规划进度' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '01 模型输入' }))
     expect(preparation().getByText('使用演示输入')).toBeVisible()
     expect(fileBar().queryByText(/本地选择/)).not.toBeInTheDocument()
     chooseFile('Ring_A.step')
@@ -112,7 +124,6 @@ describe('r06 模型输入', () => {
   })
 
   it.each([
-    ['02 工艺决策', '工艺决策页面尚未实现'],
     ['03 程序审核', '程序审核页面尚未实现'],
     ['数据底座', '数据底座页面尚未实现'],
     ['查看解读结果', '设计文件解读尚未接入'],

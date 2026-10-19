@@ -7,11 +7,18 @@ type AppShellProps = {
   fileBar: ReactNode
   currentStage: WorkflowStage
   onUnavailable: (message: string) => void
+  onNavigate: (stage: 'input' | 'planning') => void
 }
 
-export function AppShell({ children, fileBar, currentStage, onUnavailable }: AppShellProps) {
+export function AppShell({
+  children,
+  fileBar,
+  currentStage,
+  onUnavailable,
+  onNavigate,
+}: AppShellProps) {
   return (
-    <div className="app-shell">
+    <div className={`app-shell${currentStage === 'planning' ? ' planning-shell' : ''}`}>
       <header className="app-header">
         <h1>CNC Agentic Programming</h1>
         <div className="header-tools">
@@ -28,7 +35,11 @@ export function AppShell({ children, fileBar, currentStage, onUnavailable }: App
           <span className="version-label">r06 / 原型演示</span>
         </div>
       </header>
-      <WorkflowNavigation currentStage={currentStage} onUnavailable={onUnavailable} />
+      <WorkflowNavigation
+        currentStage={currentStage}
+        onUnavailable={onUnavailable}
+        onNavigate={onNavigate}
+      />
       {fileBar}
       <main className="app-main">{children}</main>
       <footer className="app-footer">

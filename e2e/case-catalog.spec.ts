@@ -45,10 +45,14 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await page.getByRole('button', { name: '参数与资源', exact: true }).click()
   await expect(page.getByRole('region', { name: '推荐参数列表' })).toContainText('295')
   await shot(page, info, 'catalog-golden-b7-parameters')
-  await page.getByRole('button', { name: '现场信息', exact: true }).click()
+  await page.getByRole('button', { name: /^任务共用信息/ }).click()
   await page.getByLabel('现场毛坯外径', { exact: true }).fill('43')
-  await operations.getByRole('button', { name: '06 切断' }).click()
-  await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
+  await shot(page, info, 'catalog-shared-information')
+  await expect(page.getByRole('button', { name: '定位待填工序，1 项' })).toBeInViewport({
+    ratio: 1,
+  })
+  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('切断刀具与刀柄装配核对', { exact: true })).toBeVisible()
   await shot(page, info, 'catalog-golden-b7-onsite')
   await page.getByRole('button', { name: '打开 Agent 协同' }).click()
@@ -60,6 +64,7 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await page.getByRole('button', { name: '刷新案例列表' }).click()
   await expect(page.getByRole('button', { name: '刷新案例列表' })).toBeEnabled()
   await page.getByRole('button', { name: '加载 Demo 方案' }).click()
+  await page.getByRole('button', { name: /^任务共用信息/ }).click()
   await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
   await page.getByRole('button', { name: '打开 Agent 协同' }).click()
   await expect(page.getByRole('log')).toContainText('案例版本对应哪个历史程序')
@@ -120,7 +125,7 @@ test('加载中换有效模型，迟到结果不得串入新任务', async ({ pa
 test('更新索引发现新案例及新版本，选择版本不混用草稿', async ({ page }, info) => {
   await enter(page)
   await load(page)
-  await page.getByRole('button', { name: '现场信息', exact: true }).click()
+  await page.getByRole('button', { name: /^任务共用信息/ }).click()
   await page.getByLabel('现场毛坯外径', { exact: true }).fill('43')
   const document = readDocument()
   document.case.id = 'catalog-test'
@@ -160,7 +165,7 @@ test('更新索引发现新案例及新版本，选择版本不混用草稿', as
   await page.getByRole('button', { name: '刷新案例列表' }).click()
   await expect(page.getByRole('option', { name: '新增案例发现测试 · v2' })).toBeAttached()
   await load(page, 'catalog-test', 'v2')
-  await page.getByRole('button', { name: '现场信息', exact: true }).click()
+  await page.getByRole('button', { name: /^任务共用信息/ }).click()
   await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('')
   await shot(page, info, 'catalog-dynamic-case')
   await page.getByLabel('演示方案').selectOption(choice())

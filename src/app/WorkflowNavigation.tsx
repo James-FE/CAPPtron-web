@@ -1,7 +1,7 @@
 const stages = [
   { id: 'input', number: '01', label: '模型输入', available: true },
   { id: 'planning', number: '02', label: '工艺决策', available: true },
-  { id: 'review', number: '03', label: '程序审核', available: false },
+  { id: 'review', number: '03', label: '程序审核', available: true },
 ] as const
 
 export type WorkflowStage = (typeof stages)[number]['id']
@@ -9,7 +9,7 @@ export type WorkflowStage = (typeof stages)[number]['id']
 type WorkflowNavigationProps = {
   currentStage: WorkflowStage
   onUnavailable: (message: string) => void
-  onNavigate: (stage: 'input' | 'planning') => void
+  onNavigate: (stage: WorkflowStage) => void
 }
 
 export function WorkflowNavigation({

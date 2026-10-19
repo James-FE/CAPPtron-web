@@ -12,7 +12,12 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     browserName: 'chromium',
-    baseURL: 'http://127.0.0.1:5173',
+    // 本机 Chromium 网络兼容开关；CI 默认不启用，不改变断言或重试。
+    launchOptions:
+      process.env.CAPPTRON_E2E_NETWORK_COMPAT === '1'
+        ? { args: ['--disable-features=TcpPortRandomizationWin'] }
+        : undefined,
+    baseURL: 'http://127.0.0.1:5183',
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
     screenshot: 'only-on-failure',
@@ -24,9 +29,9 @@ export default defineConfig({
     { name: 'chromium-1440x900', use: { viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI,
+    command: 'npm run dev -- --mode e2e --host 127.0.0.1 --port 5183 --strictPort',
+    url: 'http://127.0.0.1:5183',
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 })

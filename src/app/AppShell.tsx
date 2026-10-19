@@ -7,7 +7,7 @@ type AppShellProps = {
   fileBar: ReactNode
   currentStage: WorkflowStage
   onUnavailable: (message: string) => void
-  onNavigate: (stage: 'input' | 'planning') => void
+  onNavigate: (stage: WorkflowStage) => void
 }
 
 export function AppShell({
@@ -18,7 +18,7 @@ export function AppShell({
   onNavigate,
 }: AppShellProps) {
   return (
-    <div className={`app-shell${currentStage === 'planning' ? ' planning-shell' : ''}`}>
+    <div className={`app-shell${currentStage !== 'input' ? ' planning-shell' : ''}`}>
       <header className="app-header">
         <h1>CNC Agentic Programming</h1>
         <div className="header-tools">

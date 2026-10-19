@@ -12,3 +12,7 @@ coverage/
 playwright-report/
 test-results/
 playwright/.cache/
+
+# 私有程序正文不得进入公开仓库；测试使用明确的合成文本。
+*.nc
+*.NC

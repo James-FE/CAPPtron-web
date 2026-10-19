@@ -12,7 +12,7 @@ const test = base.extend<{ browserChecks: void }>({
         if (!['GET', 'HEAD'].includes(request.method())) mutations.push(request.url())
       })
       await page.route('**/*', (route) =>
-        new URL(route.request().url()).origin === 'http://127.0.0.1:5173'
+        new URL(route.request().url()).origin === 'http://127.0.0.1:5183'
           ? route.continue()
           : route.abort(),
       )
@@ -95,7 +95,7 @@ test('示例输入连贯完成进度、查看结果和必填信息门槛', async
   await view.click()
   await expect(list(page).getByRole('button')).toHaveCount(6)
   await expect(list(page)).not.toContainText('球面')
-  const generate = page.getByRole('button', { name: '生成程序并进入审核', exact: true })
+  const generate = page.getByRole('button', { name: '查看参考程序并进入审核', exact: true })
   await expect(generate).toBeDisabled()
   await shot(page, info, 'demo-ring-result')
   await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
@@ -128,7 +128,13 @@ test('示例输入连贯完成进度、查看结果和必填信息门槛', async
   await page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true }).scrollIntoViewIfNeeded()
   await shot(page, info, 'demo-ring-fields-complete')
   await generate.click()
-  await expect(page.getByRole('status')).toContainText('未调用 CAM，未生成或验证 NC')
+  await expect(page.getByRole('heading', { name: '程序审核', exact: true })).toBeVisible()
+  await expect(
+    page.getByText('当前展示的是 Golden-B7 历史参考程序，未执行本次 CAM 程序生成。'),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: '参考程序正文暂不可用', exact: true }),
+  ).toBeVisible()
   await page.getByRole('button', { name: '01 模型输入' }).click()
   await page.getByRole('button', { name: '02 工艺决策' }).click()
   await expect(generate).toBeEnabled()
@@ -153,7 +159,7 @@ test('工作台默认与工序切换，程序生成入口保持准确反馈', as
     .click()
   await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('3 个工步')
   await shot(page, info, 'planning-selected-operation')
-  const generate = page.getByRole('button', { name: '生成程序并进入审核', exact: true })
+  const generate = page.getByRole('button', { name: '查看参考程序并进入审核', exact: true })
   await expect(generate).toBeDisabled()
   await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
   for (const name of [/基准面加工/, /轮廓与孔加工/]) {
@@ -162,9 +168,12 @@ test('工作台默认与工序切换，程序生成入口保持准确反馈', as
     await page.getByLabel('现场约束说明').fill('演示装夹')
   }
   await expect(generate).toBeEnabled()
-  await page.getByRole('button', { name: '生成程序并进入审核', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('未调用 CAM，未生成或验证 NC')
-  await expect(page.getByRole('heading', { name: '工艺决策', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看参考程序并进入审核', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '程序审核', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: '参考程序正文暂不可用', exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText('本次未执行 CAM 程序生成。', { exact: true })).toBeVisible()
 })
 
 test('长工序、详情与参数分别滚动，标题和主操作仍可见', async ({ page }, info) => {
@@ -190,7 +199,7 @@ test('长工序、详情与参数分别滚动，标题和主操作仍可见', as
   expect(await parameters.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
   await expect(
-    page.getByRole('button', { name: '生成程序并进入审核', exact: true }),
+    page.getByRole('button', { name: '查看参考程序并进入审核', exact: true }),
   ).toBeInViewport({ ratio: 1 })
   await shot(page, info, 'planning-long-list-parameters')
 })

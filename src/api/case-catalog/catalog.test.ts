@@ -18,6 +18,34 @@ const document = () => validateCaseDocument(read('golden-b7/v1.json'))
 const index = () => validateCaseIndex(read('index.json'))
 
 describe('标准案例契约', () => {
+  it('v2 只替换 Demo 填写项，保留 v1 加工数据及历史证据边界', async () => {
+    const first = document()
+    const second = validateCaseDocument(read('golden-b7/v2.json'))
+    await expect(verifyCaseVersion(second, index().cases[0]!, 'v2')).resolves.toEqual(second)
+    const withoutInputs = (value: CaseDocument) =>
+      value.processPlan.operations.map((operation) => ({ ...operation, onsiteFields: [] }))
+    expect(withoutInputs(second)).toEqual(withoutInputs(first))
+    expect(second.processPlan.taskFields).toEqual(first.processPlan.taskFields)
+    expect(second.processPlan.operations.map((op) => op.onsiteFields.length)).toEqual([
+      0, 0, 0, 0, 1, 0,
+    ])
+    expect(second.processPlan.operations[4]!.onsiteFields[0]).toMatchObject({
+      id: 'bore-surface-ra',
+      name: '内孔表面粗糙度要求 Ra',
+      unit: 'μm',
+      value: null,
+      source: 'unknown',
+      inputKind: 'number',
+      requirement: 'demo_required',
+    })
+    expect(caseToProcessPlan(second).operations[4]!.onsiteMeasurements[0]?.unit).toBe('μm')
+    expect(second.programAssets.map((asset) => ({ ...asset, caseVersion: 'v1' }))).toEqual(
+      first.programAssets.map((asset) => ({ ...asset, caseVersion: 'v1' })),
+    )
+    expect(
+      second.verificationEvidence.map((evidence) => ({ ...evidence, caseVersion: 'v1' })),
+    ).toEqual(first.verificationEvidence.map((evidence) => ({ ...evidence, caseVersion: 'v1' })))
+  })
   it('同一案例的不同版本产生不同会话身份，索引描述更新不改写历史快照', async () => {
     const first = document(),
       second = document()
@@ -166,7 +194,7 @@ describe('标准案例契约', () => {
     await expect(
       verifyCaseVersion(document(), { ...summary, caseId: 'other' }, 'v1'),
     ).rejects.toThrow('案例 ID')
-    summary.versions[0]!.contentDigest = '0'.repeat(64)
+    summary.versions.find((entry) => entry.version === 'v1')!.contentDigest = '0'.repeat(64)
     await expect(verifyCaseVersion(document(), summary, 'v1')).rejects.toThrow('摘要')
   })
 

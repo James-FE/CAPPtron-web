@@ -10,6 +10,11 @@
       "tags": ["车削", "环件", "Golden-B7"],
       "versions": [
         {
+          "version": "v2",
+          "path": "golden-b7/v2.json",
+          "contentDigest": "0be03ff68c7c8f62cbf79a6ed1ed6b5b1c947d78f444df67cd42206a05602845"
+        },
+        {
           "version": "v1",
           "path": "golden-b7/v1.json",
           "contentDigest": "560cb245471b25bb83fec83a3318969173ed81263edbc8d760f66e9d82ed0dec"

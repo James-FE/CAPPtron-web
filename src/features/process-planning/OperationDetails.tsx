@@ -32,7 +32,7 @@ export function OperationDetails({
             [
               ['steps', '工步详情'],
               ['resources', '参数与资源'],
-              ['onsite', '现场信息'],
+              ['onsite', '补充信息'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -81,7 +81,7 @@ export function OperationDetails({
               ))}
             </section>
             <section>
-              <h4>现场信息与说明</h4>
+              <h4>补充信息与说明</h4>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
                   另有 {plan.taskMeasurements.length}{' '}
@@ -90,8 +90,8 @@ export function OperationDetails({
               )}
               <p className="warning-text">
                 {operation.onsiteMeasurements.length
-                  ? `${operation.onsiteMeasurements.length} 项现场信息待人工核对。`
-                  : '暂无现场测量项；不代表现场条件已确认。'}
+                  ? `${operation.onsiteMeasurements.length} 项工序专用信息，请按字段说明补充或核对。`
+                  : '暂无工序专用补充项；不代表加工要求或现场条件已确认。'}
               </p>
               <p className="muted-text">{operation.notes ?? '暂无补充说明'}</p>
             </section>
@@ -137,10 +137,10 @@ export function OperationDetails({
               </ul>
             </section>
             <section className="onsite-callout">
-              <h4>现场参数与约束</h4>
+              <h4>加工要求与现场信息</h4>
               <p>当前工序专用 {operation.onsiteMeasurements.length} 项 · 填写草稿不代表现场确认</p>
               <button className="button" onClick={() => onView('onsite')}>
-                查看并补充现场信息
+                查看并补充信息
               </button>
             </section>
           </>
@@ -148,7 +148,7 @@ export function OperationDetails({
         {view === 'onsite' && (
           <>
             <section>
-              <h4>现场参数与约束</h4>
+              <h4>加工要求与现场信息</h4>
               <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
@@ -156,13 +156,13 @@ export function OperationDetails({
                 </p>
               )}
             </section>
-            <section aria-label="当前工序专用现场信息">
+            <section aria-label="当前工序专用补充信息">
               <h4>当前工序专用信息</h4>
               <ParameterFields
                 {...fieldProps}
                 section="onsite"
                 parameters={operation.onsiteMeasurements}
-                emptyText="暂无现场测量项，等待上游提供；不代表无需确认。"
+                emptyText="暂无工序专用补充项，等待上游提供；不代表无需确认。"
               />
             </section>
           </>

@@ -13,7 +13,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "case": {
       "type": "object",
@@ -422,7 +422,7 @@
         },
         "unit": {
           "type": "string",
-          "enum": ["mm", "m/min", "mm/r", "r/min", "mm/min", "deg", "%"]
+          "enum": ["mm", "μm", "m/min", "mm/r", "r/min", "mm/min", "deg", "%"]
         },
         "source": {
           "type": "string",

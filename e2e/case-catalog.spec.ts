@@ -4,19 +4,19 @@ import { expect, test } from '@playwright/test'
 import type { Page, TestInfo } from '@playwright/test'
 import type { CaseDocument, CaseIndex } from '../src/api/case-catalog/types'
 
-const choice = (id = 'golden-b7', version = 'v1') => JSON.stringify(['case', id, version])
+const choice = (id = 'golden-b7', version = 'v2') => JSON.stringify(['case', id, version])
 const readIndex = (): CaseIndex =>
   JSON.parse(readFileSync('public/case-catalog/index.json', 'utf8'))
 const readDocument = (): CaseDocument =>
-  JSON.parse(readFileSync('public/case-catalog/golden-b7/v1.json', 'utf8'))
+  JSON.parse(readFileSync('public/case-catalog/golden-b7/v2.json', 'utf8'))
 
 async function enter(page: Page) {
   await page.clock.install()
   await page.goto('/')
   await page.getByRole('button', { name: '02 工艺决策' }).click()
-  await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v1' })).toBeAttached()
+  await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v2' })).toBeAttached()
 }
-async function load(page: Page, id = 'golden-b7', version = 'v1') {
+async function load(page: Page, id = 'golden-b7', version = 'v2') {
   await page.getByLabel('演示方案').selectOption(choice(id, version))
   await page.getByRole('button', { name: '加载 Demo 方案' }).click()
   // 等待网络及摘要校验完成后才推进演示计时器。
@@ -39,7 +39,7 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   })
   await enter(page)
   await load(page)
-  expect(requested.some((url) => url.endsWith('/golden-b7/v1.json'))).toBe(true)
+  expect(requested.some((url) => url.endsWith('/golden-b7/v2.json'))).toBe(true)
   const operations = page.getByRole('navigation', { name: '工序列表' })
   await expect(operations.getByRole('button')).toHaveCount(6)
   await page.getByRole('button', { name: '参数与资源', exact: true }).click()
@@ -53,8 +53,14 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   })
   await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
   await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveCount(0)
-  await expect(page.getByLabel('切断刀具与刀柄装配核对', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveValue('')
+  await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('05 内孔精车')
+  await expect(operations.getByRole('button', { name: /06 切断/ })).not.toContainText('待填')
+  await expect(page.getByText(/加工要求补充：/)).toContainText('不是 Golden-B7 已核实要求')
   await shot(page, info, 'catalog-golden-b7-onsite')
+  // 仅用于验证输入及版本隔离，不代表该零件的实际图纸要求。
+  await page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true }).fill('1.6')
   await page.getByRole('button', { name: '打开 Agent 协同' }).click()
   await page.getByLabel('消息', { exact: true }).fill('案例版本对应哪个历史程序？')
   await page.getByRole('button', { name: '发送演示消息' }).click()
@@ -70,6 +76,16 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await expect(page.getByRole('log')).toContainText('案例版本对应哪个历史程序')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: '生成程序并进入审核', exact: true })).toBeDisabled()
+  await load(page, 'golden-b7', 'v1')
+  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await expect(page.getByLabel('切断刀具与刀柄装配核对', { exact: true })).toHaveValue('')
+  await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveCount(0)
+  await page.getByLabel('演示方案').selectOption(choice())
+  await page.getByRole('button', { name: '加载 Demo 方案' }).click()
+  await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
+  await operations.getByRole('button', { name: /05 内孔精车/ }).click()
+  await page.getByRole('button', { name: '补充信息', exact: true }).click()
+  await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveValue('1.6')
 })
 
 test('损坏 JSON 与索引失败可重试，不回退 Fixture', async ({ page }, info) => {
@@ -81,8 +97,8 @@ test('损坏 JSON 与索引失败可重试，不回退 Fixture', async ({ page }
   await expect(page.getByRole('alert')).toContainText('503')
   await page.unroute('**/case-catalog/index.json')
   await page.getByRole('button', { name: '重试案例索引' }).click()
-  await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v1' })).toBeAttached()
-  await page.route('**/case-catalog/golden-b7/v1.json', (route) =>
+  await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v2' })).toBeAttached()
+  await page.route('**/case-catalog/golden-b7/v2.json', (route) =>
     route.fulfill({ contentType: 'application/json', body: '{broken' }),
   )
   await page.getByLabel('演示方案').selectOption(choice())
@@ -90,7 +106,7 @@ test('损坏 JSON 与索引失败可重试，不回退 Fixture', async ({ page }
   await expect(page.getByRole('heading', { name: '参考案例加载失败' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: '工序列表' })).toHaveCount(0)
   await shot(page, info, 'catalog-error-retry')
-  await page.unroute('**/case-catalog/golden-b7/v1.json')
+  await page.unroute('**/case-catalog/golden-b7/v2.json')
   await page.getByRole('button', { name: '重试案例加载' }).click()
   await expect(page.getByRole('progressbar')).toBeVisible()
 })
@@ -100,13 +116,13 @@ test('加载中换有效模型，迟到结果不得串入新任务', async ({ pa
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route('**/case-catalog/golden-b7/v1.json', async (route) => {
+  await page.route('**/case-catalog/golden-b7/v2.json', async (route) => {
     await gate
     await route.fulfill({ json: readDocument() })
   })
   await enter(page)
   await page.getByLabel('演示方案').selectOption(choice())
-  const request = page.waitForRequest('**/case-catalog/golden-b7/v1.json')
+  const request = page.waitForRequest('**/case-catalog/golden-b7/v2.json')
   await page.getByRole('button', { name: '加载 Demo 方案' }).click()
   await request
   await page.getByLabel('选择 STEP 模型文件').setInputFiles({
@@ -114,7 +130,7 @@ test('加载中换有效模型，迟到结果不得串入新任务', async ({ pa
     mimeType: 'application/octet-stream',
     buffer: Buffer.from('TEST'),
   })
-  const response = page.waitForResponse('**/case-catalog/golden-b7/v1.json')
+  const response = page.waitForResponse('**/case-catalog/golden-b7/v2.json')
   release!()
   await response
   await expect(page.getByText('暂无可用工艺方案')).toBeVisible()

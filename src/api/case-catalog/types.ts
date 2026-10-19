@@ -21,7 +21,7 @@ export type CaseField = {
   id: string
   name: string
   value: number | string | null
-  unit?: 'mm' | 'm/min' | 'mm/r' | 'r/min' | 'mm/min' | 'deg' | '%'
+  unit?: 'mm' | 'μm' | 'm/min' | 'mm/r' | 'r/min' | 'mm/min' | 'deg' | '%'
   source: 'historical_record' | 'template' | 'upstream' | 'human' | 'unknown'
   status: 'provided' | 'missing' | 'pending'
   inputKind: 'number' | 'text'
@@ -83,7 +83,7 @@ export type VerificationEvidence = VersionIdentity & {
   limitations: string[]
 }
 export type CaseDocument = {
-  schemaVersion: '1.0'
+  schemaVersion: '1.0' | '1.1'
   case: CaseMetadata
   caseVersion: { caseId: string; version: string }
   contentDigest: string

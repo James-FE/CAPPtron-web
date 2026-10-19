@@ -57,7 +57,9 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveValue('')
   await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('05 内孔精车')
   await expect(operations.getByRole('button', { name: /06 切断/ })).not.toContainText('待填')
-  await expect(page.getByText(/加工要求补充：/)).toContainText('不是 Golden-B7 已核实要求')
+  await expect(page.getByText(/加工要求补充：/)).toContainText(
+    '加工要求补充：参考内径为 Ø39 mm，请依据图纸或技术要求填写目标 Ra。',
+  )
   await shot(page, info, 'catalog-golden-b7-onsite')
   // 仅用于验证输入及版本隔离，不代表该零件的实际图纸要求。
   await page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true }).fill('1.6')
@@ -76,13 +78,7 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await expect(page.getByRole('log')).toContainText('案例版本对应哪个历史程序')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: '生成程序并进入审核', exact: true })).toBeDisabled()
-  await load(page, 'golden-b7', 'v1')
-  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
-  await expect(page.getByLabel('切断刀具与刀柄装配核对', { exact: true })).toHaveValue('')
-  await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveCount(0)
-  await page.getByLabel('演示方案').selectOption(choice())
-  await page.getByRole('button', { name: '加载 Demo 方案' }).click()
-  await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
+  await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v1' })).toHaveCount(0)
   await operations.getByRole('button', { name: /05 内孔精车/ }).click()
   await page.getByRole('button', { name: '补充信息', exact: true }).click()
   await expect(page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true })).toHaveValue('1.6')

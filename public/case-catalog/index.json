@@ -12,12 +12,7 @@
         {
           "version": "v2",
           "path": "golden-b7/v2.json",
-          "contentDigest": "0be03ff68c7c8f62cbf79a6ed1ed6b5b1c947d78f444df67cd42206a05602845"
-        },
-        {
-          "version": "v1",
-          "path": "golden-b7/v1.json",
-          "contentDigest": "560cb245471b25bb83fec83a3318969173ed81263edbc8d760f66e9d82ed0dec"
+          "contentDigest": "6059f7f9e57b389ee734ecb75c615128f3c097e341f6221d7caad3e3926308a1"
         }
       ]
     }

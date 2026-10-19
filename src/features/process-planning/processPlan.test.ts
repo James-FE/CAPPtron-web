@@ -45,7 +45,7 @@ describe('演示方案与前端展示契约', () => {
   it('环件按 Golden-B7 六工序展示，共用现场信息不挂在外圆精车上', () => {
     const plan = caseToProcessPlan(
       validateCaseDocument(
-        JSON.parse(readFileSync('public/case-catalog/golden-b7/v1.json', 'utf8')),
+        JSON.parse(readFileSync('public/case-catalog/golden-b7/v2.json', 'utf8')),
       ),
     )
     expect(plan.operations.map((item) => item.name)).toEqual([
@@ -62,7 +62,7 @@ describe('演示方案与前端展示契约', () => {
       plan.operations.find((item) => item.id === 'ring-finish-od')?.onsiteMeasurements,
     ).toEqual([])
     expect(
-      plan.operations.find((item) => item.id === 'ring-cutoff')?.onsiteMeasurements,
+      plan.operations.find((item) => item.id === 'ring-finish-id')?.onsiteMeasurements,
     ).toHaveLength(1)
     expect(plan.operations[0]!.parameters[0]).toMatchObject({
       name: '恒线速 G96',

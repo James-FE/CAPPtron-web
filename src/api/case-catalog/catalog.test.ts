@@ -14,22 +14,19 @@ import type { CaseDocument } from './types'
 
 const read = (path: string) =>
   JSON.parse(readFileSync(`public/case-catalog/${path}`, 'utf8')) as unknown
-const document = () => validateCaseDocument(read('golden-b7/v1.json'))
+const document = () => validateCaseDocument(read('golden-b7/v2.json'))
 const index = () => validateCaseIndex(read('index.json'))
 
 describe('标准案例契约', () => {
-  it('v2 只替换 Demo 填写项，保留 v1 加工数据及历史证据边界', async () => {
-    const first = document()
-    const second = validateCaseDocument(read('golden-b7/v2.json'))
-    await expect(verifyCaseVersion(second, index().cases[0]!, 'v2')).resolves.toEqual(second)
-    const withoutInputs = (value: CaseDocument) =>
-      value.processPlan.operations.map((operation) => ({ ...operation, onsiteFields: [] }))
-    expect(withoutInputs(second)).toEqual(withoutInputs(first))
-    expect(second.processPlan.taskFields).toEqual(first.processPlan.taskFields)
-    expect(second.processPlan.operations.map((op) => op.onsiteFields.length)).toEqual([
+  it('正式目录仅保留 v2，Ra 为未填写目标要求，历史验证仍有限制', async () => {
+    const value = document()
+    const summary = index().cases[0]!
+    expect(summary.versions.map((entry) => entry.version)).toEqual(['v2'])
+    await expect(verifyCaseVersion(value, summary, 'v2')).resolves.toEqual(value)
+    expect(value.processPlan.operations.map((op) => op.onsiteFields.length)).toEqual([
       0, 0, 0, 0, 1, 0,
     ])
-    expect(second.processPlan.operations[4]!.onsiteFields[0]).toMatchObject({
+    expect(value.processPlan.operations[4]!.onsiteFields[0]).toMatchObject({
       id: 'bore-surface-ra',
       name: '内孔表面粗糙度要求 Ra',
       unit: 'μm',
@@ -37,32 +34,29 @@ describe('标准案例契约', () => {
       source: 'unknown',
       inputKind: 'number',
       requirement: 'demo_required',
+      description: '加工要求补充：参考内径为 Ø39 mm，请依据图纸或技术要求填写目标 Ra。',
     })
-    expect(caseToProcessPlan(second).operations[4]!.onsiteMeasurements[0]?.unit).toBe('μm')
-    expect(second.programAssets.map((asset) => ({ ...asset, caseVersion: 'v1' }))).toEqual(
-      first.programAssets.map((asset) => ({ ...asset, caseVersion: 'v1' })),
-    )
-    expect(
-      second.verificationEvidence.map((evidence) => ({ ...evidence, caseVersion: 'v1' })),
-    ).toEqual(first.verificationEvidence.map((evidence) => ({ ...evidence, caseVersion: 'v1' })))
+    expect(caseToProcessPlan(value).operations[4]!.onsiteMeasurements[0]?.unit).toBe('μm')
+    expect(value.verificationEvidence[0]?.result).toBe('passed_with_limits')
+    expect(value.verificationEvidence[0]?.limitations.length).toBeGreaterThan(0)
   })
   it('同一案例的不同版本产生不同会话身份，索引描述更新不改写历史快照', async () => {
     const first = document(),
       second = document()
-    second.caseVersion.version = 'v2'
+    second.caseVersion.version = 'test-v3'
     for (const item of [...second.programAssets, ...second.verificationEvidence])
-      item.caseVersion = 'v2'
+      item.caseVersion = 'test-v3'
     second.contentDigest = await calculateContentDigest(second)
     expect(caseToProcessPlan(first).id).not.toBe(caseToProcessPlan(second).id)
     const summary = index().cases[0]!
     summary.description = '当前索引描述更新，历史版本描述保持原值'
-    await expect(verifyCaseVersion(first, summary, 'v1')).resolves.toEqual(first)
+    await expect(verifyCaseVersion(first, summary, 'v2')).resolves.toEqual(first)
   })
   it('维护脚本与浏览器契约使用同一摘要算法', () => {
     expect(
       execFileSync(
         process.execPath,
-        ['scripts/case-catalog-digest.mjs', 'public/case-catalog/golden-b7/v1.json'],
+        ['scripts/case-catalog-digest.mjs', 'public/case-catalog/golden-b7/v2.json'],
         { encoding: 'utf8' },
       ).trim(),
     ).toBe(document().contentDigest)
@@ -189,16 +183,16 @@ describe('标准案例契约', () => {
       value.contentDigest,
     )
     value.processPlan.operations[0]!.parameters[0]!.value = 296
-    await expect(verifyCaseVersion(value, summary, 'v1')).rejects.toThrow('摘要')
-    await expect(verifyCaseVersion(document(), summary, 'v2')).rejects.toThrow('版本')
+    await expect(verifyCaseVersion(value, summary, 'v2')).rejects.toThrow('摘要')
+    await expect(verifyCaseVersion(document(), summary, 'test-v3')).rejects.toThrow('版本')
     await expect(
-      verifyCaseVersion(document(), { ...summary, caseId: 'other' }, 'v1'),
+      verifyCaseVersion(document(), { ...summary, caseId: 'other' }, 'v2'),
     ).rejects.toThrow('案例 ID')
-    summary.versions.find((entry) => entry.version === 'v1')!.contentDigest = '0'.repeat(64)
-    await expect(verifyCaseVersion(document(), summary, 'v1')).rejects.toThrow('摘要')
+    summary.versions.find((entry) => entry.version === 'v2')!.contentDigest = '0'.repeat(64)
+    await expect(verifyCaseVersion(document(), summary, 'v2')).rejects.toThrow('摘要')
   })
 
-  it('六工序、全部切削参数、刀具及草稿定义与迁移前一致', () => {
+  it('六工序、全部历史切削参数和刀具保持一致，展示当前草稿定义', () => {
     const value = document(),
       plan = caseToProcessPlan(value)
     expect(plan.operations.map((op) => op.name)).toEqual([
@@ -228,7 +222,7 @@ describe('标准案例契约', () => {
       'T0404 · N151.2-185-20-5G',
     ])
     expect(plan.taskMeasurements).toHaveLength(5)
-    expect(plan.operations.map((op) => op.onsiteMeasurements.length)).toEqual([0, 0, 0, 0, 0, 1])
+    expect(plan.operations.map((op) => op.onsiteMeasurements.length)).toEqual([0, 0, 0, 0, 1, 0])
     expect(value.programAssets[0]?.availability).toBe('metadata_only')
     plan.operations[0]!.parameters[0]!.value = 0
     expect(value.processPlan.operations[0]!.parameters[0]!.value).toBe(295)
@@ -244,14 +238,14 @@ describe('JSON Reader', () => {
     )
     const reader = new JsonCaseCatalogReader('/nested/app/', request)
     expect(await reader.listCases()).toHaveLength(1)
-    expect((await reader.getCaseVersion('golden-b7', 'v1')).case.id).toBe('golden-b7')
+    expect((await reader.getCaseVersion('golden-b7', 'v2')).case.id).toBe('golden-b7')
     expect(request.mock.calls.map(([url]) => url)).toEqual([
       '/nested/app/case-catalog/index.json',
       '/nested/app/case-catalog/index.json',
-      '/nested/app/case-catalog/golden-b7/v1.json',
+      '/nested/app/case-catalog/golden-b7/v2.json',
     ])
     expect(request).toHaveBeenLastCalledWith(
-      '/nested/app/case-catalog/golden-b7/v1.json',
+      '/nested/app/case-catalog/golden-b7/v2.json',
       expect.objectContaining({ cache: 'no-store' }),
     )
   })

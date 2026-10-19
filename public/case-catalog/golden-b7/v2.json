@@ -12,7 +12,7 @@
     "caseId": "golden-b7",
     "version": "v2"
   },
-  "contentDigest": "0be03ff68c7c8f62cbf79a6ed1ed6b5b1c947d78f444df67cd42206a05602845",
+  "contentDigest": "6059f7f9e57b389ee734ecb75c615128f3c097e341f6221d7caad3e3926308a1",
   "processPlan": {
     "id": "golden-b7-plan",
     "name": "Ring_A · Golden-B7 环件示例",
@@ -345,7 +345,7 @@
           {
             "id": "bore-surface-ra",
             "name": "内孔表面粗糙度要求 Ra",
-            "description": "加工要求补充：参考内径为 Ø39 mm，当前案例资料未提供该内孔表面的粗糙度要求。请依据图纸或技术要求填写目标 Ra；未知时留空待确认。这是新增 Demo 填写项，不是 Golden-B7 已核实要求或加工后实测结果；填写不会优化或改写切削参数。",
+            "description": "加工要求补充：参考内径为 Ø39 mm，请依据图纸或技术要求填写目标 Ra。",
             "unit": "μm",
             "value": null,
             "status": "missing",

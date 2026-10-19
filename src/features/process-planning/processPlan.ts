@@ -4,7 +4,7 @@ export type Parameter = {
   name: string
   value: string | number | null
   unit?: string
-  source: 'mock' | 'template' | 'upstream' | 'human' | 'unknown'
+  source: 'historical_record' | 'mock' | 'template' | 'upstream' | 'human' | 'unknown'
   status: 'provided' | 'missing' | 'pending'
   editable: boolean
   required?: boolean

@@ -6,6 +6,7 @@ import type { Drafts } from './processPlan'
 export type { Drafts } from './processPlan'
 
 const sources: Record<Parameter['source'], string> = {
+  historical_record: '历史记录',
   mock: 'Mock 演示值',
   template: '模板',
   upstream: '上游方案',

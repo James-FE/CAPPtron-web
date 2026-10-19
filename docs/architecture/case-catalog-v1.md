@@ -72,7 +72,8 @@
 
 - `value`：有限数值、文本或 null；数字输入只允许数值/null，文本输入只允许文本/null。
 - `unit`：当前读取端支持 `μm`（Schema 1.1 新增）、`mm`、`m/min`、`mm/r`、`r/min`、`mm/min`、`deg`、`%`；文本及无量纲项可省略。新增单位需明确修改受支持契约和测试，不能把未知单位静默映射成另一单位。
-- `source`：`historical_record`、`template`、`upstream`、`human`、`unknown`。本轮不提供 Agent 推荐来源。
+- `source`：`historical_record`、`template`、`upstream`、`human`、`unknown`。Adapter 无损保留来源；historical_record 在前端显示“历史记录”，不转换为“模板”。合成 Fixture 的 mock 仍显示“Mock 演示值”。本轮不提供 Agent 推荐来源。
+- 单位兼容性由 JSON Schema 条件直接校验：1.0 仅支持上述旧单位，拒绝 μm；1.1 额外支持 μm。约束覆盖工序参数、工步参数、任务共用字段和工序专用字段，不依赖摘要校验；未知版本及单位仍拒绝。
 - `status`：`provided`、`missing`、`pending`；missing 必须为 null，provided 不能为空。
 - `inputKind`：number 或 text；`editPolicy`：read_only 或 demo_input。
 - `requirement`：optional 或 demo_required。后者只表示 Demo 按钮的填写门槛，不是制造规范或正式批准。

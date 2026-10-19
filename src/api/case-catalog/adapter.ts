@@ -2,10 +2,9 @@ import type { Parameter, ProcessPlan } from '../../features/process-planning/pro
 import type { CaseDocument, CaseField } from './types'
 
 function fieldToViewModel(field: CaseField): Parameter {
-  const { editPolicy, requirement, source, ...rest } = field
+  const { editPolicy, requirement, ...rest } = field
   return {
     ...rest,
-    source: source === 'historical_record' ? 'template' : source,
     editable: editPolicy === 'demo_input',
     required: requirement === 'demo_required',
   }

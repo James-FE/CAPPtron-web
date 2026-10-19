@@ -68,7 +68,7 @@ describe('演示方案与前端展示契约', () => {
       name: '恒线速 G96',
       value: 295,
       unit: 'm/min',
-      source: 'template',
+      source: 'historical_record',
     })
   })
 

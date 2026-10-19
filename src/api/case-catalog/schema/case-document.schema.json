@@ -422,7 +422,14 @@
         },
         "unit": {
           "type": "string",
-          "enum": ["mm", "μm", "m/min", "mm/r", "r/min", "mm/min", "deg", "%"]
+          "anyOf": [
+            {
+              "$ref": "#/definitions/unit10"
+            },
+            {
+              "const": "μm"
+            }
+          ]
         },
         "source": {
           "type": "string",
@@ -507,6 +514,80 @@
           }
         }
       ]
+    },
+    "unit10": {
+      "type": "string",
+      "enum": ["mm", "m/min", "mm/r", "r/min", "mm/min", "deg", "%"]
+    },
+    "fieldUnits10": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "$ref": "#/definitions/unit10"
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "$comment": "Schema 1.0 的四类参数组只允许旧单位；1.1 由共享 field 定义额外允许 μm。",
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": "1.0"
+          }
+        },
+        "required": ["schemaVersion"]
+      },
+      "then": {
+        "properties": {
+          "processPlan": {
+            "type": "object",
+            "properties": {
+              "taskFields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/fieldUnits10"
+                }
+              },
+              "operations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "parameters": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/fieldUnits10"
+                      }
+                    },
+                    "onsiteFields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/fieldUnits10"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "parameters": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/definitions/fieldUnits10"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -18,6 +18,34 @@ const document = () => validateCaseDocument(read('golden-b7/v2.json'))
 const index = () => validateCaseIndex(read('index.json'))
 
 describe('标准案例契约', () => {
+  it.each(['historical_record', 'template', 'upstream', 'human', 'unknown'] as const)(
+    'Adapter 在四类字段中无损保留 %s 来源及参数属性',
+    (source) => {
+      const value = document()
+      const operation = value.processPlan.operations[0]!
+      const field = { ...operation.parameters[0]!, source }
+      operation.parameters = [{ ...field }]
+      operation.steps[0]!.parameters = [{ ...field }]
+      operation.onsiteFields = [{ ...field }]
+      value.processPlan.taskFields = [{ ...field }]
+      const before = JSON.stringify(value)
+      const plan = caseToProcessPlan(value)
+      const mapped = plan.operations[0]!
+      const { editPolicy, requirement, ...properties } = field
+      for (const parameter of [
+        mapped.parameters[0],
+        mapped.steps[0]!.parameters[0],
+        mapped.onsiteMeasurements[0],
+        plan.taskMeasurements?.[0],
+      ])
+        expect(parameter).toEqual({
+          ...properties,
+          editable: editPolicy === 'demo_input',
+          required: requirement === 'demo_required',
+        })
+      expect(JSON.stringify(value)).toBe(before)
+    },
+  )
   it('正式目录仅保留 v2，Ra 为未填写目标要求，历史验证仍有限制', async () => {
     const value = document()
     const summary = index().cases[0]!

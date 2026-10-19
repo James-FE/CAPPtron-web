@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "cases": [
+    {
+      "caseId": "golden-b7",
+      "name": "Golden-B7 环件",
+      "description": "六道车削工序的历史工程参考；在工作台中以 Demo 会话使用。",
+      "partType": "ring",
+      "sourceCategory": "engineering_reference",
+      "tags": ["车削", "环件", "Golden-B7"],
+      "versions": [
+        {
+          "version": "v2",
+          "path": "golden-b7/v2.json",
+          "contentDigest": "6059f7f9e57b389ee734ecb75c615128f3c097e341f6221d7caad3e3926308a1"
+        }
+      ]
+    }
+  ]
+}

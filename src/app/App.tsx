@@ -4,6 +4,7 @@ import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
 import { ModelInputPage } from '../pages/model-input/ModelInputPage'
 import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
+import { inputExampleCase } from '../api/case-catalog'
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -56,7 +57,7 @@ export default function App() {
       <ProcessPlanningPage
         key={sourceVersion}
         active={stage === 'planning'}
-        initialDemoPlan={selection.kind === 'demo' ? 'ring' : undefined}
+        initialCaseReference={selection.kind === 'demo' ? inputExampleCase : undefined}
         onUnavailable={setNotice}
       />
       {stage === 'planning' && error && (

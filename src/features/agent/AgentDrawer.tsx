@@ -92,7 +92,11 @@ export function AgentDrawer({
               onChange={(event) => onOperation(event.target.value)}
               disabled={!plan?.operations.length}
             >
-              {!plan?.operations.length && <option value="">暂无工序</option>}
+              {plan?.taskMeasurements?.length ? (
+                <option value="">任务级 · 共用信息</option>
+              ) : (
+                !plan?.operations.length && <option value="">暂无工序</option>
+              )}
               {plan?.operations.map((operation) => (
                 <option key={operation.id} value={operation.id}>
                   {operation.sequence} {operation.name}

@@ -3,12 +3,10 @@ import type {
   ProcessOperation,
   ProcessPlan,
 } from '../../features/process-planning/processPlan'
-import { createRingPlan } from './ringPlan'
 
-export type DemoPlanId = 'ring' | 'simple' | 'complex' | 'incomplete' | 'empty'
+export type DemoPlanId = 'simple' | 'complex' | 'incomplete' | 'empty'
 
 export const demoPlanOptions: { id: DemoPlanId; label: string }[] = [
-  { id: 'ring', label: 'Ring_A · 环件示例' },
   { id: 'simple', label: '简单案例 · 支架' },
   { id: 'complex', label: '复杂案例 · 壳体' },
   { id: 'incomplete', label: '不完整案例 · 毛坯' },
@@ -141,7 +139,6 @@ function createOperations(id: DemoPlanId): ProcessOperation[] {
 
 // 每次显式加载返回独立对象；不接收 File，也不推断本地模型对应的工艺。
 export function loadDemoPlan(id: DemoPlanId): ProcessPlan {
-  if (id === 'ring') return createRingPlan()
   const option = demoPlanOptions.find((item) => item.id === id)
   if (!option) throw new Error('未知的演示方案')
   return {

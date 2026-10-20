@@ -17,10 +17,12 @@ import { ProgramDiff } from '../../features/program-review/ProgramDiff'
 export function ProgramReviewPage({
   workflow,
   onBack,
+  onOpenAgent,
   reader = localProgramContentReader,
 }: {
   workflow: WorkflowSession
   onBack: () => void
+  onOpenAgent?: () => void
   reader?: ProgramContentReader
 }) {
   const { session, updateSession, readiness } = workflow
@@ -41,6 +43,7 @@ export function ProgramReviewPage({
     context: number
   } | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
+  const expandButton = useRef<HTMLButtonElement>(null)
   const updateRef = useRef(updateSession)
   useEffect(() => {
     updateRef.current = updateSession
@@ -143,18 +146,32 @@ export function ProgramReviewPage({
     document?.review?.revision === document?.revision &&
     document?.review?.contextRevision === session?.contextRevision &&
     !!document?.review
+  const reviewStatus =
+    document?.source === 'demo_fixture'
+      ? '仅测试 · 不可审核'
+      : reviewed
+        ? '已人工演示确认'
+        : document?.reviewInvalidated
+          ? '需要重新审核'
+          : '待人工演示确认'
   return (
     <section
       className={`program-review-page${expanded ? ' code-expanded' : ''}`}
       aria-labelledby="review-title"
+      onKeyDown={(event) => {
+        // 对话框优先处理 Escape，关闭对话框不会同时退出编辑视图。
+        if (expanded && event.key === 'Escape' && !event.defaultPrevented && !confirmation) {
+          event.preventDefault()
+          setExpanded(false)
+          expandButton.current?.focus()
+        }
+      }}
     >
       <header className="review-heading">
         <div className="review-title">
           <h2 id="review-title">程序审核</h2>
           <span className="warning-text" role="status">
-            {document
-              ? `修订 r${document.revision} · ${document.source === 'demo_fixture' ? '仅测试 · 不可审核' : reviewed ? '已人工演示确认' : document.reviewInvalidated ? '需要重新审核' : '待人工演示确认'}`
-              : '尚无可审核正文'}
+            {document ? `修订 r${document.revision} · ${reviewStatus}` : '尚无可审核正文'}
           </span>
         </div>
         <button className="button" onClick={onBack}>
@@ -183,9 +200,17 @@ export function ProgramReviewPage({
         <div className="program-panel">
           <div className="program-toolbar">
             <div>
-              <h3>
-                {document.sourceAssetId} · 草稿 r{document.revision}
-              </h3>
+              <div className="program-document-heading">
+                <h3>
+                  {document.sourceAssetId}
+                  {expanded && ` / ${document.caseVersion}`} · 草稿 r{document.revision}
+                </h3>
+                {expanded && (
+                  <span className="warning-text focus-review-status" role="status">
+                    {reviewStatus}
+                  </span>
+                )}
+              </div>
               <p className="muted-text" role="status">
                 {document.draftText !== document.savedDraftText
                   ? '未保存修改'
@@ -194,6 +219,16 @@ export function ProgramReviewPage({
                     : '原始参考 · 尚未保存会话草稿'}{' '}
                 · {document.format.encoding.toUpperCase()} / {document.format.newline}
                 {document.format.bom ? ' / BOM' : ''}
+                {expanded && (
+                  <span className="warning-text">
+                    {' · '}
+                    {document.source === 'demo_fixture'
+                      ? '合成测试 · 不可执行'
+                      : document.source === 'historical_reference'
+                        ? '历史参考 · 本次未执行 CAM'
+                        : 'CAM 来源'}
+                  </span>
+                )}
               </p>
             </div>
             <div className="program-tools">
@@ -220,11 +255,19 @@ export function ProgramReviewPage({
               </button>
               <button
                 className="button"
+                ref={expandButton}
                 aria-pressed={expanded}
+                aria-expanded={expanded}
+                title={expanded ? '退出专注编辑（Esc）' : '展开代码，进入专注编辑'}
                 onClick={() => setExpanded(!expanded)}
               >
-                {expanded ? '收起代码' : '展开代码'}
+                {expanded ? '退出专注编辑' : '展开代码'}
               </button>
+              {expanded && onOpenAgent && (
+                <button className="button" onClick={onOpenAgent} aria-haspopup="dialog">
+                  Agent 协同
+                </button>
+              )}
             </div>
           </div>
           <div className={`program-content${diffOpen ? ' with-diff' : ''}`}>

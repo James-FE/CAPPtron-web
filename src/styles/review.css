@@ -185,9 +185,46 @@
 .review-dialog .program-tools {
   justify-content: flex-end;
 }
+.program-document-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.focus-review-status {
+  font-size: 13px;
+  line-height: 22px;
+}
+/* 用同一编辑器占满工作区，避免重新挂载导致光标和撤销栈丢失。 */
+.app-shell:has(.code-expanded) {
+  height: 100dvh;
+  min-height: 0;
+  max-width: none;
+  padding: 12px;
+}
+.app-shell:has(.code-expanded) > .app-header,
+.app-shell:has(.code-expanded) > .workflow-navigation,
+.app-shell:has(.code-expanded) > .file-info-bar,
+.app-shell:has(.code-expanded) > .app-footer,
+.app-shell:has(.code-expanded) .agent-bubble,
+.code-expanded .review-heading,
 .code-expanded .review-source,
-.code-expanded .review-evidence {
+.code-expanded .review-evidence,
+.code-expanded .program-actions .muted-text {
   display: none;
+}
+.app-shell:has(.code-expanded) > .app-main {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
+}
+.code-expanded {
+  gap: 8px;
+}
+.program-review-page.code-expanded .program-toolbar,
+.program-review-page.code-expanded .program-actions {
+  padding: 10px 16px;
 }
 @media (max-width: 1500px) {
   .review-title {

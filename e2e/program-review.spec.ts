@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page, TestInfo } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 const canonical = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
@@ -162,4 +162,71 @@ test('工艺与审核共享 Agent、工序、消息输入与程序草稿，模�
   await page.getByRole('button', { name: '03 程序审核' }).click()
   await expect(page.getByText('参考程序正文暂不可用')).toBeVisible()
   await expect(editor).toHaveCount(0)
+})
+
+test('专注编辑显著扩大正文，退出保留编辑历史，Agent 不遮挡操作', async ({ page }, info) => {
+  await installFixture(page)
+  await enter(page)
+  await page.getByRole('button', { name: '03 程序审核' }).click()
+  const editor = page.getByRole('textbox', { name: 'NC 程序草稿' })
+  await expect(editor).toBeVisible()
+  const originalEditor = await editor.elementHandle()
+  const scroll = page.locator('.cm-scroller')
+  const normal = (await scroll.boundingBox())!
+  await shot(page, info, 'review-focus-before')
+  await page.getByRole('button', { name: '展开代码' }).click()
+  const viewport = page.viewportSize()!
+  const expanded = (await scroll.boundingBox())!
+  expect(expanded.height).toBeGreaterThan(normal.height + 300)
+  expect(expanded.height).toBeGreaterThan(viewport.height * 0.75)
+  expect(expanded.width).toBeGreaterThan(viewport.width * 0.95)
+  expect(await editor.evaluate((element, original) => element === original, originalEditor)).toBe(
+    true,
+  )
+  await expect(page.locator('.app-header')).toBeHidden()
+  await expect(page.locator('.workflow-navigation')).toBeHidden()
+  await expect(page.locator('.file-info-bar')).toBeHidden()
+  await expect(page.locator('.app-footer')).toBeHidden()
+  await expect(page.getByRole('button', { name: '打开 Agent 协同' })).toBeHidden()
+  await expect(page.locator('.focus-review-status')).toContainText('仅测试 · 不可审核')
+  await expect(page.locator('.program-toolbar')).toContainText('合成测试 · 不可执行')
+  for (const name of ['退出专注编辑', '保存本次会话草稿', '确认可用', '下载程序草稿', 'Agent 协同'])
+    await expect(page.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 })
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true)
+  await shot(page, info, 'review-focus-expanded')
+  const measurements = info.outputPath('editor-viewport-measurements.json')
+  writeFileSync(measurements, JSON.stringify({ viewport, normal, expanded }, null, 2))
+  await info.attach('editor-viewport-measurements', {
+    path: measurements,
+    contentType: 'application/json',
+  })
+  await page.getByRole('button', { name: 'Agent 协同', exact: true }).click()
+  await page.getByLabel('消息', { exact: true }).fill('专注编辑中的未发送消息')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Agent 协同', exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: '退出专注编辑' })).toBeVisible()
+  await editor.click({ position: { x: 100, y: 20 } })
+  await page.keyboard.press('Control+Home')
+  await page.keyboard.insertText('FOCUS EDIT TEST\n')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: '展开代码' })).toBeFocused()
+  await expect(page.locator('.workflow-navigation')).toBeVisible()
+  await expect(page.locator('.file-info-bar')).toBeVisible()
+  await expect(page.locator('.app-header')).toBeVisible()
+  await expect(page.locator('.app-footer')).toBeVisible()
+  await expect(editor).toContainText('FOCUS EDIT TEST')
+  await page.getByRole('button', { name: '撤销', exact: true }).click()
+  await expect(editor).not.toContainText('FOCUS EDIT TEST')
+  await page.getByRole('button', { name: '展开代码' }).click()
+  await page.getByRole('button', { name: '重做', exact: true }).click()
+  await expect(editor).toContainText('FOCUS EDIT TEST')
+  await page.getByRole('button', { name: '查看差异', exact: true }).click()
+  await expect(page.getByRole('region', { name: '原始程序与当前草稿差异' })).toContainText(
+    '+ FOCUS EDIT TEST',
+  )
+  await shot(page, info, 'review-focus-diff')
+  await page.getByRole('button', { name: '退出专注编辑' }).click()
+  await expect(page.locator('.workflow-navigation')).toBeVisible()
+  await page.getByRole('button', { name: '打开 Agent 协同' }).click()
+  await expect(page.getByLabel('消息', { exact: true })).toHaveValue('专注编辑中的未发送消息')
 })

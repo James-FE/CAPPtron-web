@@ -32,7 +32,11 @@ export function WorkflowWorkspace({
       />
       {stage === 'review' && (
         <Suspense fallback={<p role="status">正在加载程序工作台…</p>}>
-          <ProgramReviewPage workflow={workflow} onBack={() => onNavigate('planning')} />
+          <ProgramReviewPage
+            workflow={workflow}
+            onBack={() => onNavigate('planning')}
+            onOpenAgent={() => setAgentOpen(true)}
+          />
         </Suspense>
       )}
       {stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}

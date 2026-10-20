@@ -12,7 +12,7 @@ const test = base.extend<{ browserChecks: void }>({
       })
       // 不依赖后端或外部网络；文件选择也不应产生上传请求。
       await page.route('**/*', (route) => {
-        return new URL(route.request().url()).origin === 'http://127.0.0.1:5173'
+        return new URL(route.request().url()).origin === 'http://127.0.0.1:5183'
           ? route.continue()
           : route.abort()
       })
@@ -74,8 +74,7 @@ test('模型输入初始页面与共享 Shell 可见且无溢出', async ({ page
   )
   for (const name of ['02 工艺决策', '03 程序审核']) {
     await expect(page.getByRole('button', { name })).not.toHaveAttribute('aria-current')
-    if (name === '03 程序审核')
-      await expect(page.getByRole('button', { name })).toHaveAttribute('title', /尚未实现/)
+    await expect(page.getByRole('button', { name })).not.toHaveAttribute('data-unavailable')
   }
   for (const name of [
     '01 模型输入',
@@ -165,7 +164,6 @@ test('使用示例直接进入工艺决策，返回后保留元数据并区分�
 test('未实现入口提供可关闭说明，鼠标和键盘操作均不推进业务阶段', async ({ page }) => {
   await page.goto('/')
   for (const [name, message] of [
-    ['03 程序审核', '程序审核页面尚未实现'],
     ['数据底座', '数据底座页面尚未实现'],
     ['查看解读结果', '设计文件解读尚未接入'],
   ]) {

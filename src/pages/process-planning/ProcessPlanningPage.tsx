@@ -1,165 +1,37 @@
-import { useEffect, useRef, useState } from 'react'
-import { loadDemoPlan } from '../../api/mock/processPlans'
-import type { DemoPlanId } from '../../api/mock/processPlans'
-import { caseCatalogReader, caseChoiceKey } from '../../api/case-catalog'
-import { caseToProcessPlan } from '../../api/case-catalog/adapter'
 import { PlanningSourceSelector } from '../../features/process-planning/PlanningSourceSelector'
 import { OperationDetails } from '../../features/process-planning/OperationDetails'
 import { TaskMeasurements } from '../../features/process-planning/TaskMeasurements'
-import type { DetailView } from '../../features/process-planning/OperationDetails'
-import type { Drafts } from '../../features/process-planning/ParameterFields'
-import { getPlanReadiness, resolveOperation } from '../../features/process-planning/processPlan'
 import { DemoPlanningProgress } from '../../features/process-planning/DemoPlanningProgress'
-import type { ProcessPlan } from '../../features/process-planning/processPlan'
-import { AgentBubble } from '../../features/agent/AgentBubble'
-import { AgentDrawer } from '../../features/agent/AgentDrawer'
-import { createDemoExchange } from '../../features/agent/agentSession'
-import type { AgentMessage } from '../../features/agent/agentSession'
-
-type PlanningSession = {
-  plan: ProcessPlan
-  selectedId: string | null
-  view: DetailView | 'task'
-  drafts: Drafts
-  messages: AgentMessage[]
-  input: string
-  startedAt: number
-  resultViewed: boolean
-}
-
-function createSession(plan: ProcessPlan): PlanningSession {
-  return {
-    plan,
-    selectedId: plan.initialOperationId ?? null,
-    view: 'steps',
-    drafts: {},
-    messages: [],
-    input: '',
-    startedAt: Date.now(),
-    resultViewed: false,
-  }
-}
+import type { WorkflowSession } from '../../features/process-planning/useWorkflowSession'
 
 export function ProcessPlanningPage({
   active,
-  onUnavailable,
-  initialCaseReference,
+  workflow,
+  onReview,
 }: {
   active: boolean
-  onUnavailable: (message: string) => void
-  initialCaseReference?: { caseId: string; version: string }
+  workflow: WorkflowSession
+  onReview: () => void
 }) {
-  const [demoChoice, setDemoChoice] = useState(
-    initialCaseReference
-      ? caseChoiceKey(initialCaseReference.caseId, initialCaseReference.version)
-      : 'simple',
-  )
-  const [currentId, setCurrentId] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<Record<string, PlanningSession>>({})
-  const [caseRequest, setCaseRequest] = useState(
-    initialCaseReference ? { ...initialCaseReference, attempt: 0 } : null,
-  )
-  const [caseLoad, setCaseLoad] = useState<{
-    state: 'idle' | 'loading' | 'error'
-    message?: string
-  }>({ state: initialCaseReference ? 'loading' : 'idle' })
-  useEffect(() => {
-    if (!caseRequest) return
-    let cancelled = false
-    caseCatalogReader
-      .getCaseVersion(caseRequest.caseId, caseRequest.version)
-      .then((document) => {
-        if (cancelled) return
-        const plan = caseToProcessPlan(document)
-        setSessions((current) =>
-          current[plan.id] ? current : { ...current, [plan.id]: createSession(plan) },
-        )
-        setCurrentId(plan.id)
-        setCaseLoad({ state: 'idle' })
-      })
-      .catch((reason: unknown) => {
-        if (!cancelled)
-          setCaseLoad({
-            state: 'error',
-            message: reason instanceof Error ? reason.message : '案例加载失败',
-          })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [caseRequest])
-  const [agentOpen, setAgentOpen] = useState(false)
-  const session = currentId ? sessions[currentId] : undefined
-  const operation = session ? resolveOperation(session.plan, session.selectedId) : null
-  const readiness = session ? getPlanReadiness(session.plan, session.drafts) : null
-  const taskMissing = readiness?.missing.filter((item) => item.section === 'task').length ?? 0
-  const operationMissing =
-    readiness?.missing.filter((item) => item.section !== 'task' && item.parameter.editable) ?? []
-  function operationPending(id: string) {
-    return (
-      readiness?.missing.filter(
-        (item) => item.section !== 'task' && item.operationId === id && item.parameter.editable,
-      ) ?? []
-    )
-  }
-  function fieldView(section: string): DetailView | 'task' {
-    return section === 'task'
-      ? 'task'
-      : section === 'onsite'
-        ? 'onsite'
-        : section === 'parameters'
-          ? 'resources'
-          : 'steps'
-  }
-  const selectedButtonRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (active && session?.resultViewed)
-      selectedButtonRef.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [active, operation?.id, session?.resultViewed])
-  function updateSession(update: (current: PlanningSession) => PlanningSession) {
-    if (!currentId) return
-    setSessions((current) => {
-      const existing = current[currentId]
-      return existing ? { ...current, [currentId]: update(existing) } : current
-    })
-  }
-  function loadDemo(reference?: { caseId: string; version: string }) {
-    if (reference) {
-      setCurrentId(null)
-      setCaseLoad({ state: 'loading' })
-      setCaseRequest({ caseId: reference.caseId, version: reference.version, attempt: Date.now() })
-      return
-    }
-    setCaseRequest(null)
-    setCaseLoad({ state: 'idle' })
-    const plan = loadDemoPlan(demoChoice as DemoPlanId)
-    setSessions((current) =>
-      current[plan.id]
-        ? current
-        : {
-            ...current,
-            [plan.id]: createSession(plan),
-          },
-    )
-    setCurrentId(plan.id)
-  }
-  function selectOperation(id: string) {
-    if (!id) {
-      updateSession((current) => ({ ...current, view: 'task' }))
-      return
-    }
-    updateSession((current) => ({
-      ...current,
-      selectedId: id,
-      view:
-        current.view === 'task'
-          ? fieldView(operationPending(id)[0]?.section ?? 'steps')
-          : current.view,
-    }))
-  }
-  function updateDraft(key: string, value: string) {
-    updateSession((current) => ({ ...current, drafts: { ...current.drafts, [key]: value } }))
-  }
+  const {
+    session,
+    operation,
+    readiness,
+    taskMissing,
+    operationMissing,
+    operationPending,
+    fieldView,
+    selectedButtonRef,
+    updateSession,
+    loadDemo,
+    selectOperation,
+    updateDraft,
+    demoChoice,
+    setDemoChoice,
+    caseLoad,
+    setCaseLoad,
+    setCaseRequest,
+  } = workflow
   return (
     <section className="process-planning-page" hidden={!active} aria-labelledby="planning-title">
       <header className="planning-heading">
@@ -308,7 +180,7 @@ export function ProcessPlanningPage({
             {!session
               ? '请先加载演示方案。'
               : readiness?.missing.length
-                ? `还有 ${readiness.missing.length} 项必填信息待补充；填写完整且格式有效后启用生成入口。`
+                ? `还有 ${readiness.missing.length} 项必填信息待补充；填写完整且格式有效后启用审核入口。`
                 : !readiness?.ready
                   ? '工序或工步信息不完整，暂不能进入下一步。'
                   : '必填信息已补齐 · 仅完成演示填写，未完成制造校核。'}
@@ -343,46 +215,13 @@ export function ProcessPlanningPage({
               className="button primary-button"
               disabled={!readiness?.ready}
               aria-describedby="planning-readiness"
-              onClick={() =>
-                onUnavailable(
-                  '程序审核属于 FE-003，当前尚未开放；未调用 CAM，未生成或验证 NC 程序。',
-                )
-              }
+              onClick={onReview}
             >
-              生成程序并进入审核
+              查看参考程序并进入审核
             </button>
           </div>
         </footer>
       )}
-      {active && <AgentBubble onOpen={() => setAgentOpen(true)} />}
-      <AgentDrawer
-        open={active && agentOpen}
-        onClose={() => setAgentOpen(false)}
-        plan={session?.plan ?? null}
-        operationId={session?.view === 'task' ? null : (operation?.id ?? null)}
-        onOperation={selectOperation}
-        messages={session?.messages ?? []}
-        input={session?.input ?? ''}
-        onInput={(input) => updateSession((current) => ({ ...current, input }))}
-        onSend={() => {
-          if (!session?.input.trim()) return
-          const messageOperation = session.view === 'task' ? null : operation
-          const context =
-            session.view === 'task'
-              ? '任务级 · 共用信息'
-              : operation
-                ? `${operation.sequence} ${operation.name}`
-                : '任务级 · 暂无工序'
-          updateSession((current) => ({
-            ...current,
-            input: '',
-            messages: [
-              ...current.messages,
-              ...createDemoExchange(current.input.trim(), messageOperation?.id ?? null, context),
-            ],
-          }))
-        }}
-      />
     </section>
   )
 }

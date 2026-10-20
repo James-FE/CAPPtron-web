@@ -12,7 +12,9 @@ export function AgentDrawer({
   input,
   onInput,
   onSend,
+  programContext,
 }: {
+  programContext?: string
   open: boolean
   onClose: () => void
   plan: ProcessPlan | null
@@ -104,6 +106,7 @@ export function AgentDrawer({
               ))}
             </select>
           </div>
+          {programContext && <p className="warning-text">{programContext}</p>}
           <p className="muted-text">仅同步 UI 上下文，未交给真实 Agent 读取。</p>
         </section>
         <div

@@ -101,7 +101,7 @@ describe('工艺决策与模型来源', () => {
     view('使用示例 Ring_A.step')
     await act(async () => {})
     await finishPlanning()
-    const generate = () => screen.getByRole('button', { name: '生成程序并进入审核' })
+    const generate = () => screen.getByRole('button', { name: '查看参考程序并进入审核' })
     const shared = () => screen.getByRole('button', { name: /^任务共用信息/ })
     const finishBore = () => operations().getByRole('button', { name: /05 内孔精车/ })
     expect(shared()).toHaveTextContent('待填 5')
@@ -234,7 +234,7 @@ describe('工艺决策与模型来源', () => {
   it('程序入口明确未调用 CAM 或生成 NC', async () => {
     render(<App />)
     planning()
-    expect(screen.getByRole('button', { name: '生成程序并进入审核' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '查看参考程序并进入审核' })).toBeDisabled()
     await demo()
     view('补充工序信息')
     for (const name of [/基准面加工/, /轮廓与孔加工/]) {
@@ -242,10 +242,14 @@ describe('工艺决策与模型来源', () => {
       fireEvent.change(screen.getByLabelText('毛坯实测高度'), { target: { value: '42' } })
       fireEvent.change(screen.getByLabelText('现场约束说明'), { target: { value: '演示装夹' } })
     }
-    expect(screen.getByRole('button', { name: '生成程序并进入审核' })).toBeEnabled()
-    view('生成程序并进入审核')
-    expect(screen.getByRole('status')).toHaveTextContent('未调用 CAM，未生成或验证 NC')
-    expect(screen.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '查看参考程序并进入审核' })).toBeEnabled()
+    await act(async () => {
+      view('查看参考程序并进入审核')
+      await import('../pages/program-review/ProgramReviewPage')
+    })
+    expect(screen.getByText('本次未执行 CAM 程序生成。')).toBeVisible()
+    expect(screen.getByText('参考程序正文暂不可用')).toBeVisible()
+    expect(screen.getByRole('button', { name: '03 程序审核' })).toHaveAttribute(
       'aria-current',
       'step',
     )

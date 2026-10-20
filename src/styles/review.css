@@ -1,0 +1,237 @@
+.program-review-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+.review-heading,
+.review-title,
+.program-toolbar,
+.program-tools,
+.program-actions,
+.editor-commands {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.review-heading,
+.program-toolbar,
+.program-actions {
+  justify-content: space-between;
+}
+.review-title {
+  gap: 32px;
+}
+.review-heading h2 {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 36px;
+}
+.review-title span,
+.review-source {
+  font-size: 13px;
+  line-height: 22px;
+}
+.review-source {
+  display: grid;
+  gap: 2px;
+}
+.program-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+.program-toolbar {
+  padding: 16px 20px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.program-toolbar h3,
+.review-empty h3,
+.program-diff h3 {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 26px;
+}
+.program-toolbar p,
+.program-actions p {
+  font-size: 12px;
+  line-height: 20px;
+}
+.program-tools {
+  flex-wrap: wrap;
+}
+.program-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.program-content.with-diff {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.program-editor-layout {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.editor-commands {
+  padding: 8px 20px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.editor-commands .button {
+  min-height: 28px;
+  padding: 4px 12px;
+}
+.program-editor {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.program-diff {
+  overflow: auto;
+  padding: 16px;
+  border-left: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+.program-diff pre {
+  white-space: pre;
+  font:
+    14px/24px Consolas,
+    monospace;
+}
+.diff-added {
+  background: #183a35;
+  color: #8af2cf;
+}
+.diff-removed {
+  background: #482d29;
+  color: #ffc1ab;
+}
+.program-actions {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+.review-empty {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-canvas);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.asset-digest {
+  overflow-wrap: anywhere;
+  font:
+    12px/20px Consolas,
+    monospace;
+}
+.review-error {
+  color: var(--text-warning);
+  font-size: 13px;
+}
+.review-evidence {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.review-evidence > div {
+  max-height: 90px;
+  overflow: auto;
+  line-height: 20px;
+}
+.review-evidence summary {
+  cursor: pointer;
+}
+.review-dialog {
+  margin: auto;
+  max-width: 600px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 28px;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+}
+.review-dialog::backdrop {
+  background: #0009;
+}
+.review-dialog h3 {
+  font-size: 20px;
+}
+.review-dialog p {
+  margin: 20px 0;
+  font-size: 14px;
+  line-height: 24px;
+}
+.review-dialog .program-tools {
+  justify-content: flex-end;
+}
+.program-document-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.focus-review-status {
+  font-size: 13px;
+  line-height: 22px;
+}
+/* 用同一编辑器占满工作区，避免重新挂载导致光标和撤销栈丢失。 */
+.app-shell:has(.code-expanded) {
+  height: 100dvh;
+  min-height: 0;
+  max-width: none;
+  padding: 12px;
+}
+.app-shell:has(.code-expanded) > .app-header,
+.app-shell:has(.code-expanded) > .workflow-navigation,
+.app-shell:has(.code-expanded) > .file-info-bar,
+.app-shell:has(.code-expanded) > .app-footer,
+.app-shell:has(.code-expanded) .agent-bubble,
+.code-expanded .review-heading,
+.code-expanded .review-source,
+.code-expanded .review-evidence,
+.code-expanded .program-actions .muted-text {
+  display: none;
+}
+.app-shell:has(.code-expanded) > .app-main {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
+}
+.code-expanded {
+  gap: 8px;
+}
+.program-review-page.code-expanded .program-toolbar,
+.program-review-page.code-expanded .program-actions {
+  padding: 10px 16px;
+}
+@media (max-width: 1500px) {
+  .review-title {
+    gap: 20px;
+  }
+  .program-toolbar,
+  .program-actions {
+    padding: 12px 16px;
+  }
+}

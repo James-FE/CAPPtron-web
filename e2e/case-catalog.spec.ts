@@ -80,7 +80,9 @@ test('JSON 环件现场草稿与 Agent 保留，历史参考不能生成 NC', as
   await page.getByRole('button', { name: '打开 Agent 协同' }).click()
   await expect(page.getByRole('log')).toContainText('案例版本对应哪个历史程序')
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('button', { name: '生成程序并进入审核', exact: true })).toBeDisabled()
+  await expect(
+    page.getByRole('button', { name: '查看参考程序并进入审核', exact: true }),
+  ).toBeDisabled()
   await expect(page.getByRole('option', { name: 'Golden-B7 环件 · v1' })).toHaveCount(0)
   await operations.getByRole('button', { name: /05 内孔精车/ }).click()
   await page.getByRole('button', { name: '补充信息', exact: true }).click()

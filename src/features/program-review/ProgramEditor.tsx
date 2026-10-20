@@ -1,7 +1,15 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Annotation, EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  undo,
+  redo,
+  undoDepth,
+  redoDepth,
+} from '@codemirror/commands'
 import type { ProgramDocument } from './programDocument'
 
 const externalChange = Annotation.define<boolean>()
@@ -15,10 +23,17 @@ export function ProgramEditor({
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const latest = useRef({ document, onChange })
+  const [historyAvailable, setHistoryAvailable] = useState({ undo: false, redo: false })
   useLayoutEffect(() => {
     latest.current = { document, onChange }
   })
   useLayoutEffect(() => {
+    const syncHistory = (state: EditorState) => {
+      const next = { undo: undoDepth(state) > 0, redo: redoDepth(state) > 0 }
+      setHistoryAvailable((previous) =>
+        previous.undo === next.undo && previous.redo === next.redo ? previous : next,
+      )
+    }
     const editor = new EditorView({
       parent: host.current!,
       state: EditorState.create({
@@ -33,6 +48,7 @@ export function ProgramEditor({
           ]),
           EditorView.contentAttributes.of({ 'aria-label': 'NC 程序草稿', spellcheck: 'false' }),
           EditorView.updateListener.of((update) => {
+            syncHistory(update.state)
             if (update.docChanged && !update.transactions.some((t) => t.annotation(externalChange)))
               latest.current.onChange(update.state.doc.toString(), latest.current.document.revision)
           }),
@@ -66,6 +82,7 @@ export function ProgramEditor({
       }),
     })
     view.current = editor
+    syncHistory(editor.state)
     return () => {
       editor.destroy()
       view.current = null
@@ -84,6 +101,8 @@ export function ProgramEditor({
       <div className="editor-commands">
         <button
           className="button"
+          disabled={!historyAvailable.undo}
+          title={historyAvailable.undo ? '撤回上一次代码修改' : '暂无可撤销的修改'}
           onClick={() => {
             if (view.current) {
               undo(view.current)
@@ -91,10 +110,16 @@ export function ProgramEditor({
             }
           }}
         >
-          撤销
+          撤销修改
         </button>
         <button
           className="button"
+          disabled={!historyAvailable.redo}
+          title={
+            historyAvailable.redo
+              ? '重新应用刚才撤销的代码修改'
+              : '先撤销修改，才能恢复已撤销的内容'
+          }
           onClick={() => {
             if (view.current) {
               redo(view.current)
@@ -102,9 +127,11 @@ export function ProgramEditor({
             }
           }}
         >
-          重做
+          恢复已撤销
         </button>
-        <span className="muted-text">Ctrl / ⌘ Z 撤销 · Ctrl / ⌘ Shift Z 重做 · 不自动折行</span>
+        <span className="muted-text">
+          Ctrl / ⌘ Z 撤销修改 · Ctrl / ⌘ Shift Z 恢复已撤销 · 不自动折行
+        </span>
       </div>
       <div className="program-editor" ref={host} />
     </div>

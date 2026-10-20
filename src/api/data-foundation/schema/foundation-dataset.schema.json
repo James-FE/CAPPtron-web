@@ -1,0 +1,379 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:capptron:data-foundation:dataset:1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "datasetVersion",
+    "dataMode",
+    "asOf",
+    "timeZone",
+    "parts",
+    "processPlans",
+    "machines",
+    "tools",
+    "knowledge",
+    "models",
+    "usageEvents"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "datasetVersion": { "$ref": "#/definitions/text" },
+    "dataMode": { "$ref": "#/definitions/dataMode" },
+    "asOf": { "$ref": "#/definitions/timestamp" },
+    "timeZone": { "type": "string", "format": "foundation-timezone" },
+    "parts": { "type": "array", "items": { "$ref": "#/definitions/part" } },
+    "processPlans": { "type": "array", "items": { "$ref": "#/definitions/processPlan" } },
+    "machines": { "type": "array", "items": { "$ref": "#/definitions/machine" } },
+    "tools": { "type": "array", "items": { "$ref": "#/definitions/tool" } },
+    "knowledge": { "type": "array", "items": { "$ref": "#/definitions/knowledge" } },
+    "models": { "type": "array", "items": { "$ref": "#/definitions/model" } },
+    "usageEvents": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/knowledgeEvent" },
+          { "$ref": "#/definitions/modelEvent" }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,159}$" },
+    "timestamp": { "type": "string", "format": "foundation-timestamp" },
+    "dataMode": { "type": "string", "enum": ["synthetic_demo", "live"] },
+    "assetKind": {
+      "type": "string",
+      "enum": ["part", "process_plan", "machine", "tool", "knowledge", "model"]
+    },
+    "partCategory": { "type": "string", "enum": ["shaft", "ring", "disc", "plate", "housing"] },
+    "operationMethod": {
+      "type": "string",
+      "enum": ["turning", "milling", "drilling", "boring", "parting"]
+    },
+    "manufacturingType": {
+      "type": "string",
+      "enum": ["turning", "milling", "drilling", "turn_mill", "mixed"]
+    },
+    "machineType": {
+      "type": "string",
+      "enum": ["cnc_lathe", "vertical_machining_center", "cnc_mill", "drill", "turn_mill"]
+    },
+    "toolType": {
+      "type": "string",
+      "enum": ["external_turning", "internal_turning", "parting", "end_mill", "drill", "boring_bar"]
+    },
+    "knowledgeCategory": { "type": "string", "enum": ["industry", "institute", "experience"] },
+    "knowledgeTopic": {
+      "type": "string",
+      "enum": ["process_rules", "material", "tool_selection", "fixturing", "parameters", "quality"]
+    },
+    "modelType": {
+      "type": "string",
+      "enum": [
+        "general_llm",
+        "domain_model",
+        "feature_recognition",
+        "process_planning",
+        "parameter_recommendation",
+        "engineering_calculation"
+      ]
+    },
+    "integrationStatus": {
+      "type": "string",
+      "enum": ["not_connected", "configured", "available", "unavailable"]
+    },
+    "supportedTask": {
+      "type": "string",
+      "enum": [
+        "process_planning",
+        "parameter_recommendation",
+        "feature_recognition",
+        "knowledge_retrieval",
+        "resource_matching",
+        "engineering_calculation"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataMode", "source"],
+      "properties": {
+        "dataMode": { "$ref": "#/definitions/dataMode" },
+        "source": { "$ref": "#/definitions/text" }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "$ref": "#/definitions/assetKind" },
+        "id": { "$ref": "#/definitions/id" }
+      }
+    },
+    "ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/id" } },
+    "texts": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/text" } },
+    "methods": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/operationMethod" }
+    },
+    "millimeters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "const": "mm" }
+      }
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "category",
+        "material",
+        "features",
+        "description",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "$ref": "#/definitions/text" },
+        "category": { "$ref": "#/definitions/partCategory" },
+        "material": { "$ref": "#/definitions/text" },
+        "features": { "$ref": "#/definitions/texts" },
+        "description": { "$ref": "#/definitions/text" },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sequence", "name", "method", "toolIds", "knowledgeIds"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "name": { "$ref": "#/definitions/text" },
+        "method": { "$ref": "#/definitions/operationMethod" },
+        "machineId": { "$ref": "#/definitions/id" },
+        "toolIds": { "$ref": "#/definitions/ids" },
+        "knowledgeIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "processPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "partId",
+        "version",
+        "manufacturingType",
+        "operations",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "$ref": "#/definitions/text" },
+        "partId": { "$ref": "#/definitions/id" },
+        "version": { "$ref": "#/definitions/text" },
+        "manufacturingType": { "$ref": "#/definitions/manufacturingType" },
+        "operations": { "type": "array", "items": { "$ref": "#/definitions/operation" } },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "machine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "machineType",
+        "capabilities",
+        "supportedOperations",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "$ref": "#/definitions/text" },
+        "machineType": { "$ref": "#/definitions/machineType" },
+        "manufacturer": { "$ref": "#/definitions/text" },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "axisCount": { "type": "integer", "minimum": 1, "maximum": 12 },
+            "maxSpindleSpeed": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "unit"],
+              "properties": {
+                "value": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": { "const": "r/min" }
+              }
+            },
+            "workEnvelope": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y", "z", "unit"],
+              "properties": {
+                "x": { "type": "number", "exclusiveMinimum": 0 },
+                "y": { "type": "number", "exclusiveMinimum": 0 },
+                "z": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": { "const": "mm" }
+              }
+            }
+          }
+        },
+        "supportedOperations": { "$ref": "#/definitions/methods" },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "toolType",
+        "specification",
+        "supportedOperations",
+        "compatibleMachineTypes",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "$ref": "#/definitions/text" },
+        "toolType": { "$ref": "#/definitions/toolType" },
+        "specification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["description"],
+          "properties": {
+            "description": { "$ref": "#/definitions/text" },
+            "diameter": { "$ref": "#/definitions/millimeters" },
+            "cuttingEdgeCount": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        },
+        "supportedOperations": { "$ref": "#/definitions/methods" },
+        "compatibleMachineTypes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/machineType" }
+        },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "knowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "content",
+        "topic",
+        "knowledgeCategory",
+        "applicability",
+        "relatedAssets",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "title": { "$ref": "#/definitions/text" },
+        "content": { "$ref": "#/definitions/text" },
+        "topic": { "$ref": "#/definitions/knowledgeTopic" },
+        "knowledgeCategory": { "$ref": "#/definitions/knowledgeCategory" },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operations", "partCategories", "materials"],
+          "properties": {
+            "operations": { "$ref": "#/definitions/methods" },
+            "partCategories": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "$ref": "#/definitions/partCategory" }
+            },
+            "materials": { "$ref": "#/definitions/texts" }
+          }
+        },
+        "relatedAssets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "modelType",
+        "supportedTasks",
+        "integrationStatus",
+        "createdAt",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "$ref": "#/definitions/text" },
+        "modelType": { "$ref": "#/definitions/modelType" },
+        "supportedTasks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/supportedTask" }
+        },
+        "integrationStatus": { "$ref": "#/definitions/integrationStatus" },
+        "version": { "$ref": "#/definitions/text" },
+        "createdAt": { "$ref": "#/definitions/timestamp" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "knowledgeEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "knowledgeId", "occurredAt", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "type": { "const": "knowledge_referenced" },
+        "knowledgeId": { "$ref": "#/definitions/id" },
+        "occurredAt": { "$ref": "#/definitions/timestamp" },
+        "scenario": { "$ref": "#/definitions/text" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    },
+    "modelEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "modelId", "occurredAt", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "type": { "const": "model_invoked" },
+        "modelId": { "$ref": "#/definitions/id" },
+        "task": { "$ref": "#/definitions/supportedTask" },
+        "occurredAt": { "$ref": "#/definitions/timestamp" },
+        "scenario": { "$ref": "#/definitions/text" },
+        "provenance": { "$ref": "#/definitions/provenance" }
+      }
+    }
+  }
+}

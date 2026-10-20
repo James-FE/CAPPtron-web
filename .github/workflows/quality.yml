@@ -36,6 +36,8 @@ jobs:
         run: npm run typecheck
       - name: Vitest
         run: npm run test:ci
+      - name: 数据底座契约与 Mock 校验
+        run: npm run validate:foundation
       - name: IaC Ruleset offline tests
         run: npm run test:infra
       - name: Production build

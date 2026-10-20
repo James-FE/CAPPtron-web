@@ -25,7 +25,9 @@
     "ruleset:plan": "node scripts/sync-ruleset.mjs plan",
     "ruleset:check": "node scripts/sync-ruleset.mjs check",
     "ruleset:apply": "node scripts/sync-ruleset.mjs apply",
-    "validate:catalog": "vitest run src/api/case-catalog/catalogFiles.test.ts"
+    "validate:catalog": "vitest run src/api/case-catalog/catalogFiles.test.ts",
+    "validate:foundation": "vitest run src/api/data-foundation/tests",
+    "example:foundation": "vitest run src/api/data-foundation/tests/contract.test.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './styles/planning.css';
+@import './styles/review.css';
 
 :root {
   --surface-canvas: #101516;

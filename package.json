@@ -11,8 +11,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"*.{json,ts,html}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"dev/**/*.ts\" \"*.{json,ts,html}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\" \"public/case-catalog/**/*.json\" \"e2e/**/*.ts\" \"dev/**/*.ts\" \"*.{json,ts,html}\"",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest",
     "test:ci": "vitest run",
@@ -28,7 +28,11 @@
     "validate:catalog": "vitest run src/api/case-catalog/catalogFiles.test.ts"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
     "ajv": "^8.20.0",
+    "diff": "^9.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

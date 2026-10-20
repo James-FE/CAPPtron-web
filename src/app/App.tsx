@@ -3,14 +3,15 @@ import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
 import { ModelInputPage } from '../pages/model-input/ModelInputPage'
-import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
+import { WorkflowWorkspace } from './WorkflowWorkspace'
+import type { WorkflowStage } from './WorkflowNavigation'
 import { inputExampleCase } from '../api/case-catalog'
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
-  const [stage, setStage] = useState<'input' | 'planning'>('input')
+  const [stage, setStage] = useState<WorkflowStage>('input')
 
   function openFilePicker() {
     inputRef.current?.click()
@@ -54,11 +55,11 @@ export default function App() {
           }}
         />
       )}
-      <ProcessPlanningPage
+      <WorkflowWorkspace
         key={sourceVersion}
-        active={stage === 'planning'}
+        stage={stage}
+        onNavigate={setStage}
         initialCaseReference={selection.kind === 'demo' ? inputExampleCase : undefined}
-        onUnavailable={setNotice}
       />
       {stage === 'planning' && error && (
         <p className="availability-notice" role="alert">

@@ -215,8 +215,8 @@ export function ProgramReviewPage({
                 {document.draftText !== document.savedDraftText
                   ? '未保存修改'
                   : document.savedRevision
-                    ? `已保存本次会话草稿 r${document.savedRevision}`
-                    : '原始参考 · 尚未保存会话草稿'}{' '}
+                    ? `已暂存草稿 r${document.savedRevision}（刷新后丢失）`
+                    : '原始参考 · 尚未暂存'}{' '}
                 · {document.format.encoding.toUpperCase()} / {document.format.newline}
                 {document.format.bom ? ' / BOM' : ''}
                 {expanded && (
@@ -249,9 +249,9 @@ export function ProgramReviewPage({
               <button
                 className="button"
                 disabled={!document.savedRevision || document.draftText === document.savedDraftText}
-                onClick={() => change(document.savedDraftText, document.revision, '恢复已保存修订')}
+                onClick={() => change(document.savedDraftText, document.revision, '恢复暂存')}
               >
-                恢复已保存修订
+                恢复暂存
               </button>
               <button
                 className="button"
@@ -293,8 +293,12 @@ export function ProgramReviewPage({
               </p>
             </div>
             <div className="program-tools">
-              <button className="button" onClick={() => mutate(saveProgramDraft)}>
-                保存本次会话草稿
+              <button
+                className="button"
+                title="暂存当前代码，供之后恢复；仅保留在当前页面内存中，刷新或关闭后丢失"
+                onClick={() => mutate(saveProgramDraft)}
+              >
+                暂存草稿
               </button>
               <button
                 className="button primary-button"

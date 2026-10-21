@@ -1,0 +1,178 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: planning.spec.ts >> 导航与模型来源隔离，加载 Demo 不改写本地文件信息
+- Location: e2e\planning.spec.ts:52:1
+
+# Error details
+
+```
+Error: page.goto: net::ERR_ADDRESS_IN_USE at http://127.0.0.1:5183/
+Call log:
+  - navigating to "http://127.0.0.1:5183/", waiting until "load"
+
+```
+
+# Test source
+
+```ts
+  1   | import { expect, test as base } from '@playwright/test'
+  2   | import type { Page, TestInfo } from '@playwright/test'
+  3   |
+  4   | const test = base.extend<{ browserChecks: void }>({
+  5   |   browserChecks: [
+  6   |     async ({ page }, use) => {
+  7   |       await page.clock.install()
+  8   |       const errors: string[] = [],
+  9   |         mutations: string[] = []
+  10  |       page.on('pageerror', (error) => errors.push(error.message))
+  11  |       page.on('request', (request) => {
+  12  |         if (!['GET', 'HEAD'].includes(request.method())) mutations.push(request.url())
+  13  |       })
+  14  |       await page.route('**/*', (route) =>
+  15  |         new URL(route.request().url()).origin === 'http://127.0.0.1:5183'
+  16  |           ? route.continue()
+  17  |           : route.abort(),
+  18  |       )
+  19  |       await use()
+  20  |       expect(errors).toEqual([])
+  21  |       expect(mutations, '演示操作不得提交制造数据或调用后端').toEqual([])
+  22  |     },
+  23  |     { auto: true },
+  24  |   ],
+  25  | })
+  26  |
+  27  | async function enter(page: Page) {
+  28  |   await page.goto('/')
+  29  |   await page.getByRole('button', { name: '02 工艺决策' }).click()
+  30  | }
+  31  | async function demo(page: Page, id = 'simple') {
+  32  |   await page.getByLabel('演示方案').selectOption(id)
+  33  |   await page.getByRole('button', { name: '加载 Demo 方案' }).click()
+  34  |   const view = page.getByRole('button', { name: '查看工艺规划结果' })
+  35  |   if (await view.count()) {
+  36  |     await page.clock.fastForward(4100)
+  37  |     await expect(view).toBeEnabled()
+  38  |     await view.click()
+  39  |   }
+  40  | }
+  41  | async function shot(page: Page, info: TestInfo, name: string) {
+  42  |   await page.evaluate(() => document.fonts.ready)
+  43  |   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  44  |   const path = info.outputPath(`${name}.png`)
+  45  |   await page.screenshot({ path, fullPage: true })
+  46  |   await info.attach(name, { path, contentType: 'image/png' })
+  47  | }
+  48  | function list(page: Page) {
+  49  |   return page.getByRole('navigation', { name: '工序列表' })
+  50  | }
+  51  |
+  52  | test('导航与模型来源隔离，加载 Demo 不改写本地文件信息', async ({ page }, info) => {
+> 53  |   await page.goto('/')
+      |              ^ Error: page.goto: net::ERR_ADDRESS_IN_USE at http://127.0.0.1:5183/
+  54  |   const fileInput = page.getByLabel('选择 STEP 模型文件')
+  55  |   await fileInput.setInputFiles({
+  56  |     name: 'OwnPart.step',
+  57  |     mimeType: 'application/octet-stream',
+  58  |     buffer: Buffer.from('TEST ONLY'),
+  59  |   })
+  60  |   await page.getByRole('button', { name: '02 工艺决策' }).click()
+  61  |   await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  62  |   await expect(page.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+  63  |     'aria-current',
+  64  |     'step',
+  65  |   )
+  66  |   await shot(page, info, 'planning-empty')
+  67  |   await demo(page)
+  68  |   await expect(page.getByRole('region', { name: '当前模型文件' })).toContainText('OwnPart.step')
+  69  |   await expect(page.getByText(/预设 Mock 数据 · 未关联本地 STEP 文件/)).toBeVisible()
+  70  |   await page.getByRole('button', { name: '01 模型输入' }).click()
+  71  |   await expect(page.getByRole('button', { name: '打开 Agent 协同' })).toHaveCount(0)
+  72  |   await expect(page.getByRole('region', { name: '当前模型文件' })).toContainText('OwnPart.step')
+  73  |   await page.getByRole('button', { name: '02 工艺决策' }).click()
+  74  |   await expect(list(page).getByRole('button')).toHaveCount(3)
+  75  |   await fileInput.setInputFiles({
+  76  |     name: 'Replacement.stp',
+  77  |     mimeType: 'application/octet-stream',
+  78  |     buffer: Buffer.from('TEST ONLY'),
+  79  |   })
+  80  |   await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  81  | })
+  82  |
+  83  | test('示例输入连贯完成进度、查看结果和必填信息门槛', async ({ page }, info) => {
+  84  |   await page.goto('/')
+  85  |   await page.getByRole('button', { name: '使用示例 Ring_A.step' }).click()
+  86  |   const view = page.getByRole('button', { name: '查看工艺规划结果' })
+  87  |   await expect(view).toBeDisabled()
+  88  |   await expect(page.getByText('暂无可用工艺方案')).toHaveCount(0)
+  89  |   await expect(page.getByRole('region', { name: '演示参考输入' })).toContainText('Ring_A.step')
+  90  |   await shot(page, info, 'demo-planning-progress')
+  91  |   // 此用例让真实浏览器计时器走完演示进度；其他 Fixture 切换用快进缩短回归耗时。
+  92  |   await expect(view).toBeEnabled({ timeout: 6500 })
+  93  |   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '100')
+  94  |   await shot(page, info, 'demo-planning-ready')
+  95  |   await view.click()
+  96  |   await expect(list(page).getByRole('button')).toHaveCount(6)
+  97  |   await expect(list(page)).not.toContainText('球面')
+  98  |   const generate = page.getByRole('button', { name: '查看参考程序并进入审核', exact: true })
+  99  |   await expect(generate).toBeDisabled()
+  100 |   await shot(page, info, 'demo-ring-result')
+  101 |   await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
+  102 |   for (const [name, value] of [
+  103 |     ['现场毛坯外径', '43'],
+  104 |     ['现场毛坯预孔直径', '38'],
+  105 |     ['现场毛坯长度', '100'],
+  106 |     ['工件零点 / 偏置核对', '演示 G54 核对记录'],
+  107 |     ['装夹方式与伸出量', '演示装夹记录'],
+  108 |   ])
+  109 |     await page.getByLabel(name, { exact: true }).fill(value)
+  110 |   await expect(generate).toBeDisabled()
+  111 |   await shot(page, info, 'demo-ring-shared-fields')
+  112 |   await page.getByRole('button', { name: '补充工序信息', exact: true }).click()
+  113 |   await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('05 内孔精车')
+  114 |   await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveCount(0)
+  115 |   await page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true }).fill('1.6')
+  116 |   await expect(generate).toBeEnabled()
+  117 |   await expect(list(page).getByRole('button', { name: /05 内孔精车/ })).not.toContainText('待填')
+  118 |   await page.getByRole('button', { name: /^任务共用信息/ }).click()
+  119 |   await expect(page.getByLabel('现场毛坯外径', { exact: true })).toHaveValue('43')
+  120 |   await page.getByLabel('现场毛坯外径', { exact: true }).fill('abc')
+  121 |   await expect(generate).toBeDisabled()
+  122 |   await page.getByLabel('现场毛坯外径', { exact: true }).fill('43')
+  123 |   await expect(generate).toBeEnabled()
+  124 |   await list(page)
+  125 |     .getByRole('button', { name: /05 内孔精车/ })
+  126 |     .click()
+  127 |   await page.getByRole('button', { name: '补充信息', exact: true }).click()
+  128 |   await page.getByLabel('内孔表面粗糙度要求 Ra', { exact: true }).scrollIntoViewIfNeeded()
+  129 |   await shot(page, info, 'demo-ring-fields-complete')
+  130 |   await generate.click()
+  131 |   await expect(page.getByRole('heading', { name: '程序审核', exact: true })).toBeVisible()
+  132 |   await expect(
+  133 |     page.getByText('当前展示的是 Golden-B7 历史参考程序，未执行本次 CAM 程序生成。'),
+  134 |   ).toBeVisible()
+  135 |   await expect(
+  136 |     page.getByRole('heading', { name: '参考程序正文暂不可用', exact: true }),
+  137 |   ).toBeVisible()
+  138 |   await page.getByRole('button', { name: '01 模型输入' }).click()
+  139 |   await page.getByRole('button', { name: '02 工艺决策' }).click()
+  140 |   await expect(generate).toBeEnabled()
+  141 |   await page.getByLabel('选择 STEP 模型文件').setInputFiles({
+  142 |     name: 'Ring_A.step',
+  143 |     mimeType: 'application/octet-stream',
+  144 |     buffer: Buffer.from('local only'),
+  145 |   })
+  146 |   await expect(page.getByText('暂无可用工艺方案')).toBeVisible()
+  147 |   await expect(generate).toBeDisabled()
+  148 | })
+  149 |
+  150 | test('工作台默认与工序切换，程序生成入口保持准确反馈', async ({ page }, info) => {
+  151 |   await enter(page)
+  152 |   await demo(page)
+  153 |   await expect(page.getByRole('region', { name: '当前工序详情' })).toContainText('基准面加工')
+```

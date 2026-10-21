@@ -122,7 +122,7 @@
 }
 .foundation-kpis {
   display: grid;
-  grid-template-columns: 1.4fr repeat(5, 1fr);
+  grid-template-columns: 1.4fr repeat(4, 1fr);
   gap: 48px;
   padding: 28px 0 24px;
 }
@@ -134,9 +134,6 @@
 }
 .foundation-tone-blue {
   --foundation-tone: var(--foundation-blue);
-}
-.foundation-tone-white {
-  --foundation-tone: var(--text-primary);
 }
 .foundation-kpi {
   position: relative;

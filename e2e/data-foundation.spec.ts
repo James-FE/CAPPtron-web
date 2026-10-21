@@ -32,7 +32,8 @@ test('固定快照大屏、键盘图表、资源分页搜索详情与焦点恢�
     'page',
   )
   const kpis = page.getByRole('region', { name: '数据概览' })
-  await expect(kpis.locator('dd strong')).toHaveText(['171', '27', '72', '99', '6', '4'])
+  await expect(kpis.locator('dd strong')).toHaveText(['171', '27', '72', '99', '6'])
+  await expect(page.getByText(/模型调用/)).toHaveCount(0)
   await expect(page.getByText('模拟数据', { exact: true })).toBeVisible()
   await expect(page.getByText(/foundation-turning-mock-v2:20261020:2026-10-20/)).toBeVisible()
   await expect(page.getByRole('button', { name: '打开 Agent 协同' })).toHaveCount(0)

@@ -16,12 +16,6 @@ export function FoundationKpis({ response }: { response: FoundationResponse<Foun
     ['知识条目', response.data.knowledgeCount, '条', 'cyan'],
     ['业务数据量', response.data.businessDataCount, '条', 'violet'],
     ['模型数量', response.data.modelCount, '个', 'blue'],
-    [
-      demo ? '演示日模拟模型调用' : '当日模型调用',
-      response.data.modelInvocationsToday,
-      '次',
-      'white',
-    ],
   ] as const
   return (
     <dl className="foundation-kpis">
@@ -32,7 +26,7 @@ export function FoundationKpis({ response }: { response: FoundationResponse<Foun
             <strong>{number(value)}</strong>
             <span>{unit}</span>
           </dd>
-          {(label === '演示日新增' || label === '当日新增' || unit === '次') && (
+          {(label === '演示日新增' || label === '当日新增') && (
             <small>
               {response.data.date}
               {demo ? ' · 演示基准日' : ' · 统计日'}

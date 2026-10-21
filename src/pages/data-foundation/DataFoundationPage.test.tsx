@@ -23,7 +23,7 @@ function deferred<T>() {
 }
 
 describe('数据底座 Reader 驱动页面', () => {
-  it('独立 Reader 驱动六项指标、日期、零值、百分比、模型状态和引用排名', async () => {
+  it('独立 Reader 驱动五项指标、日期、零值、百分比、模型状态和引用排名', async () => {
     const reader = foundationTestReader()
     const overview = vi.spyOn(reader, 'getOverview'),
       trend = vi.spyOn(reader, 'getGrowthTrend'),
@@ -31,7 +31,8 @@ describe('数据底座 Reader 驱动页面', () => {
     render(<DataFoundationPage reader={reader} />)
     await screen.findByText('演示日新增')
     const kpis = screen.getByRole('region', { name: '数据概览' }).querySelectorAll('dd strong')
-    expect(Array.from(kpis, (item) => item.textContent)).toEqual(['8', '4', '3', '5', '1', '2'])
+    expect(Array.from(kpis, (item) => item.textContent)).toEqual(['8', '4', '3', '5', '1'])
+    expect(screen.queryByText(/模型调用/)).not.toBeInTheDocument()
     expect(screen.getByText('模拟数据')).toBeVisible()
     expect(screen.getByText(/independent-ui-reader-v1/)).toBeVisible()
     expect(screen.getByText(/快照 2026\/10\/20 23:59:59/)).toBeVisible()
@@ -87,7 +88,7 @@ describe('数据底座 Reader 驱动页面', () => {
         screen.getByRole('region', { name: '数据概览' }).querySelectorAll('dd strong'),
         (item) => item.textContent,
       ),
-    ).toEqual(['0', '0', '0', '0', '0', '0'])
+    ).toEqual(['0', '0', '0', '0', '0'])
     expect(screen.getByText('该窗口暂无知识引用')).toBeVisible()
     expect(screen.getByText('暂无模型登记')).toBeVisible()
     expect(region('知识构成').getAllByText('0%')).toHaveLength(3)
@@ -110,7 +111,7 @@ describe('数据底座 Reader 驱动页面', () => {
         screen.getByRole('region', { name: '数据概览' }).querySelectorAll('dd strong'),
         (item) => item.textContent,
       ),
-    ).toEqual(['0', '0', '0', '0', '0', '0'])
+    ).toEqual(['0', '0', '0', '0', '0'])
   })
   it('来源为 live 时保留真实来源和实际模型状态，不写死模拟文案', async () => {
     const reader = foundationTestReader(false, 'live')

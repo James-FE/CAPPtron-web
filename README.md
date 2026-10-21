@@ -2,7 +2,7 @@
 
 CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React + TypeScript + Vite**。
 
-**开发分支当前状态：FE-001 模型输入、FE-002 工艺决策与 Agent 演示、FE-003 程序编辑与审核，以及 FE-004A 数据底座契约与 Mock 读取层已实现。** 数据底座大屏（FE-004B）与文件解读页面尚未实现。当前可独立运行前端 Demo，无需启动后端、数据库或 Mastercam；不提供真实 STEP 解析、Agent 调用、CAM 或 NC 生成。文件选择、现场草稿和编辑会话保存在浏览器内存中，刷新后重置。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
+**本分支已实现：FE-001 模型输入、FE-002 工艺决策与 Agent 演示、FE-003 程序编辑与审核、FE-004A 数据契约和 FE-004B 数据底座大屏。** 大屏等待维护者视觉验收；文件解读页面尚未实现。当前可独立运行前端 Demo，无需启动后端、数据库或 Mastercam；不提供真实 STEP 解析、Agent 调用、CAM 或 NC 生成。文件选择、现场草稿和编辑会话保存在浏览器内存中，刷新后重置。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
 
 ## 设计与相关仓库
 
@@ -51,7 +51,24 @@ npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 
 完整步骤、启动后的 Demo 路径、可选 NC 配置、端口占用与 PowerShell 常见问题见 **[快速启动指南](docs/workflows/QUICK_START.md)**。
 
+查看数据大屏：点击顶部 **“数据底座”**。点击资源条、模型登记或知识入口可搜索、分页和查看只读详情；“返回智能工艺工作台”保留原工序、参数、NC 编辑及 Agent 会话。当前快照固定为 2026-10-20，页面中的演示日不是系统当天。
+
 工程检查使用 `npm run quality`，包含基础检查、ESLint、Prettier、TypeScript、Vitest 和生产构建。数据底座独立验证使用 `npm run validate:foundation`，调用示例使用 `npm run example:foundation`。新增或升级依赖时才使用 `npm install`，并同步提交 `package.json` 与 `package-lock.json`。
+
+## 数据底座大屏与真实数据接入
+
+大屏通过七个异步 `DataFoundationReader` 方法读取统计、目录和详情。顶部为五项 KPI，另有趋势、知识环图、模型库、业务资源概览和热点知识。模型调用卡片已按维护者意见移除，其底层统计字段保留兼容。
+
+当前数据是经过人工审查的车削 Mock：24 个零件、32 套方案、3 台机床、40 把刀具、72 条知识、6 条模型登记。版本 `foundation-turning-mock-v2`，seed `20261020`，日期 `2026-10-20`；全部模型未接入。总资产 171 不含模型，六类目录总量 177。正式数据库、统计服务和模型 API 尚未接入。
+
+后续维护者或 Agent 建议按以下顺序阅读：
+
+1. **[Reader 接口与真实数据接入指南](docs/api/data-foundation-reader-v1.md)**：七个方法的输入、默认值、范围、返回字段、统计/时间/分页规则、来源、错误，以及真实 Reader 接入清单。
+2. [领域契约与数据关系](docs/architecture/data-foundation-v1.md)：六类实体、稳定身份、单位、Schema、关系校验及制造可信度边界。
+3. [FE-004B 验收记录与截图](docs/workflows/FE-004B-ACCEPTANCE.md)：页面结构、会话保持、测试和已知限制。
+4. [组合入口](src/app/dataFoundation.ts)、[接口源码](src/api/data-foundation/reader.ts)、[完整类型](src/api/data-foundation/types.ts)、[可执行消费示例](src/api/data-foundation/example.ts)。
+
+接入真实数据时，在数据层实现同一 Reader，再于组合入口替换稳定实例；页面不应直接请求原始数据或导入生成器。**目前没有已发布的数据底座 HTTP URL，也没有配置一个 `.env` 开关就能启用的 live 服务。** 先与后端确认实际接口、权限和快照一致性，再实现运行时校验、错误映射及联调测试；读取失败不得静默回退 Mock。详细步骤见上述接口指南。
 
 ## Playwright 浏览器验收
 
@@ -86,6 +103,8 @@ Playwright 会通过 `webServer` 自动以 `e2e` 模式启动独立的 `127.0.0.
 - 当前截图是**运行证据，不是已批准的视觉回归基准**。只有页面对照 Figma 并经人工验收后，才建立 `toHaveScreenshot` 基准。
 
 FE-001 的设计来源与组件边界见 [FE-001 验收说明](docs/workflows/FE-001-ACCEPTANCE.md)。现有 `planning.spec.ts`、`case-catalog.spec.ts`、`program-review.spec.ts` 还覆盖动态工序、现场草稿、Agent、案例读取和程序编辑审核；程序来源与使用限制见 [FE-003 验收说明](docs/workflows/FE-003-ACCEPTANCE.md)，数据读取契约见 [数据底座 v1](docs/architecture/data-foundation-v1.md)。
+
+`data-foundation.spec.ts` 覆盖两个桌面尺寸的大屏、固定快照标识、键盘图表、资源搜索/分页/详情、焦点恢复及工作台参数/Agent 保持；`program-review.spec.ts` 还验证大屏往返后的 NC 草稿、修订与撤销历史。页面组件测试通过独立小数据集 Reader 验证可替换性、live 来源、空数据、错误重试及迟到响应。
 
 ## GitHub 自动检查与分支协作
 

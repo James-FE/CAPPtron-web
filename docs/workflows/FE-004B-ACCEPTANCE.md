@@ -16,6 +16,8 @@
 
 ## 2. Reader 接入与替换
 
+维护者和后续 Agent 的逐方法参考见[Reader 接口与真实数据接入指南](../api/data-foundation-reader-v1.md)，包含参数默认值/范围、返回字段、时间/统计/分页语义、错误边界、真实 Adapter 实现步骤与接入验收清单。README 已提供大屏入口、文档索引与当前真实能力边界。
+
 唯一依赖组合入口为 `src/app/dataFoundation.ts`：模块级创建 `MockDataFoundationReader(foundationDemoConfig)`，并以 `DataFoundationReader` 类型导出。App 可注入另一个 Reader。页面和功能组件只依赖契约，不导入生成器、生成模板或使用事件。
 
 - `getOverview()`：五项 KPI 和统计日。

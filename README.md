@@ -2,7 +2,7 @@
 
 CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React + TypeScript + Vite**。
 
-**当前状态：FE-001 全局 Shell 与模型输入页，待人工视觉验收。** 页面支持本地 STEP / STP 文件选择、更换、拖放和 Demo 输入元数据展示；文件仅保留在当前页面内存中，刷新后重置。没有服务器上传、STEP 解析、真实 Agent 规划、CAM、NC 或 Mastercam 能力。工艺决策、程序审核、数据底座和文件解读入口仅显示未实现说明。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
+**开发分支当前状态：FE-001 模型输入、FE-002 工艺决策与 Agent 演示、FE-003 程序编辑与审核，以及 FE-004A 数据底座契约与 Mock 读取层已实现。** 数据底座大屏（FE-004B）与文件解读页面尚未实现。当前可独立运行前端 Demo，无需启动后端、数据库或 Mastercam；不提供真实 STEP 解析、Agent 调用、CAM 或 NC 生成。文件选择、现场草稿和编辑会话保存在浏览器内存中，刷新后重置。业务设计基准与实施边界见 [前端架构说明](docs/architecture/frontend-architecture.md)。
 
 ## 设计与相关仓库
 
@@ -14,28 +14,44 @@ CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React 
 
 已讨论但暂不实施的功能统一记录在[待做功能](docs/待做功能.md)，后续按条目补充依赖、验收条件与实施进展。
 
-## 本地开发
+## Quick Start｜快速启动
 
-需要 **Node.js 22.12+** 与 npm。仓库已有 `package-lock.json`，正常拉取代码后使用可复现安装：
+准备 **Git、Node.js 22.12+ 和 npm**；推荐使用与 `.nvmrc` / CI 一致的 Node.js 22.x。体验当前开发功能请使用 `develop/r06-ui`，`main` 为稳定集成分支。
+
+### 首次获取并启动
 
 ```bash
+git clone --branch develop/r06-ui https://github.com/James-FE/CAPPtron-web.git
+cd CAPPtron-web
 npm ci
 npm run dev
 ```
 
-打开 `http://127.0.0.1:5173`。Vite 在开发服务器运行时支持 HMR（热更新），修改 React 或 CSS 文件后通常会自动更新浏览器；结束运行使用 `Ctrl+C`。
+浏览器打开 **[http://127.0.0.1:5173/](http://127.0.0.1:5173/)**。保留运行命令的终端，停止服务按 `Ctrl+C`；修改源码后 Vite 通常自动热更新。普通 Demo 无需配置 `.env` 或启动 CAPPtron-core。
 
-常用工程检查：
+### 已有本地工程，每次启动
 
-```bash
-npm run quality
-npm run build
-npm run preview
+在工程根目录运行 `npm run dev` 即可。本机 Windows PowerShell 示例：
+
+```powershell
+Set-Location 'D:/GPT_workspace/CNC_project/CAPPtron-web'
+npm run dev
 ```
 
-`npm run quality` 包含仓库基础检查、ESLint、Prettier、TypeScript、Vitest 和生产构建；GitHub Actions 另运行 Node 工程脚本离线测试及浏览器 E2E。生产构建输出位于 `dist/`，它是静态 Web 资源，并非 Python 包。
+其他电脑请将路径替换为自己的克隆目录。仅在首次安装、依赖变化或 `node_modules` 缺失时重新执行 `npm ci`。若 5173 已有本工程服务，直接打开上述地址。
 
-新增或升级 npm 依赖时，使用 `npm install` 并同时提交 `package.json` 与 `package-lock.json`。
+### 构建与本地预览
+
+```bash
+npm run build
+npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
+```
+
+打开 [http://127.0.0.1:4173/](http://127.0.0.1:4173/)。构建产物为 `dist/` 静态文件；preview 用于检查构建结果，不提供开发模式下的本机私有 NC 读取。
+
+完整步骤、启动后的 Demo 路径、可选 NC 配置、端口占用与 PowerShell 常见问题见 **[快速启动指南](docs/workflows/QUICK_START.md)**。
+
+工程检查使用 `npm run quality`，包含基础检查、ESLint、Prettier、TypeScript、Vitest 和生产构建。数据底座独立验证使用 `npm run validate:foundation`，调用示例使用 `npm run example:foundation`。新增或升级依赖时才使用 `npm install`，并同步提交 `package.json` 与 `package-lock.json`。
 
 ## Playwright 浏览器验收
 
@@ -60,7 +76,7 @@ npm run test:e2e:ui
 npm run test:e2e:report
 ```
 
-Playwright 会通过 `webServer` 自动启动 Vite（本地可复用已在运行的 `127.0.0.1:5173` 服务；CI 不复用）。`npm run test:e2e -- --headed` 可显示 Chromium 测试窗口。Chromium 浏览器文件在本机 Playwright 缓存中，不提交到 Git。
+Playwright 会通过 `webServer` 自动以 `e2e` 模式启动独立的 `127.0.0.1:5183` Vite 服务，本地和 CI 均不复用已有服务，也不读取日常开发的私有 NC 配置。日常开发仍使用 5173。`npm run test:e2e -- --headed` 可显示 Chromium 测试窗口。Chromium 浏览器文件在本机 Playwright 缓存中，不提交到 Git。
 
 `e2e/smoke.spec.ts` 覆盖 FE-001 模型输入页，在 **1920×1080** 和 **1440×900** 两种桌面视口检查页面加载、运行时错误、控件可见性与遮挡、横向溢出、文件选择器、更换与取消、长文件名、非法格式、拖放、Demo 来源及未实现入口的鼠标/键盘反馈。测试同时确认没有上传请求，不依赖真实 FastAPI、Mastercam 或外部服务。通过测试仍不代表人工视觉验收通过。
 
@@ -69,7 +85,7 @@ Playwright 会通过 `webServer` 自动启动 Vite（本地可复用已在运行
 - GitHub PR 的 **Quality / Chromium E2E** Job 会上传 `playwright-results` Artifact（保留 14 天）。下载、解压后可用 `npx playwright show-report <解压后playwright-report目录>` 查看。
 - 当前截图是**运行证据，不是已批准的视觉回归基准**。只有页面对照 Figma 并经人工验收后，才建立 `toHaveScreenshot` 基准。
 
-FE-001 的设计来源、组件边界、对照方法及有意的状态文案差异见 [FE-001 验收说明](docs/workflows/FE-001-ACCEPTANCE.md)。后续页面任务再补充工艺决策、动态工序、Agent 抽屉和审核操作测试，这些能力不属于 FE-001。
+FE-001 的设计来源与组件边界见 [FE-001 验收说明](docs/workflows/FE-001-ACCEPTANCE.md)。现有 `planning.spec.ts`、`case-catalog.spec.ts`、`program-review.spec.ts` 还覆盖动态工序、现场草稿、Agent、案例读取和程序编辑审核；程序来源与使用限制见 [FE-003 验收说明](docs/workflows/FE-003-ACCEPTANCE.md)，数据读取契约见 [数据底座 v1](docs/architecture/data-foundation-v1.md)。
 
 ## GitHub 自动检查与分支协作
 

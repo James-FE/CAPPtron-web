@@ -4,19 +4,15 @@ import { isBusinessDate } from '../time'
 import {
   knowledgeCategories,
   knowledgeTopics,
-  machineTypes,
   modelTypes,
-  toolTypes,
   type FoundationDataset,
   type KnowledgeTopic,
-  type Machine,
-  type MachineType,
-  type ManufacturingType,
   type OperationMethod,
   type PartCategory,
   type Provenance,
   type ResourceBase,
   type SupportedTask,
+  type ToolType,
 } from '../types'
 import { validateFoundationDataset } from '../validation'
 import { mockDatasetVersion, mockTimeZone, type FoundationMockConfig } from './mockConfig'
@@ -37,60 +33,64 @@ function randomGenerator(seed: number) {
   }
 }
 const materials = ['45钢', '40Cr', '6061铝合金', '304不锈钢'] as const
+// 当前演示只覆盖回转体车削；钻孔、镗孔、切断均为车床内的工序。
+type TurningMethod = Extract<OperationMethod, 'turning' | 'drilling' | 'boring' | 'parting'>
 const categories: {
-  category: PartCategory
+  category: Extract<PartCategory, 'shaft' | 'ring' | 'disc'>
   label: string
   names: string[]
   features: string[]
-  methods: OperationMethod[]
+  methods: TurningMethod[]
 }[] = [
   {
     category: 'shaft',
     label: '轴类',
-    names: ['传动轴', '阶梯轴', '定位销轴', '联接轴', '支承轴'],
+    names: ['传动轴', '阶梯轴', '定位销轴', '联接轴', '支承轴', '导向轴', '辊轴', '芯轴'],
     features: ['外圆', '轴肩', '中心孔'],
     methods: ['turning', 'drilling', 'parting'],
   },
   {
     category: 'ring',
-    label: '环类',
-    names: ['间隔环', '轴承套环', '密封支承环', '锁紧环', '定位套环'],
+    label: '环套类',
+    names: ['间隔环', '轴承套环', '密封支承环', '挡环', '定位套环', '隔套', '衬套', '导向套'],
     features: ['内孔', '外圆', '端面'],
     methods: ['turning', 'boring', 'parting'],
   },
   {
     category: 'disc',
-    label: '盘类',
-    names: ['法兰盘', '轮毂盘', '端盖盘', '分度盘', '离合盘'],
-    features: ['端面', '中心孔', '孔阵列'],
-    methods: ['turning', 'milling', 'drilling'],
-  },
-  {
-    category: 'plate',
-    label: '板类',
-    names: ['安装底板', '连接板', '导向板', '定位板'],
-    features: ['平面', '槽', '通孔'],
-    methods: ['milling', 'drilling'],
-  },
-  {
-    category: 'housing',
-    label: '壳体类',
-    names: ['轴承座壳体', '泵体', '阀体', '传动箱体', '传感器壳体'],
-    features: ['型腔', '安装面', '配合孔'],
-    methods: ['milling', 'drilling', 'boring'],
+    label: '回转盘类',
+    names: [
+      '圆盘毛坯',
+      '支承盘',
+      '压盘',
+      '定位盘',
+      '端面挡盘',
+      '圆形垫盘',
+      '轮毂盘毛坯',
+      '法兰盘毛坯',
+    ],
+    features: ['端面', '外圆', '轴向中心通孔'],
+    methods: ['turning', 'drilling', 'boring'],
   },
 ]
-const methodLabels: Record<OperationMethod, string> = {
-  turning: '车削',
-  milling: '铣削',
-  drilling: '钻削',
-  boring: '镗削',
-  parting: '切断',
+const methodLabels: Record<TurningMethod, string> = {
+  turning: '外圆与端面车削',
+  drilling: '车床轴向钻孔',
+  boring: '车床内孔镗削',
+  parting: '车床切断',
+}
+// 通用 turning 枚举也允许内孔车刀；本模板的 turning 工序明确加工外圆与端面。
+const toolTypesByMethod: Record<TurningMethod, readonly ToolType[]> = {
+  turning: ['external_turning'],
+  drilling: ['drill'],
+  boring: ['internal_turning', 'boring_bar'],
+  parting: ['parting'],
 }
 const topicText: Record<KnowledgeTopic, { label: string; content: string }> = {
   process_rules: {
     label: '工序安排',
-    content: '基准加工、粗加工与精加工应结合余量、变形和测量条件安排；装夹变更后需重新核对基准。',
+    content:
+      '外圆、端面与内孔的粗精车顺序应结合余量、变形和测量条件安排；调头装夹后需重新核对基准。',
   },
   material: {
     label: '材料注意事项',
@@ -98,11 +98,12 @@ const topicText: Record<KnowledgeTopic, { label: string; content: string }> = {
   },
   tool_selection: {
     label: '刀具选择',
-    content: '根据可达性、悬伸、刃口形状和排屑空间选择候选刀具，不能仅由刀具名称确认适配。',
+    content: '车刀需结合刀尖可达性、刀杆悬伸、刃口形状和排屑空间选择，不能仅由刀具名称确认适配。',
   },
   fixturing: {
     label: '装夹定位',
-    content: '定位面、夹紧力方向与加工区域需要共同核查；薄壁或细长部位应评估夹紧变形。',
+    content:
+      '车床卡盘夹持面、伸出长度与回转区域需要共同核查；薄壁环套或细长轴应评估夹紧变形与支承条件。',
   },
   parameters: {
     label: '参数选择条件',
@@ -120,14 +121,19 @@ const materialNotes: Record<(typeof materials)[number], string> = {
   '6061铝合金': '关注积屑、毛刺与薄壁夹紧变形。',
   '304不锈钢': '关注加工硬化与排屑条件。',
 }
-const toolLabels = ['外圆车刀', '内孔车刀', '切断刀', '立铣刀', '钻头', '镗刀']
-const machineLabels: Record<MachineType, string> = {
-  cnc_lathe: '数控车床',
-  vertical_machining_center: '立式加工中心',
-  cnc_mill: '数控铣床',
-  drill: '钻削设备',
-  turn_mill: '车铣复合设备',
-}
+const turningTools: {
+  type: Extract<
+    ToolType,
+    'external_turning' | 'internal_turning' | 'parting' | 'drill' | 'boring_bar'
+  >
+  label: string
+}[] = [
+  { type: 'external_turning', label: '外圆车刀' },
+  { type: 'internal_turning', label: '内孔车刀' },
+  { type: 'parting', label: '切断刀' },
+  { type: 'drill', label: '车床轴向钻头' },
+  { type: 'boring_bar', label: '车床镗刀' },
+]
 const toolSizes = [4, 6, 8, 10, 12, 16, 20, 25]
 
 export function generateFoundationMock(config: FoundationMockConfig): FoundationDataset {
@@ -176,46 +182,34 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
     models: [],
     usageEvents: [],
   }
-  for (const type of machineTypes) {
-    const cells =
-      type === 'cnc_lathe' || type === 'vertical_machining_center' ? ['A', 'B', 'C'] : ['A', 'B']
-    for (const cell of cells) {
-      const capabilities: Machine['capabilities'] = {
-        axisCount: type === 'drill' ? 1 : type === 'cnc_lathe' ? 2 : type === 'turn_mill' ? 5 : 3,
-        maxSpindleSpeed: { value: pick([4000, 6000, 8000, 12000]), unit: 'r/min' },
-      }
-      if (type === 'cnc_mill' || type === 'vertical_machining_center')
-        capabilities.workEnvelope = { x: pick([500, 700, 900]), y: 400, z: 450, unit: 'mm' }
-      dataset.machines.push({
-        ...base('machine', `${type}:${cell}`, 20 + Math.floor(random() * 40)),
-        name: `演示${machineLabels[type]} ${cell}`,
-        machineType: type,
-        capabilities,
-        supportedOperations: [...machineOperations[type]],
-      })
-    }
+  for (const cell of ['A', 'B', 'C']) {
+    dataset.machines.push({
+      ...base('machine', `cnc_lathe:${cell}`, 20 + Math.floor(random() * 40)),
+      name: `演示数控车床 ${cell}`,
+      machineType: 'cnc_lathe',
+      capabilities: {
+        axisCount: 2,
+        maxSpindleSpeed: { value: pick([4000, 6000]), unit: 'r/min' },
+      },
+      supportedOperations: [...machineOperations.cnc_lathe],
+    })
   }
-  for (const [index, type] of toolTypes.entries()) {
+  for (const { type, label } of turningTools) {
     for (const size of toolSizes) {
       const methods = [...toolOperations[type]]
       dataset.tools.push({
         ...base('tool', `${type}:${size}`, Math.floor(random() * 24)),
-        name: `演示${toolLabels[index]} ${size} mm`,
+        name: `演示${label} ${size} mm`,
         toolType: type,
         specification: {
           description:
-            type === 'end_mill' || type === 'drill'
+            type === 'drill'
               ? '合成直径规格；未核对实物、刀柄和加工适配。'
               : `合成刀杆名义规格 ${size} mm；未核对刀片与装配。`,
-          ...(type === 'end_mill' || type === 'drill'
-            ? { diameter: { value: size, unit: 'mm' as const } }
-            : {}),
-          ...(type === 'end_mill' ? { cuttingEdgeCount: pick([2, 3, 4]) } : {}),
+          ...(type === 'drill' ? { diameter: { value: size, unit: 'mm' as const } } : {}),
         },
         supportedOperations: methods,
-        compatibleMachineTypes: machineTypes.filter((type) =>
-          methods.some((method) => machineOperations[type].includes(method)),
-        ),
+        compatibleMachineTypes: ['cnc_lathe'],
       })
     }
   }
@@ -225,13 +219,17 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
         const definition = topicText[topic]
         const tool = pick(
           dataset.tools.filter((item) =>
-            item.supportedOperations.some((method) => group.methods.includes(method)),
+            group.methods.some(
+              (method) =>
+                item.supportedOperations.includes(method) &&
+                toolTypesByMethod[method].includes(item.toolType),
+            ),
           ),
         )
         dataset.knowledge.push({
           ...base('knowledge', `${group.category}:${topic}:${material}`, Math.floor(random() * 21)),
-          title: `${material} · ${group.label} · ${definition.label}`,
-          content: `合成知识示例：${definition.content}${materialNotes[material]}关注特征：${group.features.join('、')}。仅用于目录和统计演示，未经工程确认。`,
+          title: `${material} · ${group.label}车削 · ${definition.label}`,
+          content: `车削合成知识示例：${definition.content}${materialNotes[material]}关注特征：${group.features.join('、')}。仅用于目录和统计演示，未经工程确认。`,
           topic,
           knowledgeCategory: pick(knowledgeCategories),
           applicability: {
@@ -253,7 +251,7 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
         category: group.category,
         material,
         features: [...group.features],
-        description: `${name}的合成资源登记，材料为${material}，用于${group.label}加工场景；无真实 CAD 或检验记录。`,
+        description: `${name}的合成资源登记，材料为${material}，仅描述${group.label}的回转体车削阶段（含车床轴向孔加工或切断）；无真实 CAD 或检验记录，不包含后续非车削特征。`,
       })
     }
   }
@@ -263,12 +261,6 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
   ]
   for (const { part, variant } of assignments) {
     const group = categories.find((item) => item.category === part.category)!
-    const type: ManufacturingType =
-      group.category === 'disc'
-        ? 'turn_mill'
-        : group.category === 'plate' || group.category === 'housing'
-          ? 'milling'
-          : 'turning'
     const planId = id('plan', `${part.id}:${variant}`)
     const operations = group.methods.map((method, position) => {
       const machine = pick(
@@ -278,6 +270,7 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
         dataset.tools.filter(
           (item) =>
             item.supportedOperations.includes(method) &&
+            toolTypesByMethod[method].includes(item.toolType) &&
             item.compatibleMachineTypes.includes(machine.machineType),
         ),
       )
@@ -314,7 +307,7 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
       name: `${part.name} · ${variant === 'primary' ? '基础工艺' : '备选工艺'}`,
       partId: part.id,
       version: 'v1',
-      manufacturingType: type,
+      manufacturingType: 'turning',
       operations,
       createdAt: new Date(earliest + Math.floor(random() * (end - earliest))).toISOString(),
       provenance: provenance(),
@@ -337,7 +330,7 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
   for (const [index, type] of modelTypes.entries()) {
     dataset.models.push({
       ...base('model', type, 30 + index),
-      name: `演示能力登记 · ${type}`,
+      name: `演示车削场景能力登记 · ${type}`,
       modelType: type,
       supportedTasks: tasks[index]!,
       integrationStatus: 'not_connected',
@@ -354,7 +347,7 @@ export function generateFoundationMock(config: FoundationMockConfig): Foundation
     const common = {
       id: id('event', `${isKnowledge ? 'knowledge' : 'model'}:sample-${i + 1}`),
       occurredAt: new Date(start + Math.floor(random() * (end - start))).toISOString(),
-      scenario: '合成业务流程统计演示',
+      scenario: '车削合成业务流程统计演示',
       provenance: provenance(),
     }
     dataset.usageEvents.push(

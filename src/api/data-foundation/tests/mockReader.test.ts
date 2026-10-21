@@ -22,6 +22,46 @@ import { emptyDataset, smallDataset } from './fixtures'
 const reader = (): DataFoundationReader =>
   new MockDataFoundationReader(foundationDemoConfig, smallDataset)
 describe('MockDataFoundationReader', () => {
+  it('默认车削数据通过原有 Reader 提供新规模、版本、分页和详情', async () => {
+    const client: DataFoundationReader = new MockDataFoundationReader(foundationDemoConfig)
+    const overview = await client.getOverview()
+    expect(overview.meta).toMatchObject({
+      schemaVersion: '1.0',
+      datasetVersion: 'foundation-turning-mock-v2:20261020:2026-10-20',
+      dataMode: 'synthetic_demo',
+    })
+    expect(overview.data).toMatchObject({
+      totalAssets: 171,
+      knowledgeCount: 72,
+      businessDataCount: 99,
+      modelCount: 6,
+    })
+    const first = await client.listAssets({ pageSize: 100 })
+    const second = await client.listAssets({ pageSize: 100, page: 2 })
+    expect(first.data.total).toBe(177)
+    expect(first.data.items).toHaveLength(100)
+    expect(second.data.items).toHaveLength(77)
+    expect(
+      new Set([...first.data.items, ...second.data.items].map((item) => `${item.kind}/${item.id}`))
+        .size,
+    ).toBe(177)
+    const plans = await client.listAssets({ kind: 'process_plan', pageSize: 100 })
+    expect(plans.data.total).toBe(32)
+    for (const plan of plans.data.items) {
+      expect((await client.getAssetDetail('process_plan', plan.id)).data).toMatchObject({
+        kind: 'process_plan',
+        asset: { manufacturingType: 'turning' },
+      })
+    }
+    expect((await client.listAssets({ keyword: '铣' })).data.total).toBe(0)
+    expect((await client.getKnowledgeDistribution()).data.total).toBe(72)
+    expect((await client.getResourceSummary()).data.businessResources).toEqual([
+      { kind: 'part', count: 24 },
+      { kind: 'process_plan', count: 32 },
+      { kind: 'machine', count: 3 },
+      { kind: 'tool', count: 40 },
+    ])
+  })
   it('七个方法符合长期返回契约，并附带快照来源', async () => {
     const client = reader()
     expectTypeOf(client.getOverview).returns.toEqualTypeOf<

@@ -27,16 +27,18 @@
 
 `createdAt` 是目录登记时间，不是零件加工时间、模型部署时间或知识真实性证明。时间戳必须带 `Z` 或明确偏移，支持秒和最多三位小数；拒绝无时区、无效日历日期、闰秒与表示未知偏移的 `-00:00`。业务日期使用 `YYYY-MM-DD`，支持从 1900 年开始的日期。
 
-`provenance` 含 `dataMode: synthetic_demo | live` 和非空的 `source` 来源描述。一个快照内资源、事件的模式必须与根级 `dataMode` 一致。当前生成器全部为 `synthetic_demo`，来源是 `foundation-mock-v1`。`live` 是未来来源能力，不表示本阶段已经实现真实接入。
+`provenance` 含 `dataMode: synthetic_demo | live` 和非空的 `source` 来源描述。一个快照内资源、事件的模式必须与根级 `dataMode` 一致。当前生成器全部为 `synthetic_demo`，来源是 `foundation-turning-mock-v2`。`live` 是未来来源能力，不表示本阶段已经实现真实接入。
 
 可选标量缺失时省略字段，不使用 `null` 或显式 `undefined`；无关系使用空数组。所有对象拒绝额外字段，不自动转换枚举、数字或补默认数据。数值必须有限，尺寸、转速必须为正。JSON 可表示性检查拒绝循环对象、非普通对象、稀疏数组中的缺失项等；Schema 再检查字段结构。
 
 ### 六类资源
 
+以下为通用契约的可表达范围。当前 Mock 业务范围已收敛为回转体车削，具体生成范围见后文；保留通用枚举以兼容读取契约，不表示当前生成器仍提供铣削等场景。
+
 1. **Part**：`name`、`category`、`material`、`features`、`description`。分类为轴、环、盘、板、壳体；材料与典型特征用非空文本描述，不代表 CAD 解析结果。
 2. **ProcessPlan**：`name`、`partId`、`version`、`manufacturingType`、`operations`。加工分类为车削、铣削、钻削、车铣复合或混合；每个方案指向一个零件，一个零件可对应多个方案。工序具有 `id`、`sequence`、`name`、`method`、可选 `machineId`、`toolIds`、`knowledgeIds`。加工方式包含车削、铣削、钻削、镗削和切断。允许零工序、机床缺失、空刀具/知识引用。
 3. **Machine**：`name`、`machineType`、可选 `manufacturer`、`capabilities`、`supportedOperations`。机床类型涵盖数控车床、立式加工中心、数控铣床、钻削设备、车铣复合设备。能力字段可缺失，包括 `axisCount`、`maxSpindleSpeed: { value, unit: 'r/min' }`、`workEnvelope: { x, y, z, unit: 'mm' }`。
-4. **Tool**：`name`、`toolType`、`specification`、`supportedOperations`、`compatibleMachineTypes`。类型涵盖外圆车刀、内孔车刀、切断刀、立铣刀、钻头和镗刀。规格有说明，可选 `diameter: { value, unit: 'mm' }`、`cuttingEdgeCount`。生成器仅给钻头、立铣刀填直径，不把刀杆尺寸误作切削直径；所有规格均未经实物和加工适配确认。
+4. **Tool**：`name`、`toolType`、`specification`、`supportedOperations`、`compatibleMachineTypes`。类型涵盖外圆车刀、内孔车刀、切断刀、立铣刀、钻头和镗刀。规格有说明，可选 `diameter: { value, unit: 'mm' }`、`cuttingEdgeCount`。当前车削生成器仅给钻头填直径，其他刀具的名义刀杆规格放在说明中，不把刀杆尺寸误作切削直径；不生成立铣刀。所有规格均未经实物和加工适配确认。
 5. **Knowledge**：`title`、`content`、`topic`、`knowledgeCategory`、`applicability`、`relatedAssets`。主题包括工序规则、材料、刀具选择、装夹、参数条件、质量；主分类为 `industry`、`institute`、`experience`，分别对应行业、所内、经验知识。主分类是单值，与来源严格分开，模拟“所内知识”仍是合成数据。适用条件的 `operations`、`partCategories`、`materials` 数组为空表示没有声明限制，不表示已经验证适用于所有场景。关联资源是类型化引用，可覆盖六类资源。
 6. **Model**：`name`、`modelType`、`supportedTasks`、`integrationStatus`、可选业务 `version`。类型包括通用语言模型、领域模型、特征识别、工艺规划、参数推荐和专业计算；支持任务另行登记。接入状态为 `not_connected | configured | available | unavailable`，与模型类型分离。合成模型只允许 `not_connected`；其模拟调用事件不代表真实请求、权重、凭据或部署。
 
@@ -53,7 +55,7 @@
 ## Schema、数据版本和快照
 
 - `schemaVersion: '1.0'`：本层结构版本。未知版本抛出 `contract_incompatible`；不重用案例库版本含义。
-- `datasetVersion`：标识一次数据快照；Mock 为 `foundation-mock-v1:<seed>:<asOfDate>`。
+- `datasetVersion`：标识一次数据快照；当前 Mock 为 `foundation-turning-mock-v2:<seed>:<asOfDate>`。生成规则改变时升级此前缀，Schema 仍为 `1.0`；旧 `foundation-mock-v1` 导出属于历史多工艺快照，不能与新版混作同一批数据。
 - 实体 `id`：稳定目录身份。当前快照每个 ID 只有一条记录。
 - 方案/模型的 `version`：实体业务版本，不是 Schema 或随机种子。将来若读取历史版本，必须另行明确身份与版本的唯一约束。
 - `asOf`：该快照的数据截止时间，所有返回共享，不会随着查询时刻变化。
@@ -65,11 +67,15 @@ JSON Schema 与 TypeScript 同时维护：契约测试在编译期检查领域�
 
 调用 `generateFoundationMock({ seed, asOfDate })` 构建内存数据；不维护第二份静态 JSON。默认可复现配置为 seed `20261020`、日期 `2026-10-20`。seed 为 uint32，生成日期不早于 `1901-01-01`，为历史分布预留空间。
 
-规模为 Part 24、ProcessPlan 32、Machine 12、Tool 48、Knowledge 120、Model 6，事件 240，其中知识引用 180、模型调用 60。业务资源共 116，知识与业务资源合计 236；加上单独计量的模型，资源列表共有 242 条。
+规模为 Part 24、ProcessPlan 32、Machine 3、Tool 40、Knowledge 72、Model 6，事件 240，其中知识引用 180、模型调用 60。业务资源共 99，知识与业务资源合计 171；加上单独计量的模型，资源列表共有 177 条。工序共 96 条，不计入顶层资源数。
 
-零件包含不同名称、类别、材料与特征；知识由五类零件、六种主题和四种材料组合，内容保留对应条件与限制。刀具包含不同规格、刃数和声明用途；工序通过引用复用机床、刀具和知识。八个备选方案的首道工序省略机床和刀具，用于缺失状态。独立测试事实集还覆盖零工序、无方案零件、无引用知识和完全空集。
+当前只生成轴类、环套类、回转盘类，各 8 个零件。所有方案的 `manufacturingType` 为 `turning`。工序覆盖外圆与端面车削、车床轴向钻孔、车床内孔镗削、车床切断；其中 `drilling`、`boring`、`parting` 是车削方案内的加工方式，不是独立的钻削、铣削或车铣复合方案。盘类只描述回转体阶段，法兰盘等使用毛坯名称，不包含孔阵列、键槽或其他后续非车削特征。
 
-伪随机状态属于函数内部，不调用 `Math.random()` 或系统时钟。ID 根据 seed、资源类型和语义键计算，不随基准日变化；不按数组显示位置索引资源。所有生成时间位于基准日前的一段分布内，事件发生在目标登记之后。基准日的上海时间 `23:59:59.999` 是合成快照截止点，不冒充当前真实时刻。
+全部机床为两轴 `cnc_lathe`；刀具为外圆车刀、内孔车刀、切断刀、车床轴向钻头、车床镗刀，五类各 8 个名义规格，声明兼容类型仅为数控车床。知识由三类零件、六种主题和四种材料组合，标题、正文及适用条件均限定车削语境。工序通过引用复用机床、刀具和知识。八个备选方案的首道工序省略机床和刀具，用于缺失状态。独立测试事实集还覆盖零工序、无方案零件、无引用知识和完全空集。
+
+生成过程先按人工编写的模板确定零件名称、类别、典型特征、工序顺序、知识正文和候选资源种类，再以种子产生的伪随机序列选择材料、兼容资源、知识主分类、登记时间和使用事件。种子不会推导制造知识、几何特征或工艺规则；知识正文是主题说明与材料注意事项的组合，不是模型实时生成。热点通过事件聚合产生，事件采样有意偏向部分知识，不代表实际使用偏好。
+
+伪随机状态属于函数内部，不调用 `Math.random()` 或系统时钟。ID 根据 seed、资源类型和语义键计算，不随基准日变化；不按数组显示位置索引资源。**可复现需要相同生成器版本、seed 和基准日期**；仅相同 seed 不保证跨生成器版本得到旧数据。新版保留相同语义键时可能沿用 ID，但材料、关联或时间可能变化，不能据此视为旧快照未变。所有生成时间位于基准日前的一段分布内，事件发生在目标登记之后。基准日的上海时间 `23:59:59.999` 是合成快照截止点，不冒充当前真实时刻。
 
 Demo 组合入口可以显式注入当天业务日期，使未来演示仍有近期趋势；更新日期时主动创建新的 Reader，不能在每个查询中重新生成。Reader 首次读取时生成并验证快照，并发读取共享一次加载。成功后复制保存，外部修改配置、原始数据或返回值不能改变快照；失败不建立快照，下一次显式调用可重试。
 

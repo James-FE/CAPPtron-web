@@ -1,6 +1,6 @@
 import { useWorkflowSession } from '../features/process-planning/useWorkflowSession'
 import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 const ProgramReviewPage = lazy(() =>
   import('../pages/program-review/ProgramReviewPage').then((module) => ({
     default: module.ProgramReviewPage,
@@ -15,33 +15,39 @@ export function WorkflowWorkspace({
   stage,
   onNavigate,
   initialCaseReference,
+  visible = true,
 }: {
   stage: WorkflowStage
   onNavigate: (stage: WorkflowStage) => void
   initialCaseReference?: { caseId: string; version: string }
+  visible?: boolean
 }) {
-  const workflow = useWorkflowSession(stage === 'planning', initialCaseReference)
+  const workflow = useWorkflowSession(visible && stage === 'planning', initialCaseReference)
   const { session, operation, selectOperation, updateSession, agentOpen, setAgentOpen } = workflow
+  useEffect(() => {
+    if (!visible) setAgentOpen(false)
+  }, [visible, setAgentOpen])
   const programContext = `${session?.plan.caseReference?.caseId ?? '无参考案例'} / ${session?.plan.caseReference?.version ?? '—'} · 程序审核 · ${session?.program ? `${session.program.source === 'historical_reference' ? '历史参考' : session.program.source === 'demo_fixture' ? '不可执行测试文本' : 'CAM 来源'} · 修订 r${session.program.revision}` : '正文不可用'} · 本次未执行 CAM`
   return (
     <>
       <ProcessPlanningPage
-        active={stage === 'planning'}
+        active={visible && stage === 'planning'}
         workflow={workflow}
         onReview={() => onNavigate('review')}
       />
       {stage === 'review' && (
         <Suspense fallback={<p role="status">正在加载程序工作台…</p>}>
           <ProgramReviewPage
+            active={visible}
             workflow={workflow}
             onBack={() => onNavigate('planning')}
             onOpenAgent={() => setAgentOpen(true)}
           />
         </Suspense>
       )}
-      {stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
+      {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
       <AgentDrawer
-        open={stage !== 'input' && agentOpen}
+        open={visible && stage !== 'input' && agentOpen}
         onClose={() => setAgentOpen(false)}
         plan={session?.plan ?? null}
         programContext={stage === 'review' ? programContext : undefined}

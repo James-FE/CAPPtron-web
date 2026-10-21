@@ -56,6 +56,37 @@ async function shot(page: Page, info: TestInfo, name: string) {
   await page.screenshot({ path, fullPage: true })
   await info.attach(name, { path, contentType: 'image/png' })
 }
+
+test('程序审核切换数据底座后保留编辑器、修订和撤销历史', async ({ page }, info) => {
+  await installFixture(page)
+  await enter(page)
+  await page.getByRole('button', { name: '03 程序审核' }).click()
+  const editor = page.getByRole('textbox', { name: 'NC 程序草稿' })
+  await expect(editor).toContainText('SYNTHETIC UI TEST ONLY')
+  await editor.click({ position: { x: 100, y: 20 } })
+  await page.keyboard.press('Control+Home')
+  await page.keyboard.insertText('KEEP FOUNDATION ROUNDTRIP\n')
+  const originalEditor = await editor.elementHandle()
+  await expect(page.locator('.review-heading [role="status"]')).toContainText('修订 r2')
+  await page.getByRole('button', { name: '数据底座', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '数据底座', exact: true })).toBeVisible()
+  await expect(editor).not.toBeVisible()
+  await expect(page.getByRole('button', { name: '打开 Agent 协同' })).toHaveCount(0)
+  await page.getByRole('button', { name: '返回智能工艺工作台' }).click()
+  await expect(page.getByRole('button', { name: '03 程序审核' })).toHaveAttribute(
+    'aria-current',
+    'step',
+  )
+  await expect(editor).toContainText('KEEP FOUNDATION ROUNDTRIP')
+  expect(
+    await originalEditor!.evaluate((element) => element === document.querySelector('.cm-content')),
+  ).toBe(true)
+  await expect(page.locator('.review-heading [role="status"]')).toContainText('修订 r2')
+  await expect(page.getByText(/未保存修改/)).toBeVisible()
+  await page.getByRole('button', { name: '撤销修改', exact: true }).click()
+  await expect(editor).not.toContainText('KEEP FOUNDATION ROUNDTRIP')
+  await shot(page, info, 'foundation-return-to-review')
+})
 test('审核入口准确空状态及摘要失配，禁止生成伪 NC', async ({ page }, info) => {
   await page.goto('/')
   await page.getByRole('button', { name: '03 程序审核' }).click()

@@ -123,20 +123,40 @@ describe('r06 模型输入', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('文件格式不支持')
   })
 
-  it.each([
-    ['数据底座', '数据底座页面尚未实现'],
-    ['查看解读结果', '设计文件解读尚未接入'],
-  ])('%s 入口提供说明并保持模型输入阶段', (name, message) => {
+  it.each([['查看解读结果', '设计文件解读尚未接入']])(
+    '%s 入口提供说明并保持模型输入阶段',
+    (name, message) => {
+      render(<App />)
+      fireEvent.click(screen.getByRole('button', { name }))
+      expect(screen.getByRole('status')).toHaveTextContent(message)
+      expect(screen.getByRole('button', { name: '01 模型输入' })).toHaveAttribute(
+        'aria-current',
+        'step',
+      )
+      expect(screen.getByRole('button', { name: '02 工艺决策' })).not.toHaveAttribute(
+        'aria-current',
+      )
+      expect(screen.getByRole('button', { name: '03 程序审核' })).not.toHaveAttribute(
+        'aria-current',
+      )
+      fireEvent.click(screen.getByRole('button', { name: '关闭功能提示' }))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    },
+  )
+  it('数据底座成为独立入口，返回保留本地模型选择和原阶段', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name }))
-    expect(screen.getByRole('status')).toHaveTextContent(message)
+    chooseFile('Kept.step')
+    fireEvent.click(screen.getByRole('button', { name: '数据底座' }))
+    expect(screen.getByRole('heading', { name: '数据底座' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '数据底座' })).toHaveAttribute('aria-current', 'page')
+    await screen.findByText('演示日新增')
+    expect(screen.queryByRole('button', { name: '01 模型输入' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '打开 Agent 协同' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回智能工艺工作台' }))
+    expect(fileBar().getByText('Kept.step')).toBeVisible()
     expect(screen.getByRole('button', { name: '01 模型输入' })).toHaveAttribute(
       'aria-current',
       'step',
     )
-    expect(screen.getByRole('button', { name: '02 工艺决策' })).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('button', { name: '03 程序审核' })).not.toHaveAttribute('aria-current')
-    fireEvent.click(screen.getByRole('button', { name: '关闭功能提示' }))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })

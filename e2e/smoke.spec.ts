@@ -163,10 +163,7 @@ test('使用示例直接进入工艺决策，返回后保留元数据并区分�
 
 test('未实现入口提供可关闭说明，鼠标和键盘操作均不推进业务阶段', async ({ page }) => {
   await page.goto('/')
-  for (const [name, message] of [
-    ['数据底座', '数据底座页面尚未实现'],
-    ['查看解读结果', '设计文件解读尚未接入'],
-  ]) {
+  for (const [name, message] of [['查看解读结果', '设计文件解读尚未接入']]) {
     await page.getByRole('button', { name }).click()
     await expect(page.getByRole('status')).toContainText(message)
     await page.getByRole('button', { name: '关闭功能提示' }).click()

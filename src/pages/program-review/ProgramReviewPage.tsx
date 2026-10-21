@@ -19,11 +19,13 @@ export function ProgramReviewPage({
   onBack,
   onOpenAgent,
   reader = localProgramContentReader,
+  active = true,
 }: {
   workflow: WorkflowSession
   onBack: () => void
   onOpenAgent?: () => void
   reader?: ProgramContentReader
+  active?: boolean
 }) {
   const { session, updateSession, readiness } = workflow
   const document = session?.program
@@ -87,9 +89,13 @@ export function ProgramReviewPage({
     return () => controller.abort()
   }, [catalog, asset, taskKey, document, attempt, reader])
   useEffect(() => {
-    if (confirmation) dialog.current?.showModal()
+    if (active && confirmation) dialog.current?.showModal()
     else dialog.current?.close()
-  }, [confirmation])
+    if (!active) {
+      setConfirmation(null)
+      setExpanded(false)
+    }
+  }, [confirmation, active])
 
   function change(text: string, revision: number, reason: string) {
     if (!document) return

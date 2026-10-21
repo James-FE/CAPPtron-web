@@ -4,7 +4,7 @@
 
 本层位于 `src/api/data-foundation/`，面向跨零件、工艺、机床、刀具、知识和模型的资源目录与统计查询。领域契约不引用 React、图表组件、Figma、FE-002 ViewModel 或 CASE-FE-001。
 
-数据路径为：领域契约 → 可复现 Mock 快照 → Ajv 结构校验与关系校验 → 纯统计函数 → `DataFoundationReader`。本阶段没有页面接入、数据库、真实 HTTP Reader 或模型 API。模拟数据不得用于 NC 生成或真实加工配置。
+数据路径为：领域契约 → 可复现 Mock 快照 → Ajv 结构校验与关系校验 → 纯统计函数 → `DataFoundationReader`。FE-004A 交付数据层；FE-004B 已接入大屏，见[页面验收](../workflows/FE-004B-ACCEPTANCE.md)和[查询接口与真实接入指南](../api/data-foundation-reader-v1.md)。目前没有正式数据库、真实 HTTP Reader 或模型 API。模拟数据不得用于 NC 生成或真实加工配置。
 
 `CaseCatalogReader` 仍负责经过版本化登记的工程参考案例、NC 资产引用与验证证据。Golden-B7 v2、摘要及案例索引保持原样，新资源不会进入案例目录或 FE-002 方案选择器。两处都使用 `schemaVersion` 字段并不意味着共享契约；本层 Schema 的标识为 `urn:capptron:data-foundation:dataset:1.0`。
 
@@ -77,7 +77,7 @@ JSON Schema 与 TypeScript 同时维护：契约测试在编译期检查领域�
 
 伪随机状态属于函数内部，不调用 `Math.random()` 或系统时钟。ID 根据 seed、资源类型和语义键计算，不随基准日变化；不按数组显示位置索引资源。**可复现需要相同生成器版本、seed 和基准日期**；仅相同 seed 不保证跨生成器版本得到旧数据。新版保留相同语义键时可能沿用 ID，但材料、关联或时间可能变化，不能据此视为旧快照未变。所有生成时间位于基准日前的一段分布内，事件发生在目标登记之后。基准日的上海时间 `23:59:59.999` 是合成快照截止点，不冒充当前真实时刻。
 
-Demo 组合入口可以显式注入当天业务日期，使未来演示仍有近期趋势；更新日期时主动创建新的 Reader，不能在每个查询中重新生成。Reader 首次读取时生成并验证快照，并发读取共享一次加载。成功后复制保存，外部修改配置、原始数据或返回值不能改变快照；失败不建立快照，下一次显式调用可重试。
+生成器支持显式注入业务日期，但 **FE-004B 当前必须保留维护者验收的 2026-10-20 快照，不得自动取系统今天**。若将来明确更换演示快照，应更新配置与验收证据并创建新的 Reader，不能在每个查询中重新生成。Reader 首次读取时生成并验证快照，并发读取共享一次加载。成功后复制保存，外部修改配置、原始数据或返回值不能改变快照；失败不建立快照，下一次显式调用可重试。
 
 ## 统计规则
 
@@ -151,7 +151,7 @@ Demo 组合入口可以显式注入当天业务日期，使未来演示仍有近
 
 ## FE-004B 接入
 
-组合入口显式选择数据源，展示组件仅接收 `DataFoundationReader`：
+已实现的组合入口为 `src/app/dataFoundation.ts`，显式选择稳定数据源；展示组件仅接收 `DataFoundationReader`。以下是组合入口构造与消费示意，不应复制到 React 页面内创建实例：
 
 ```ts
 import {
@@ -162,7 +162,7 @@ import { readFoundationExample } from '../../api/data-foundation/example'
 
 const dataFoundationReader: DataFoundationReader = new MockDataFoundationReader({
   seed: 20261020,
-  asOfDate: '2026-10-20', // Demo 可由组合入口注入业务日期
+  asOfDate: '2026-10-20', // 保留经过人工验收的固定快照
 })
 
 const results = await readFoundationExample(dataFoundationReader)
@@ -172,7 +172,7 @@ const results = await readFoundationExample(dataFoundationReader)
 
 `example.ts` 包含七种调用，`npm run example:foundation` 在 Vitest 中实际执行该 TypeScript 示例，分别注入生成数据 Reader 和手写小型事实集 Reader，并比较人工验算结果。`npm run validate:foundation` 校验完整数据契约、生成器、统计、Reader 和可替换性；全量测试与 CI 同样覆盖这些用例。
 
-FE-004B 应按结果组织顶部 KPI、趋势、知识构成、模型分类、工业资源概览、热点、分页列表和详情；不导入 Mock 生成器、数据集或事件数组，不在每个组件重复聚合。模型的完整列表通过 `listAssets({ kind: 'model' })` 和详情方法获取。错误、重试、空状态及模拟来源标识由展示层消费契约实现。
+FE-004B 已按结果组织顶部 KPI、趋势、知识构成、模型分类、工业资源概览、热点、分页列表和详情；不导入 Mock 生成器、数据集或事件数组，不在每个组件重复聚合。按维护者最新意见，顶部只显示五项 KPI，不显示模型调用次数；`FoundationOverview` 的六项统计字段仍保持兼容。模型的完整列表通过 `listAssets({ kind: 'model' })` 和详情方法获取。错误、重试、空状态及模拟来源标识由展示层消费契约实现。完整方法参数、返回结构与正式接入步骤见[接口指南](../api/data-foundation-reader-v1.md)。
 
 ## 未来真实数据接入
 

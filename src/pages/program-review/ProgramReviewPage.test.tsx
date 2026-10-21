@@ -48,9 +48,16 @@ const trustedReader: ProgramContentReader = {
   }),
 }
 let workflow: WorkflowSession
-function Harness() {
+function Harness({ active = true }: { active?: boolean }) {
   workflow = useWorkflowSession(false, { caseId: 'golden-b7', version: 'v2' })
-  return <ProgramReviewPage workflow={workflow} onBack={() => {}} reader={trustedReader} />
+  return (
+    <ProgramReviewPage
+      active={active}
+      workflow={workflow}
+      onBack={() => {}}
+      reader={trustedReader}
+    />
+  )
 }
 async function open() {
   installCatalogFetchMock()
@@ -62,6 +69,24 @@ function confirm() {
   expect(screen.getByText(/此操作仅记录当前程序修订/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: '记录本次演示确认' }))
 }
+it('隐藏工作台关闭顶层确认框，保留草稿且返回时不恢复过期确认', async () => {
+  installCatalogFetchMock()
+  const { rerender } = render(<Harness />)
+  await screen.findByLabelText('测试程序编辑器')
+  fireEvent.change(screen.getByLabelText('测试程序编辑器'), {
+    target: { value: 'TEST ONLY hidden draft' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: '确认可用' }))
+  expect(document.querySelector('dialog[open]')).not.toBeNull()
+  const documentId = workflow.session?.program?.id
+  rerender(<Harness active={false} />)
+  expect(document.querySelector('dialog[open]')).toBeNull()
+  rerender(<Harness />)
+  expect(document.querySelector('dialog[open]')).toBeNull()
+  expect(screen.getByLabelText('测试程序编辑器')).toHaveValue('TEST ONLY hidden draft')
+  expect(workflow.session?.program?.id).toBe(documentId)
+  expect(workflow.session?.program?.review).toBeUndefined()
+})
 it('确认当前修订，编辑/恢复/现场修改均使其失效，不自动继承历史证据', async () => {
   await open()
   expect(workflow.session?.program?.review).toBeUndefined()

@@ -456,3 +456,54 @@ button:focus-visible {
     transition: none;
   }
 }
+
+.core-mode-switch {
+  display: flex;
+  gap: 16px;
+  padding: 10px 24px;
+  align-items: center;
+}
+.core-workspace {
+  padding: 24px;
+  overflow: auto;
+  min-height: 0;
+}
+.core-workspace fieldset {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #ccd5dc;
+}
+.core-workspace button,
+.core-workspace input {
+  margin: 6px;
+  padding: 8px;
+}
+.core-workspace pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--surface-panel);
+  padding: 12px;
+}
+
+.live-shell .app-main {
+  display: block;
+  padding: 16px;
+}
+
+.core-workspace button {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  cursor: pointer;
+}
+.core-workspace button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.core-workspace input:not([type='file']) {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+}

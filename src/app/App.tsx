@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { CoreWorkspace } from '../features/core/CoreWorkspace'
 import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
@@ -15,6 +16,7 @@ export default function App({
 }: {
   foundationReader?: DataFoundationReader
 }) {
+  const [live, setLive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
@@ -23,6 +25,7 @@ export default function App({
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   function changeView(next: 'workflow' | 'foundation') {
+    setLive(false)
     if (workspaceRef.current?.contains(document.activeElement))
       (document.activeElement as HTMLElement | null)?.blur()
     setView(next)
@@ -35,6 +38,8 @@ export default function App({
 
   return (
     <AppShell
+      live={live}
+      onToggleLive={() => setLive(!live)}
       currentStage={stage}
       currentView={view}
       onView={changeView}
@@ -47,11 +52,12 @@ export default function App({
         <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
       }
     >
+      {live && <CoreWorkspace />}
       <div
         ref={workspaceRef}
         className="workflow-view"
-        hidden={view !== 'workflow'}
-        inert={view !== 'workflow'}
+        hidden={live || view !== 'workflow'}
+        inert={live || view !== 'workflow'}
       >
         <input
           ref={inputRef}
@@ -100,7 +106,7 @@ export default function App({
           </div>
         )}
       </div>
-      {view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
+      {!live && view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
     </AppShell>
   )
 }

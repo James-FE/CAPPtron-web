@@ -35,11 +35,22 @@ export function CoreWorkspace() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState<unknown>()
-  const [planningRun, setPlanningRun] = useState<{ task_id: string; run_id: string }>()
+  type PendingPlan = { task_id: string; run_id?: string; body: Record<string, unknown> }
+  const [planningRuns, setPlanningRuns] = useState<Record<string, PendingPlan>>({})
+  const planningRun = planningRuns[task?.task_id ?? taskId]
+  function storePending(pending: PendingPlan) {
+    setPlanningRuns((current) => ({ ...current, [pending.task_id]: pending }))
+  }
   async function replan(current: Task, body: Record<string, unknown>) {
-    const result = await api.post<{ run_id: string }>(`${path(current)}/replan`, body)
-    setPlanningRun({ task_id: current.task_id, run_id: result.run_id })
+    const pending = { task_id: current.task_id, body }
+    storePending(pending)
     setApproved(undefined)
+    setCard(undefined)
+    setRun(undefined)
+    setNc(undefined)
+    setText('')
+    const result = await api.post<{ run_id: string }>(`${path(current)}/replan`, body)
+    storePending({ ...pending, run_id: result.run_id })
     return result
   }
   async function act(work: () => Promise<void>) {
@@ -54,46 +65,74 @@ export function CoreWorkspace() {
     }
   }
   async function refreshTask(key: string) {
-    const next = await api.get<Task>(`/planning/tasks/${encodeURIComponent(key)}`)
-    if (planningRun && planningRun.task_id !== key) setPlanningRun(undefined)
-    if (planningRun?.task_id === key) {
-      const status = await api.get<{ status: string }>(
-        `${path(next)}/runs/${encodeURIComponent(planningRun.run_id)}`,
-      )
-      if (['completed', 'failed', 'cancelled'].includes(status.status)) setPlanningRun(undefined)
-    }
-    setTask(next)
-    setRuns((await api.get<{ runs: CamRun[] }>(`/cam/tasks/${encodeURIComponent(key)}/runs`)).runs)
-    setTaskId(next.task_id)
+    setTask(undefined)
     setPlan(undefined)
     setCard(undefined)
     setApproved(undefined)
-    if (next.current_revision > 0) {
-      setPlan(await api.get<Plan>(`${path(next)}/results/${next.current_revision}`))
-      setCard(
-        await api.get(
-          `/process-cards/tasks/${encodeURIComponent(key)}/results/${next.current_revision}`,
-        ),
-      )
-      setApproved(
-        await api.get<ApprovedPlans>(`/cam/tasks/${encodeURIComponent(key)}/approved-plans`),
-      )
-    }
-  }
-  async function refreshRun(key: string) {
-    const next = await api.get<CamRun>(`/cam/runs/${encodeURIComponent(key)}`)
-    setRun(next)
+    setRuns([])
+    setRun(undefined)
     setNc(undefined)
     setText('')
+    let pending = planningRuns[key]
+    if (pending) {
+      if (!pending.run_id) {
+        const recovered = await api.post<{ run_id: string }>(
+          `/planning/tasks/${encodeURIComponent(key)}/replan`,
+          pending.body,
+        )
+        pending = { ...pending, run_id: recovered.run_id }
+        storePending(pending)
+      }
+      const status = await api.get<{ status: string }>(
+        `/planning/tasks/${encodeURIComponent(key)}/runs/${encodeURIComponent(pending.run_id!)}`,
+      )
+      if (['completed', 'failed', 'cancelled'].includes(status.status)) {
+        setPlanningRuns((current) => {
+          const next = { ...current }
+          delete next[key]
+          return next
+        })
+      }
+    }
+    // 先确认规划终态，再读取当前修订，避免把完成前的修订当作最新版本。
+    const next = await api.get<Task>(`/planning/tasks/${encodeURIComponent(key)}`)
+    const nextRuns = await api.get<{ runs: CamRun[] }>(`/cam/tasks/${encodeURIComponent(key)}/runs`)
+    const nextPlan =
+      next.current_revision > 0
+        ? await api.get<Plan>(`${path(next)}/results/${next.current_revision}`)
+        : undefined
+    const nextCard =
+      next.current_revision > 0
+        ? await api.get<NonNullable<typeof card>>(
+            `/process-cards/tasks/${encodeURIComponent(key)}/results/${next.current_revision}`,
+          )
+        : undefined
+    const nextApproved =
+      next.current_revision > 0
+        ? await api.get<ApprovedPlans>(`/cam/tasks/${encodeURIComponent(key)}/approved-plans`)
+        : undefined
+    setTask(next)
+    setTaskId(next.task_id)
+    setRuns(nextRuns.runs)
+    setPlan(nextPlan)
+    setCard(nextCard)
+    setApproved(nextApproved)
+  }
+  async function refreshRun(key: string) {
+    setRun(undefined)
+    setNc(undefined)
+    setText('')
+    const next = await api.get<CamRun>(`/cam/runs/${encodeURIComponent(key)}`)
+    setRun(next)
     if (next.current_candidate) {
       const version = await api.get<NcVersion>(ncPath(next.current_candidate))
-      setNc(version)
       const files = await Promise.all(
         version.files.map(
           async (file) => `${file.filename}\n${(await api.file(version.ref, file.file_id)).text}`,
         ),
       )
       setText(files.join('\n\n'))
+      setNc(version)
     }
   }
   const roughOperation = plan?.payload.operations.find(
@@ -102,7 +141,10 @@ export function CoreWorkspace() {
   const executable =
     !planningRun && approved?.execution_configured && approved.execution_profile_id
       ? approved.plans.find(
-          (p) => p.profile_matches && p.plan_ref.revision === task?.current_revision,
+          (p) =>
+            p.profile_matches &&
+            p.plan_ref.task_id === task?.task_id &&
+            p.plan_ref.revision === task?.current_revision,
         )
       : undefined
   return (
@@ -120,7 +162,6 @@ export function CoreWorkspace() {
             const file = e.target.files?.[0]
             if (!file) return
             setRuns([])
-            setPlanningRun(undefined)
             setAsset(undefined)
             setParse(undefined)
             setParseCommand('')
@@ -245,6 +286,7 @@ export function CoreWorkspace() {
               任务 {task.task_id} · 修订 {task.current_revision} · 反馈 {task.feedback_version}
             </p>
             <button
+              disabled={!!planningRun}
               onClick={() =>
                 void act(async () => {
                   setReceipt(
@@ -265,7 +307,11 @@ export function CoreWorkspace() {
             </label>
             <button
               disabled={
-                !roughOperation || !plan || !Number.isFinite(Number(rough)) || Number(rough) <= 0
+                !!planningRun ||
+                !roughOperation ||
+                !plan ||
+                !Number.isFinite(Number(rough)) ||
+                Number(rough) <= 0
               }
               onClick={() =>
                 void act(async () => {
@@ -430,7 +476,10 @@ export function CoreWorkspace() {
         )}
       </fieldset>
       {planningRun && (
-        <p role="status">规划运行 {planningRun.run_id} 尚待确认，请刷新任务后再审核或启动 CAM。</p>
+        <p role="status">
+          规划运行 {planningRun.run_id ?? String(planningRun.body.command_id)}{' '}
+          尚待确认，请刷新任务后再审核或启动 CAM。
+        </p>
       )}
       {busy && <p role="status">正在请求 Core…</p>}
       {error && <p role="alert">{error}</p>}

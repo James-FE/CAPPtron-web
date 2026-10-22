@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CoreClient, ncPath } from '../../api/core/client'
+import { CoreClient, CoreHttpError, ncPath } from '../../api/core/client'
 import type {
   ApprovedPlans,
   Asset,
@@ -49,9 +49,22 @@ export function CoreWorkspace() {
     setRun(undefined)
     setNc(undefined)
     setText('')
-    const result = await api.post<{ run_id: string }>(`${path(current)}/replan`, body)
-    storePending({ ...pending, run_id: result.run_id })
-    return result
+    try {
+      const result = await api.post<{ run_id: string }>(`${path(current)}/replan`, body)
+      storePending({ ...pending, run_id: result.run_id })
+      return result
+    } catch (error) {
+      if (error instanceof CoreHttpError && error.status >= 400 && error.status < 500) {
+        setPlanningRuns((entries) => {
+          const next = { ...entries }
+          delete next[current.task_id]
+          return next
+        })
+        setTask(undefined)
+        setPlan(undefined)
+      }
+      throw error
+    }
   }
   async function act(work: () => Promise<void>) {
     setBusy(true)
@@ -76,10 +89,21 @@ export function CoreWorkspace() {
     let pending = planningRuns[key]
     if (pending) {
       if (!pending.run_id) {
-        const recovered = await api.post<{ run_id: string }>(
-          `/planning/tasks/${encodeURIComponent(key)}/replan`,
-          pending.body,
-        )
+        const recovered = await api
+          .post<{ run_id: string }>(
+            `/planning/tasks/${encodeURIComponent(key)}/replan`,
+            pending.body,
+          )
+          .catch((error) => {
+            if (error instanceof CoreHttpError && error.status >= 400 && error.status < 500) {
+              setPlanningRuns((entries) => {
+                const next = { ...entries }
+                delete next[key]
+                return next
+              })
+            }
+            throw error
+          })
         pending = { ...pending, run_id: recovered.run_id }
         storePending(pending)
       }

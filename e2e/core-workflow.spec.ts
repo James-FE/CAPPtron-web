@@ -190,3 +190,18 @@ test('NC metadata without readable file content cannot be approved', async ({ pa
   await expect(page.getByRole('alert')).toContainText('503')
   await expect(page.getByRole('button', { name: '批准当前 NC' })).toHaveCount(0)
 })
+
+test('a definitive planning rejection allows correction after authoritative refresh', async ({
+  page,
+}) => {
+  await readyTask(page)
+  await page.route('**/planning/tasks/task-a/replan', (route) =>
+    route.fulfill({ status: 422, body: 'invalid parameters' }),
+  )
+  await page.getByRole('button', { name: '生成模板工艺' }).click()
+  await expect(page.getByRole('alert')).toContainText('422')
+  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
+  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
+  await expect(page.getByRole('button', { name: '生成模板工艺' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeEnabled()
+})

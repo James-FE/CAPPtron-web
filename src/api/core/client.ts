@@ -49,6 +49,14 @@ export type ParseResult = {
 export type Asset = { asset_id: string; sha256: string; filename: string; status: string }
 const part = encodeURIComponent
 export const ncPath = (ref: NcRef) => `/cam/runs/${part(ref.cam_run_id)}/nc/versions/${ref.version}`
+export class CoreHttpError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`Core HTTP ${status}: ${detail}`)
+  }
+}
 export class CoreClient {
   private pending = new Map<string, string>()
   constructor(
@@ -57,7 +65,7 @@ export class CoreClient {
   ) {}
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await this.fetcher(this.base.replace(/\/$/, '') + path, init)
-    if (!response.ok) throw new Error(`Core HTTP ${response.status}: ${await response.text()}`)
+    if (!response.ok) throw new CoreHttpError(response.status, await response.text())
     return response.json() as Promise<T>
   }
   get<T>(path: string) {
@@ -68,16 +76,22 @@ export class CoreClient {
     const key = JSON.stringify([path, content, reviewer])
     const commandId = typeof command === 'string' ? (this.pending.get(key) ?? command) : undefined
     if (commandId) this.pending.set(key, commandId)
-    const result = await this.request<T>(path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(reviewer ? { 'X-Reviewer-Id': reviewer } : {}),
-      },
-      body: JSON.stringify(commandId ? { ...content, command_id: commandId } : body),
-    })
-    this.pending.delete(key)
-    return result
+    try {
+      const result = await this.request<T>(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(reviewer ? { 'X-Reviewer-Id': reviewer } : {}),
+        },
+        body: JSON.stringify(commandId ? { ...content, command_id: commandId } : body),
+      })
+      this.pending.delete(key)
+      return result
+    } catch (error) {
+      if (error instanceof CoreHttpError && error.status >= 400 && error.status < 500)
+        this.pending.delete(key)
+      throw error
+    }
   }
   upload(file: File, command: string) {
     return this.request<Asset>(
@@ -90,7 +104,7 @@ export class CoreClient {
   }
   async download(ref: NcRef) {
     const response = await this.fetcher(this.base.replace(/\/$/, '') + ncPath(ref) + '/download')
-    if (!response.ok) throw new Error(`Core HTTP ${response.status}: ${await response.text()}`)
+    if (!response.ok) throw new CoreHttpError(response.status, await response.text())
     return response.blob()
   }
 }

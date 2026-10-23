@@ -324,10 +324,9 @@ export function CorePrototype({
                 onClick={() =>
                   void act(workflow!, async () => {
                     const parsed = state!.parse!
+                    // 回执文件摘要不等于工程报告摘要；报告准入由 Core 规划结果校验。
                     const matches = config!.templates.filter(
-                      (entry) =>
-                        entry.matching_evidence.step_sha256 === parsed.source_sha256 &&
-                        entry.matching_evidence.report_sha256 === parsed.report_sha256,
+                      (entry) => entry.matching_evidence.step_sha256 === parsed.source_sha256,
                     )
                     if (matches.length !== 1)
                       throw new Error('解析证据与部署模板不唯一匹配，不能创建任务。')

@@ -118,7 +118,7 @@ export async function syntheticCore(
         asset_id: sha,
         source_sha256: sha,
         status: options.parseError ? 'failed' : 'parsed',
-        report_sha256: sha,
+        report_sha256: 'b'.repeat(64),
         execution_ready: false,
       })
     }

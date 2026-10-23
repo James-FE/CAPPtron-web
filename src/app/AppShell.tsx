@@ -25,7 +25,7 @@ export function AppShell({
   currentView,
   onView,
 }: AppShellProps) {
-  const foundation = !live && currentView === 'foundation'
+  const foundation = currentView === 'foundation'
   return (
     <div
       className={`app-shell${live ? ' live-shell' : ''}${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
@@ -71,14 +71,14 @@ export function AppShell({
           )}
         </div>
       </header>
-      {!foundation && !live && (
+      {!foundation && (
         <>
           <WorkflowNavigation
             currentStage={currentStage}
             onUnavailable={onUnavailable}
             onNavigate={onNavigate}
           />
-          {fileBar}
+          {!live && fileBar}
         </>
       )}
       <main className="app-main">{children}</main>

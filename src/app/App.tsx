@@ -16,7 +16,7 @@ export default function App({
 }: {
   foundationReader?: DataFoundationReader
 }) {
-  const [live, setLive] = useState(false)
+  const [live, setLive] = useState(Boolean(import.meta.env.VITE_API_BASE_URL))
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
@@ -25,7 +25,6 @@ export default function App({
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   function changeView(next: 'workflow' | 'foundation') {
-    setLive(false)
     if (workspaceRef.current?.contains(document.activeElement))
       (document.activeElement as HTMLElement | null)?.blur()
     setView(next)
@@ -52,7 +51,9 @@ export default function App({
         <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
       }
     >
-      {live && <CoreWorkspace />}
+      <div hidden={!live || view !== 'workflow'} inert={!live || view !== 'workflow'}>
+        <CoreWorkspace stage={stage} onNavigate={setStage} />
+      </div>
       <div
         ref={workspaceRef}
         className="workflow-view"
@@ -106,7 +107,7 @@ export default function App({
           </div>
         )}
       </div>
-      {!live && view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
+      {view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
     </AppShell>
   )
 }

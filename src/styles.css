@@ -490,6 +490,7 @@ button:focus-visible {
 .live-shell .app-main {
   display: block;
   padding: 16px;
+  overflow: auto;
 }
 
 .core-workspace button {
@@ -518,4 +519,48 @@ button:focus-visible {
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid #cbd5e1;
+}
+
+.core-workspace fieldset[hidden] {
+  display: none;
+}
+.live-task-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.live-task-bar input {
+  width: min(320px, 32vw);
+}
+.live-decisions {
+  min-height: 320px;
+  margin: 18px 0;
+}
+.live-decisions .operation-button {
+  width: 100%;
+  text-align: left;
+}
+.live-decisions .operation-button[aria-pressed='true'] {
+  border-color: var(--accent, #357ac7);
+  background: #eaf3ff;
+  color: #173a68;
+}
+.live-decisions .operation-detail {
+  min-width: 0;
+  padding: 20px;
+}
+.core-workspace .live-nc-code {
+  max-height: 560px;
+  background: #17202d;
+  color: #e1edf7;
+  font: 13px/1.6 monospace;
+}
+
+.live-shell.foundation-shell .app-main {
+  display: flex;
+  padding: 0;
+}
+.live-decisions .detail-scroll h4 {
+  margin: 12px 0;
 }

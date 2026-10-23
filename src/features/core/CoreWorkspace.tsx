@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { WorkflowStage } from '../../app/WorkflowNavigation'
 import { goldenPlanningRequest, goldenTemplate } from '../../api/core/golden'
 import { CoreClient, CoreHttpError, cardPath, ncPath } from '../../api/core/client'
 import type {
@@ -14,7 +15,14 @@ import type {
 const api = new CoreClient(import.meta.env.VITE_API_BASE_URL ?? '')
 const id = () => crypto.randomUUID()
 const path = (task: Task) => `/planning/tasks/${encodeURIComponent(task.task_id)}`
-export function CoreWorkspace() {
+export function CoreWorkspace({
+  stage = 'input',
+  onNavigate = () => {},
+}: {
+  stage?: WorkflowStage
+  onNavigate?: (stage: WorkflowStage) => void
+}) {
+  const [selectedOperation, setSelectedOperation] = useState('')
   const [asset, setAsset] = useState<Asset>()
   const [parse, setParse] = useState<ParseResult>()
   const [parseCommand, setParseCommand] = useState('')
@@ -172,13 +180,35 @@ export function CoreWorkspace() {
       : undefined
   return (
     <section className="core-workspace" aria-label="Core 真实工作区">
-      <h2>Core 真实工作区</h2>
+      <h2>{stage === 'input' ? '模型输入' : stage === 'planning' ? '工艺决策' : '程序审核'}</h2>
       <p>Golden-B7 七工序圆环 · 2024 铝 · 模板 {goldenTemplate.version}</p>
       <p>
         固定模板联调：STEP 几何由 NX 解析；切断侧 C0.2×45° 是工艺要求。工艺批准后可生成待审核
         NC，不代表制造放行。
       </p>
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy} className="live-task-bar">
+        <legend>当前任务</legend>{' '}
+        <label>
+          恢复任务 ID <input value={taskId} onChange={(e) => setTaskId(e.target.value)} />
+        </label>
+        <button
+          disabled={!taskId.trim()}
+          onClick={() =>
+            void act(async () => {
+              setRun(undefined)
+              setNc(undefined)
+              setText('')
+              await refreshTask(taskId)
+            })
+          }
+        >
+          读取 / 刷新任务
+        </button>
+        <label>
+          审核人 ID <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
+        </label>
+      </fieldset>
+      <fieldset disabled={busy} hidden={stage !== 'input'}>
         <legend>1. STEP 与 NX 解析</legend>
         <input
           aria-label="上传真实 STEP"
@@ -257,30 +287,15 @@ export function CoreWorkspace() {
                 goldenPlanningRequest(asset!, parse!, id()),
               )
               await refreshTask(next.task_id)
+              onNavigate('planning')
             })
           }
         >
           创建模板规划任务
         </button>
       </fieldset>
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy} hidden={stage !== 'planning'}>
         <legend>2. 工艺规划与审核</legend>
-        <label>
-          恢复任务 ID <input value={taskId} onChange={(e) => setTaskId(e.target.value)} />
-        </label>
-        <button
-          disabled={!taskId.trim()}
-          onClick={() =>
-            void act(async () => {
-              setRun(undefined)
-              setNc(undefined)
-              setText('')
-              await refreshTask(taskId)
-            })
-          }
-        >
-          读取 / 刷新任务
-        </button>
         {task && (
           <>
             <p>
@@ -304,7 +319,8 @@ export function CoreWorkspace() {
               生成模板工艺
             </button>
             <label>
-              rough_step (mm) <input value={rough} onChange={(e) => setRough(e.target.value)} />
+              外圆粗车步距 rough_step (mm){' '}
+              <input value={rough} onChange={(e) => setRough(e.target.value)} />
             </label>
             <button
               disabled={
@@ -352,24 +368,76 @@ export function CoreWorkspace() {
               当前工艺：{plan.payload.operations.length} 道工序 · 工程状态{' '}
               {plan.payload.extensions.engineering_status ?? '未提供'}
             </p>
-            <table aria-label="当前工艺工序">
-              <thead>
-                <tr>
-                  <th>工序</th>
-                  <th>名称</th>
-                  <th>粗车步距 (mm)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plan.payload.operations.map((op) => (
-                  <tr key={op.id}>
-                    <td>{op.id}</td>
-                    <td>{op.name ?? '未提供'}</td>
-                    <td>{op.attributes.parameters?.rough_step ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="decision-columns live-decisions">
+              <aside className="planning-sidebar">
+                <h3>工序列表</h3>
+                <nav className="operation-list" aria-label="真实工序列表">
+                  {plan.payload.operations.map((op, index) => (
+                    <button
+                      className="button operation-button"
+                      key={op.id}
+                      aria-pressed={(selectedOperation || plan.payload.operations[0]?.id) === op.id}
+                      onClick={() => setSelectedOperation(op.id)}
+                    >
+                      {String(index + 1).padStart(2, '0')} {op.name ?? op.id}
+                    </button>
+                  ))}
+                </nav>
+              </aside>
+              {(() => {
+                const op =
+                  plan.payload.operations.find((item) => item.id === selectedOperation) ??
+                  plan.payload.operations[0]
+                return op ? (
+                  <section className="operation-detail" aria-label="当前工序详情">
+                    <header className="operation-header">
+                      <h3>{op.name ?? op.id}</h3>
+                      <p>工序 ID：{op.id} · 来源：当前服务端工艺版本</p>
+                    </header>
+                    <div className="detail-scroll">
+                      <h4>工步详情</h4>
+                      {op.steps?.length ? (
+                        <ol>
+                          {op.steps.map((step) => (
+                            <li key={step.id}>{step.content}</li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p>服务端尚未提供工步。</p>
+                      )}
+                      <p>
+                        装夹：{op.attributes.setup_id ?? '未提供'} · 刀具号：
+                        {op.attributes.tool?.tool_number ?? '未提供'} · 刀位：
+                        {op.attributes.tool?.station ?? '未提供'}
+                      </p>
+                      <h4>执行参数（服务端原始值）</h4>
+                      <table aria-label="当前工序参数">
+                        <thead>
+                          <tr>
+                            <th>参数</th>
+                            <th>值</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(op.attributes.parameters ?? {}).map(([key, value]) => (
+                            <tr key={key}>
+                              <td>{key}</td>
+                              <td>{String(value)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <details>
+                        <summary>工序完整信息</summary>
+                        <pre>{JSON.stringify(op, null, 2)}</pre>
+                      </details>
+                    </div>
+                  </section>
+                ) : (
+                  <p>当前版本尚无工序，请先生成模板工艺。</p>
+                )
+              })()}
+            </div>
           </div>
         )}
         {plan && (
@@ -384,9 +452,6 @@ export function CoreWorkspace() {
             <pre>{JSON.stringify(card, null, 2)}</pre>
           </details>
         )}
-        <label>
-          审核人 ID <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
-        </label>
         <button
           disabled={!!planningRun || !task || card?.status !== 'ready' || !reviewer.trim()}
           onClick={() =>
@@ -408,8 +473,9 @@ export function CoreWorkspace() {
         >
           批准当前工艺卡
         </button>
+        <button onClick={() => onNavigate('review')}>进入程序审核</button>
       </fieldset>
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy} hidden={stage !== 'review'}>
         <legend>3. Mastercam 与 NC 审核</legend>
         {runs.map((item) => (
           <button key={item.cam_run_id} onClick={() => void act(() => refreshRun(item.cam_run_id))}>
@@ -469,7 +535,9 @@ export function CoreWorkspace() {
             <p>
               NC 版本 {nc.ref.version} · {nc.review_status} · {nc.ref.content_digest}
             </p>
-            <pre>{text}</pre>
+            <pre className="live-nc-code" aria-label="当前 NC 程序">
+              {text}
+            </pre>
             <button
               disabled={!nc.allowed_actions.includes('review') || !reviewer.trim()}
               onClick={() =>

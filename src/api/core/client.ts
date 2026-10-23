@@ -27,7 +27,16 @@ export type ApprovedPlans = {
 }
 export type Plan = {
   payload: {
-    operations: { id: string; name?: string; attributes: { parameters?: Record<string, number> } }[]
+    operations: {
+      id: string
+      name?: string
+      steps?: { id: string; sequence: number; content: string }[]
+      attributes: {
+        parameters?: Record<string, number>
+        tool?: { station?: number; tool_number?: number }
+        setup_id?: string
+      }
+    }[]
     extensions: {
       template: { digest: string }
       plan_digest: string

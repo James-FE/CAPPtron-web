@@ -4,10 +4,18 @@ import type { ModelSelection } from './modelInput'
 type FileInfoBarProps = {
   selection: ModelSelection
   onReplace: () => void
+  statusText?: string
+  onInterpret?: () => void
   onUnavailable: (message: string) => void
 }
 
-export function FileInfoBar({ selection, onReplace, onUnavailable }: FileInfoBarProps) {
+export function FileInfoBar({
+  selection,
+  onReplace,
+  onUnavailable,
+  statusText,
+  onInterpret,
+}: FileInfoBarProps) {
   const name = selectionName(selection)
   return (
     <section className="file-info-bar" aria-label="当前模型文件">
@@ -19,14 +27,14 @@ export function FileInfoBar({ selection, onReplace, onUnavailable }: FileInfoBar
             </span>
             <span className="file-source">
               {selection.kind === 'local'
-                ? `${selection.extension} · ${formatFileSize(selection.file.size)} · 本地选择`
+                ? `${selection.extension} · ${formatFileSize(selection.file.size)} · ${statusText ?? '本地选择'}`
                 : selection.kind === 'demo'
                   ? selection.model.source
                   : ''}
             </span>
           </>
         ) : (
-          <span>尚未选择模型文件 / 示例仅演示输入状态</span>
+          <span>{statusText ? '尚未选择模型文件' : '尚未选择模型文件 / 示例仅演示输入状态'}</span>
         )}
       </div>
       <div className="file-actions">
@@ -36,9 +44,12 @@ export function FileInfoBar({ selection, onReplace, onUnavailable }: FileInfoBar
         <button
           className="button interpretation-button"
           type="button"
-          data-unavailable="true"
-          title="设计文件解读尚未接入，暂不可用"
-          onClick={() => onUnavailable('设计文件解读尚未接入，暂不可用；当前文件未上传或解析。')}
+          data-unavailable={onInterpret ? undefined : 'true'}
+          title={onInterpret ? '查看当前解析结果' : '设计文件解读尚未接入，暂不可用'}
+          onClick={
+            onInterpret ??
+            (() => onUnavailable('设计文件解读尚未接入，暂不可用；当前文件未上传或解析。'))
+          }
         >
           查看解读结果
         </button>

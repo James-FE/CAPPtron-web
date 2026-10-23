@@ -9,6 +9,8 @@ type ModelFilePickerProps = {
   onChoose: () => void
   onFiles: (files: readonly File[]) => void
   onDemo: () => void
+  statusText?: string
+  disabled?: boolean
 }
 
 export function ModelFilePicker({
@@ -17,6 +19,8 @@ export function ModelFilePicker({
   onChoose,
   onFiles,
   onDemo,
+  statusText,
+  disabled = false,
 }: ModelFilePickerProps) {
   const [dragging, setDragging] = useState(false)
   const name = selectionName(selection)
@@ -44,10 +48,11 @@ export function ModelFilePicker({
         onDrop={(event) => {
           event.preventDefault()
           setDragging(false)
-          onFiles(Array.from(event.dataTransfer.files))
+          if (!disabled) onFiles(Array.from(event.dataTransfer.files))
         }}
       >
         <button
+          disabled={disabled}
           className="file-picker-trigger"
           type="button"
           onClick={onChoose}
@@ -61,13 +66,13 @@ export function ModelFilePicker({
             {name ?? '选择模型文件'}
           </span>
           <span className="file-picker-description" id="file-picker-help">
-            {selection.kind === 'empty' && '选择或拖入 STEP / STP · 仅本地选择'}
+            {selection.kind === 'empty' && (statusText ?? '选择或拖入 STEP / STP · 仅本地选择')}
             {selection.kind === 'local' &&
-              `${selection.extension} · ${formatFileSize(selection.file.size)} · 尚未上传或解析`}
+              `${selection.extension} · ${formatFileSize(selection.file.size)} · ${statusText ?? '尚未上传或解析'}`}
             {selection.kind === 'demo' && 'Demo · 示例元数据，未读取真实模型'}
           </span>
         </button>
-        <button className="button demo-button" type="button" onClick={onDemo}>
+        <button disabled={disabled} className="button demo-button" type="button" onClick={onDemo}>
           使用示例 Ring_A.step
         </button>
       </div>

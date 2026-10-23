@@ -46,7 +46,7 @@ export type ProcessPlan = {
   id: string
   name: string
   partName: string
-  origin: 'mock' | 'real'
+  origin: 'mock'
   sourceDescription: string
   operations: ProcessOperation[]
   initialOperationId?: string

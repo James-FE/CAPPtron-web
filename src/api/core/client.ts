@@ -27,22 +27,12 @@ export type ApprovedPlans = {
 }
 export type Plan = {
   payload: {
-    operations: {
-      id: string
-      name?: string
-      steps?: { id: string; sequence: number; content: string }[]
-      attributes: {
-        parameters?: Record<string, number>
-        tool?: { station?: number; tool_number?: number }
-        setup_id?: string
-      }
-    }[]
+    operations: { id: string; attributes: { parameters?: Record<string, number> } }[]
     extensions: {
       template: { digest: string }
       plan_digest: string
       reference_only: boolean
       execution_ready: boolean
-      engineering_status?: string
     }
   }
 }
@@ -58,14 +48,6 @@ export type ParseResult = {
 }
 export type Asset = { asset_id: string; sha256: string; filename: string; status: string }
 const part = encodeURIComponent
-export function cardPath(task: string, revision: number) {
-  const bytes = new TextEncoder().encode(task)
-  const token = btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-  return `/process-cards/tasks/id_${token}/results/${revision}`
-}
 export const ncPath = (ref: NcRef) => `/cam/runs/${part(ref.cam_run_id)}/nc/versions/${ref.version}`
 export class CoreHttpError extends Error {
   constructor(
@@ -110,13 +92,6 @@ export class CoreClient {
         this.pending.delete(key)
       throw error
     }
-  }
-  async observeRun(key: string) {
-    const path = `/cam/runs/${part(key)}`
-    const run = await this.get<CamRun>(path)
-    return ['accepted', 'running'].includes(run.status)
-      ? this.post<CamRun>(`${path}/observe`, {})
-      : run
   }
   upload(file: File, command: string) {
     return this.request<Asset>(

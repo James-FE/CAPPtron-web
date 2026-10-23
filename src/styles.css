@@ -463,53 +463,47 @@ button:focus-visible {
   padding: 10px 24px;
   align-items: center;
 }
-.input-live-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 18px 0;
+.core-workspace {
+  padding: 24px;
+  overflow: auto;
+  min-height: 0;
 }
-.core-recovery {
-  font-size: 13px;
-  margin-top: 16px;
+.core-workspace fieldset {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #ccd5dc;
 }
-.core-recovery input,
-.core-reviewer input,
-.review-source select {
-  background: var(--surface-canvas);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 8px;
+.core-workspace button,
+.core-workspace input {
   margin: 6px;
+  padding: 8px;
 }
-.core-reviewer {
-  font-size: 13px;
-}
-.core-reviewer input {
-  width: 130px;
-}
-.core-evidence pre {
+.core-workspace pre {
   white-space: pre-wrap;
-  max-height: 180px;
-  overflow: auto;
-  font-size: 12px;
-}
-.core-status {
-  padding: 8px 16px;
-  font-size: 13px;
-  color: var(--accent-primary);
-}
-.core-status[role='alert'] {
-  color: var(--warning-color, #f3b39b);
-  max-height: 90px;
-  overflow: auto;
   overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--surface-panel);
+  padding: 12px;
 }
 
-.workflow-mode {
-  display: contents;
+.live-shell .app-main {
+  display: block;
+  padding: 16px;
 }
-.workflow-mode[hidden] {
-  display: none;
+
+.core-workspace button {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  cursor: pointer;
+}
+.core-workspace button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.core-workspace input:not([type='file']) {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
 }

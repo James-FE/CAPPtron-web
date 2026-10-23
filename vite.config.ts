@@ -19,15 +19,6 @@ export default defineConfig(({ mode, command, isPreview }) => {
       host: '127.0.0.1',
       port: 5173,
       strictPort: true,
-      proxy: env.CAPPTRON_CORE_PROXY
-        ? {
-            '/core-api': {
-              target: env.CAPPTRON_CORE_PROXY,
-              changeOrigin: true,
-              rewrite: (path) => path.replace(/^\/core-api/, ''),
-            },
-          }
-        : undefined,
     },
     test: {
       environment: 'jsdom',

@@ -61,6 +61,8 @@ jobs:
         run: sudo apt-get install -y fonts-noto-cjk
       - name: Browser smoke tests (both desktop viewports)
         run: npm run test:e2e
+      - name: Core 原型合成契约测试（两个桌面视口）
+        run: npm run test:e2e:core
       - name: Upload browser report and diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -69,4 +71,6 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            playwright-report-core-prototype/
+            test-results-core-prototype/
           retention-days: 14

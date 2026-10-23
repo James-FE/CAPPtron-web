@@ -4,9 +4,10 @@ export type Parameter = {
   name: string
   value: string | number | null
   unit?: string
-  source: 'historical_record' | 'mock' | 'template' | 'upstream' | 'human' | 'unknown'
+  source: string
   status: 'provided' | 'missing' | 'pending'
   editable: boolean
+  allowedValues?: unknown[]
   required?: boolean
   description?: string
   inputKind: 'number' | 'text'
@@ -17,7 +18,7 @@ export type ProductionResource = {
   name: string
   kind: 'tool' | 'machine' | 'other'
   description?: string
-  status: 'demo' | 'pending'
+  status: string
 }
 
 export type ProcessStep = {
@@ -46,7 +47,7 @@ export type ProcessPlan = {
   id: string
   name: string
   partName: string
-  origin: 'mock'
+  origin: 'mock' | 'live'
   sourceDescription: string
   operations: ProcessOperation[]
   initialOperationId?: string

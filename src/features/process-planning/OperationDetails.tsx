@@ -100,9 +100,11 @@ export function OperationDetails({
         {view === 'resources' && (
           <>
             <section>
-              <h4>工艺参数 · Mock 演示</h4>
+              <h4>工艺参数 · {plan.origin === 'live' ? 'Core 服务端' : 'Mock 演示'}</h4>
               <p className="muted-text">
-                预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。
+                {plan.origin === 'live'
+                  ? '服务端当前修订，来源见字段；参数修订需单独提交并重新批准。'
+                  : '预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。'}
               </p>
               <div
                 className="parameter-scroll"
@@ -119,7 +121,7 @@ export function OperationDetails({
               </div>
             </section>
             <section>
-              <h4>生产资源 · Mock 演示</h4>
+              <h4>生产资源 · {plan.origin === 'live' ? 'Core 服务端' : 'Mock 演示'}</h4>
               {!operation.resources.length && <p className="muted-text">暂无生产资源信息</p>}
               <ul className="resource-list">
                 {operation.resources.map((resource) => (
@@ -130,7 +132,11 @@ export function OperationDetails({
                     <strong>{resource.name}</strong>
                     <p>{resource.description ?? '暂无规格说明'}</p>
                     <span className="warning-text">
-                      {resource.status === 'pending' ? '待核实' : 'Demo · 未核实可用性'}
+                      {resource.status === 'pending'
+                        ? '待核实'
+                        : resource.status === 'demo'
+                          ? 'Demo · 未核实可用性'
+                          : resource.status}
                     </span>
                   </li>
                 ))}

@@ -25,10 +25,10 @@ export function AppShell({
   currentView,
   onView,
 }: AppShellProps) {
-  const foundation = !live && currentView === 'foundation'
+  const foundation = currentView === 'foundation'
   return (
     <div
-      className={`app-shell${live ? ' live-shell' : ''}${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
+      className={`app-shell${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
     >
       <header className="app-header">
         <h1>
@@ -44,7 +44,7 @@ export function AppShell({
         <div className="header-tools">
           {onToggleLive && (
             <button className="button" onClick={onToggleLive}>
-              {live ? '返回演示工作区' : '打开 Core 真实工作区'}
+              {live ? '切换演示流程' : '接入真实流程'}
             </button>
           )}
           <button
@@ -71,7 +71,7 @@ export function AppShell({
           )}
         </div>
       </header>
-      {!foundation && !live && (
+      {!foundation && (
         <>
           <WorkflowNavigation
             currentStage={currentStage}

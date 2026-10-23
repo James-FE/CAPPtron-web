@@ -6,6 +6,7 @@ import type { ModelSelection } from './modelInput'
 type ModelFilePickerProps = {
   selection: ModelSelection
   error: string
+  sourceStatus?: string
   onChoose: () => void
   onFiles: (files: readonly File[]) => void
   onDemo: () => void
@@ -14,6 +15,7 @@ type ModelFilePickerProps = {
 export function ModelFilePicker({
   selection,
   error,
+  sourceStatus,
   onChoose,
   onFiles,
   onDemo,
@@ -63,7 +65,7 @@ export function ModelFilePicker({
           <span className="file-picker-description" id="file-picker-help">
             {selection.kind === 'empty' && '选择或拖入 STEP / STP · 仅本地选择'}
             {selection.kind === 'local' &&
-              `${selection.extension} · ${formatFileSize(selection.file.size)} · 尚未上传或解析`}
+              `${selection.extension} · ${formatFileSize(selection.file.size)} · ${sourceStatus ?? '尚未上传或解析'}`}
             {selection.kind === 'demo' && 'Demo · 示例元数据，未读取真实模型'}
           </span>
         </button>

@@ -100,9 +100,11 @@ export function OperationDetails({
         {view === 'resources' && (
           <>
             <section>
-              <h4>工艺参数 · Mock 演示</h4>
+              <h4>工艺参数 · {plan.origin === 'real' ? '当前工艺版本' : 'Mock 演示'}</h4>
               <p className="muted-text">
-                预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。
+                {plan.origin === 'real'
+                  ? '服务端返回的执行参数；修改后需提交修订并重新批准。'
+                  : '预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。'}
               </p>
               <div
                 className="parameter-scroll"
@@ -119,7 +121,7 @@ export function OperationDetails({
               </div>
             </section>
             <section>
-              <h4>生产资源 · Mock 演示</h4>
+              <h4>生产资源 · {plan.origin === 'real' ? '当前工艺版本' : 'Mock 演示'}</h4>
               {!operation.resources.length && <p className="muted-text">暂无生产资源信息</p>}
               <ul className="resource-list">
                 {operation.resources.map((resource) => (
@@ -149,7 +151,11 @@ export function OperationDetails({
           <>
             <section>
               <h4>加工要求与现场信息</h4>
-              <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
+              <p className="warning-text">
+                {plan.origin === 'real'
+                  ? '现场信息提交暂未接入；未完成制造校核。'
+                  : '本地演示草稿，未提交服务器，未完成制造校核。'}
+              </p>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
                   共用字段已集中到左侧“任务共用信息”，本页只展示当前工序专用信息。

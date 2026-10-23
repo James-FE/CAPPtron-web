@@ -28,7 +28,7 @@ export function AppShell({
   const foundation = currentView === 'foundation'
   return (
     <div
-      className={`app-shell${live ? ' live-shell' : ''}${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
+      className={`app-shell${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
     >
       <header className="app-header">
         <h1>
@@ -44,7 +44,7 @@ export function AppShell({
         <div className="header-tools">
           {onToggleLive && (
             <button className="button" onClick={onToggleLive}>
-              {live ? '返回演示工作区' : '打开 Core 真实工作区'}
+              {live ? '使用示例数据' : '返回真实流程'}
             </button>
           )}
           <button
@@ -66,9 +66,7 @@ export function AppShell({
           ) : (
             <span className="product-label">智能工艺决策</span>
           )}
-          {!foundation && (
-            <span className="version-label">{live ? '真实 Core API' : 'r06 / 原型演示'}</span>
-          )}
+          {!foundation && <span className="version-label">{live ? '真实任务' : '示例演示'}</span>}
         </div>
       </header>
       {!foundation && (
@@ -78,7 +76,7 @@ export function AppShell({
             onUnavailable={onUnavailable}
             onNavigate={onNavigate}
           />
-          {!live && fileBar}
+          {fileBar}
         </>
       )}
       <main className="app-main">{children}</main>

@@ -162,17 +162,17 @@ describe('r06 模型输入', () => {
 })
 
 describe('真实流程主导航', () => {
-  it('把真实模型输入、工艺决策和程序审核放在同一主导航中', () => {
+  it('把真实模型输入、工艺决策和程序审核放在同一主导航中', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: '打开 Core 真实工作区' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回真实流程' }))
     expect(screen.getByRole('navigation', { name: '编程流程' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '02 工艺决策' }))
     expect(screen.getByRole('heading', { name: '工艺决策' })).toBeVisible()
     expect(screen.queryByRole('button', { name: '上传真实 STEP' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '03 程序审核' }))
-    expect(screen.getByRole('heading', { name: '程序审核' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '程序审核' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '数据底座' }))
     fireEvent.click(screen.getByRole('button', { name: '返回智能工艺工作台' }))
-    expect(screen.getByRole('heading', { name: '程序审核' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '程序审核' })).toBeVisible()
   })
 })

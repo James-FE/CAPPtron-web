@@ -463,104 +463,53 @@ button:focus-visible {
   padding: 10px 24px;
   align-items: center;
 }
-.core-workspace {
-  padding: 24px;
-  overflow: auto;
-  min-height: 0;
-}
-.core-workspace fieldset {
-  margin: 16px 0;
-  padding: 16px;
-  border: 1px solid #ccd5dc;
-}
-.core-workspace button,
-.core-workspace input {
-  margin: 6px;
-  padding: 8px;
-}
-.core-workspace pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 360px;
-  overflow: auto;
-  background: var(--surface-panel);
-  padding: 12px;
-}
-
-.live-shell .app-main {
-  display: block;
-  padding: 16px;
-  overflow: auto;
-}
-
-.core-workspace button {
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-panel);
-  cursor: pointer;
-}
-.core-workspace button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.core-workspace input:not([type='file']) {
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-panel);
-}
-
-.core-workspace table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-}
-.core-workspace th,
-.core-workspace td {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid #cbd5e1;
-}
-
-.core-workspace fieldset[hidden] {
-  display: none;
-}
-.live-task-bar {
+.input-live-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.live-task-bar input {
-  width: min(320px, 32vw);
-}
-.live-decisions {
-  min-height: 320px;
+  gap: 12px;
   margin: 18px 0;
 }
-.live-decisions .operation-button {
-  width: 100%;
-  text-align: left;
+.core-recovery {
+  font-size: 13px;
+  margin-top: 16px;
 }
-.live-decisions .operation-button[aria-pressed='true'] {
-  border-color: var(--accent, #357ac7);
-  background: #eaf3ff;
-  color: #173a68;
+.core-recovery input,
+.core-reviewer input,
+.review-source select {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 6px;
 }
-.live-decisions .operation-detail {
-  min-width: 0;
-  padding: 20px;
+.core-reviewer {
+  font-size: 13px;
 }
-.core-workspace .live-nc-code {
-  max-height: 560px;
-  background: #17202d;
-  color: #e1edf7;
-  font: 13px/1.6 monospace;
+.core-reviewer input {
+  width: 130px;
+}
+.core-evidence pre {
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 12px;
+}
+.core-status {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--accent-primary);
+}
+.core-status[role='alert'] {
+  color: var(--warning-color, #f3b39b);
+  max-height: 90px;
+  overflow: auto;
+  overflow-wrap: anywhere;
 }
 
-.live-shell.foundation-shell .app-main {
-  display: flex;
-  padding: 0;
+.workflow-mode {
+  display: contents;
 }
-.live-decisions .detail-scroll h4 {
-  margin: 12px 0;
+.workflow-mode[hidden] {
+  display: none;
 }

@@ -524,6 +524,14 @@ export class CoreWorkflow {
     if (token !== this.selection || generation !== this.camReadGeneration) return run
     if (this.journal.read().task_id && run.plan_ref?.task_id !== this.journal.read().task_id)
       throw new Error('CAM run belongs to a different task')
+    const task = this.state.task
+    if (
+      task &&
+      (run.plan_ref?.task_id !== task.task_id ||
+        run.plan_ref?.revision !== task.current_revision ||
+        run.plan_ref?.result_id !== task.result_id)
+    )
+      throw new Error('CAM run plan identity mismatch')
     if (this.journal.read().run_id !== runId)
       this.journal.update({ run_id: runId, nc_ref: undefined })
     this.state.camRun = run
@@ -623,7 +631,8 @@ export class CoreWorkflow {
     }
     if (location.asset_id && location.parse_command_id)
       await this.refreshParse(location.asset_id, location.parse_command_id)
-    if (location.run_id) await this.refreshCam(location.run_id)
+    const currentRunId = this.journal.read().run_id
+    if (currentRunId) await this.refreshCam(currentRunId)
     return this.snapshot()
   }
   async retryPending(reviewer?: string) {

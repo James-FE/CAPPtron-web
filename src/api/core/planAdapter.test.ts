@@ -178,6 +178,19 @@ describe('Core plan DTO and view model', () => {
     })
     expect(operation.resources[0]?.source).toBe(expected)
   })
+
+  it.each([true, false])('preserves boolean reference parameter %s', (value) => {
+    const plan = validPlan()
+    const attrs = plan.payload.operations[2]!.attributes as Record<string, unknown>
+    attrs.source_parameters = [{ id: 'flag', value, source: 'historical_record' }]
+    expect(toLiveProcessPlan(parsePlanProduced(plan)).operations[2]!.parameters).toContainEqual({
+      id: 'flag',
+      name: 'flag',
+      value,
+      source: 'historical_record',
+      editable: false,
+    })
+  })
   it('keeps a rule read only when its operation has no matching metadata', () => {
     const plan = validPlan()
     delete (plan.payload.operations[2]!.attributes as Record<string, unknown>).parameter_metadata

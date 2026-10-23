@@ -121,6 +121,41 @@ function setup(fetcher: ReturnType<typeof vi.fn>, store = disk(), integration?: 
 }
 
 describe('CoreWorkflow recovery', () => {
+  it('does not restore a stale CAM run after the task revision changes', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === '/planning/tasks/task-1')
+        return json({ ...task, current_revision: 2, result_id: 'result-2' })
+      if (url === '/planning/tasks/task-1/results/2')
+        return json({ ...plan, revision: 2, result_id: 'result-2' })
+      if (url === '/process-cards/tasks/id_dGFzay0x/results/2') return json(card)
+      return taskRead(url) ?? json({ runs: [] })
+    })
+    const { flow, journal } = setup(fetcher)
+    journal.update({ task_id: 'task-1', revision: 1, run_id: 'run-old' })
+    await flow.recover()
+    expect(fetcher.mock.calls.some(([url]) => url === '/cam/runs/run-old')).toBe(false)
+    expect(journal.read().run_id).toBeUndefined()
+    expect(flow.snapshot().ncReady).toBe(false)
+  })
+  it.each([
+    { revision: 2, result_id: 'result-1' },
+    { revision: 1, result_id: 'result-old' },
+  ])('rejects a manually selected CAM run with a different plan identity %j', async (identity) => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === '/cam/runs/run-old')
+        return json({
+          cam_run_id: 'run-old',
+          plan_ref: { ...approved.plans[0]!.plan_ref, ...identity },
+        })
+      return taskRead(url) ?? json({ runs: [] })
+    })
+    const { flow, journal } = setup(fetcher)
+    journal.update({ task_id: 'task-1', revision: 1 })
+    await flow.refreshTask('task-1')
+    await expect(flow.refreshCam('run-old')).rejects.toThrow(/plan identity/i)
+    expect(journal.read().run_id).toBeUndefined()
+    expect(flow.snapshot().ncReady).toBe(false)
+  })
   it('reload uses GET and does not duplicate lost parse or CAM starts', async () => {
     const fetcher = vi.fn(async (url: string) => {
       if (url.includes('/parse?'))

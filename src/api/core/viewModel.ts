@@ -95,7 +95,12 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
         const item = record(raw)
         if (typeof item.id !== 'string' || parameters.some((parameter) => parameter.id === item.id))
           continue
-        if (typeof item.value !== 'string' && typeof item.value !== 'number' && item.value !== null)
+        if (
+          typeof item.value !== 'string' &&
+          typeof item.value !== 'number' &&
+          typeof item.value !== 'boolean' &&
+          item.value !== null
+        )
           continue
         parameters.push({
           id: item.id,

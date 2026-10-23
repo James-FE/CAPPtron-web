@@ -116,6 +116,28 @@ async function coreError(response: Response): Promise<CoreHttpError> {
     typeof body.file_id === 'string' ? body.file_id : null,
   )
 }
+function downloadFilename(disposition: string | null): string | null {
+  let fallback: string | null = null
+  let extended: string | null = null
+  const parameters = /;\s*([^=;\s]+)\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^;]*))/g
+  for (const match of (disposition ?? '').matchAll(parameters)) {
+    const name = match[1]!.toLowerCase()
+    const value = match[2] !== undefined ? match[2].replace(/\\(.)/g, '$1') : match[3]!.trim()
+    if (name === 'filename') fallback = value
+    if (name === 'filename*') {
+      const encoded = /^utf-8'[^']*'(.*)$/i.exec(value)
+      if (encoded) {
+        try {
+          extended = decodeURIComponent(encoded[1]!)
+        } catch {
+          // A malformed extended value must not hide the ordinary filename.
+        }
+      }
+    }
+  }
+  return extended ?? fallback
+}
+
 export class CoreClient {
   private pending = new Map<string, string>()
   constructor(
@@ -174,7 +196,7 @@ export class CoreClient {
     const response = await this.fetcher(this.base.replace(/\/$/, '') + ncPath(ref) + '/download')
     if (!response.ok) throw await coreError(response)
     const disposition = response.headers.get('Content-Disposition')
-    const filename = disposition?.match(/(?:^|;)\s*filename="?([^";]+)"?/i)?.[1] ?? null
+    const filename = downloadFilename(disposition)
     return {
       blob: await response.blob(),
       filename,

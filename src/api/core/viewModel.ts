@@ -5,7 +5,7 @@ export type LiveParameter = {
   name: string
   value: string | number | boolean | null
   unit?: string
-  source: 'upstream' | 'historical_record'
+  source: string
   editable: boolean
   allowedValues?: unknown[]
   description?: string
@@ -29,7 +29,7 @@ export type LiveProcessPlan = {
       name: string
       kind: string
       status: string
-      source: 'historical_record'
+      source: string
     }[]
     referenceDisplaySteps: unknown[]
   }[]
@@ -38,6 +38,9 @@ function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+function referenceSource(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value : 'unknown'
 }
 function ruleFor(rules: ParameterRule[], op: CoreOperation, index: number, id: string) {
   const expectedPath = `/operations/${index}/attributes/parameters/${id.replace(/~/g, '~0').replace(/\//g, '~1')}`
@@ -99,7 +102,7 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
           name: typeof item.name === 'string' ? item.name : item.id,
           value: item.value,
           ...(typeof item.unit === 'string' ? { unit: item.unit } : {}),
-          source: 'historical_record',
+          source: referenceSource(item.source),
           editable: false,
           ...(typeof item.description === 'string' ? { description: item.description } : {}),
         })
@@ -114,7 +117,7 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
                 name: item.name,
                 kind: typeof item.kind === 'string' ? item.kind : 'other',
                 status: typeof item.status === 'string' ? item.status : 'pending',
-                source: 'historical_record' as const,
+                source: referenceSource(item.source),
               },
             ]
           : []

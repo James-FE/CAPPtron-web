@@ -104,4 +104,25 @@ describe('Core HTTP contract', () => {
     expect(item.blob.size).toBe(3)
     expect((await client.download(ref)).size).toBe(3)
   })
+  it.each([
+    ['attachment; filename="part;rev2.zip"', 'part;rev2.zip'],
+    ['attachment; filename="part\\"quote.zip"', 'part"quote.zip'],
+    ["attachment; filename*=UTF-8''%E9%9B%B6%E4%BB%B6.zip", '零件.zip'],
+    ["attachment; filename=plain.zip; filename*=UTF-8'zh'%E9%9B%B6.zip", '零.zip'],
+    ["attachment; filename=plain.zip; filename*=UTF-8''%XX", 'plain.zip'],
+    ["attachment; filename=plain.zip; filename*=unsupported''abc", 'plain.zip'],
+    ['attachment', null],
+  ])('reads download filename from %s', async (disposition, filename) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response('ZIP', {
+        headers: { 'Content-Disposition': disposition },
+      }),
+    )
+    const result = await new CoreClient('', fetcher).downloadPackage({
+      cam_run_id: 'run',
+      version: 1,
+      content_digest: 'a'.repeat(64),
+    })
+    expect(result.filename).toBe(filename)
+  })
 })

@@ -66,7 +66,13 @@ function validPlan() {
                   },
                 ],
                 resources: [
-                  { id: 'reference-tool', name: '参考刀具', kind: 'tool', status: 'pending' },
+                  {
+                    id: 'reference-tool',
+                    name: '参考刀具',
+                    kind: 'tool',
+                    status: 'pending',
+                    source: 'historical_record',
+                  },
                 ],
               }
             : {},
@@ -151,6 +157,26 @@ describe('Core plan DTO and view model', () => {
         source: 'historical_record',
       },
     ])
+  })
+
+  it.each([
+    ['upstream', 'upstream'],
+    ['synthetic_profile', 'synthetic_profile'],
+    ['future_source', 'future_source'],
+    [undefined, 'unknown'],
+    [42, 'unknown'],
+    ['', 'unknown'],
+  ])('retains reference provenance %s without inventing history', (source, expected) => {
+    const plan = validPlan()
+    const attrs = plan.payload.operations[2]!.attributes as Record<string, unknown>
+    attrs.source_parameters = [{ id: 'reference', value: 850, source }]
+    attrs.resources = [{ id: 'tool', name: '参考刀具', source }]
+    const operation = toLiveProcessPlan(parsePlanProduced(plan)).operations[2]!
+    expect(operation.parameters.find((item) => item.id === 'reference')).toMatchObject({
+      source: expected,
+      editable: false,
+    })
+    expect(operation.resources[0]?.source).toBe(expected)
   })
   it('keeps a rule read only when its operation has no matching metadata', () => {
     const plan = validPlan()

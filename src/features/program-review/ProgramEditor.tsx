@@ -16,10 +16,8 @@ const externalChange = Annotation.define<boolean>()
 export function ProgramEditor({
   document,
   onChange,
-  readOnly = false,
 }: {
-  document: Pick<ProgramDocument, 'id' | 'draftText' | 'revision'>
-  readOnly?: boolean
+  document: ProgramDocument
   onChange: (text: string, revision: number) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
@@ -42,18 +40,13 @@ export function ProgramEditor({
         doc: latest.current.document.draftText,
         extensions: [
           lineNumbers(),
-          EditorState.readOnly.of(readOnly),
-          EditorView.editable.of(!readOnly),
           history(),
           keymap.of([
             { key: 'Mod-Shift-z', run: redo, preventDefault: true },
             ...defaultKeymap,
             ...historyKeymap,
           ]),
-          EditorView.contentAttributes.of({
-            'aria-label': readOnly ? 'NC 程序正文' : 'NC 程序草稿',
-            spellcheck: 'false',
-          }),
+          EditorView.contentAttributes.of({ 'aria-label': 'NC 程序草稿', spellcheck: 'false' }),
           EditorView.updateListener.of((update) => {
             syncHistory(update.state)
             if (update.docChanged && !update.transactions.some((t) => t.annotation(externalChange)))
@@ -94,7 +87,7 @@ export function ProgramEditor({
       editor.destroy()
       view.current = null
     }
-  }, [document.id, readOnly])
+  }, [document.id])
   useLayoutEffect(() => {
     const editor = view.current
     if (editor && editor.state.doc.toString() !== document.draftText)
@@ -108,7 +101,7 @@ export function ProgramEditor({
       <div className="editor-commands">
         <button
           className="button"
-          disabled={readOnly || !historyAvailable.undo}
+          disabled={!historyAvailable.undo}
           title={historyAvailable.undo ? '撤回上一次代码修改' : '暂无可撤销的修改'}
           onClick={() => {
             if (view.current) {
@@ -121,7 +114,7 @@ export function ProgramEditor({
         </button>
         <button
           className="button"
-          disabled={readOnly || !historyAvailable.redo}
+          disabled={!historyAvailable.redo}
           title={
             historyAvailable.redo
               ? '重新应用刚才撤销的代码修改'
@@ -137,9 +130,7 @@ export function ProgramEditor({
           恢复已撤销
         </button>
         <span className="muted-text">
-          {readOnly
-            ? '服务端 NC 原文 · 只读 · 不自动折行'
-            : 'Ctrl / ⌘ Z 撤销修改 · Ctrl / ⌘ Shift Z 恢复已撤销 · 不自动折行'}
+          Ctrl / ⌘ Z 撤销修改 · Ctrl / ⌘ Shift Z 恢复已撤销 · 不自动折行
         </span>
       </div>
       <div className="program-editor" ref={host} />

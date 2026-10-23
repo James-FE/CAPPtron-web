@@ -50,6 +50,9 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
   const rules = Array.isArray(payload.extensions.parameter_rules)
     ? (payload.extensions.parameter_rules as ParameterRule[])
     : []
+  const sortedOperations = payload.operations
+    .map((op, index) => ({ op, index }))
+    .sort((a, b) => a.op.sequence - b.op.sequence)
   const partName = typeof payload.part.name === 'string' ? payload.part.name : '未提供零件名称'
   return {
     id: JSON.stringify([plan.task_id, plan.result_id, plan.revision]),
@@ -59,7 +62,7 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
     task_id: plan.task_id,
     result_id: plan.result_id,
     revision: plan.revision,
-    operations: payload.operations.map((op, index) => {
+    operations: sortedOperations.map(({ op, index }) => {
       const attrs = op.attributes
       const metadata = record(attrs.parameter_metadata)
       const parameters: LiveParameter[] = Object.entries(record(attrs.parameters)).map(
@@ -120,11 +123,14 @@ export function toLiveProcessPlan(plan: PlanProducedDto): LiveProcessPlan {
         id: op.id,
         sequence: op.sequence,
         name: op.name,
-        steps: op.steps.map((step) => ({
-          id: step.id,
-          sequence: step.sequence,
-          name: step.content,
-        })),
+        steps: op.steps
+          .slice()
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((step) => ({
+            id: step.id,
+            sequence: step.sequence,
+            name: step.content,
+          })),
         parameters,
         resources,
         referenceDisplaySteps: Array.isArray(attrs.display_steps) ? attrs.display_steps : [],

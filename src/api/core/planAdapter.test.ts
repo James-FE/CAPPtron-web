@@ -14,7 +14,7 @@ const orderedIds = [
 ]
 function validPlan() {
   return {
-    schema_version: 'template-plan-v1',
+    schema_version: 'template-plan-v1-integration',
     provider: 'template',
     event_id: 'event-synthetic',
     task_id: 'task-synthetic',
@@ -76,6 +76,11 @@ function validPlan() {
         plan_digest: sha,
         reference_only: false,
         execution_ready: true,
+        source_binding: 'integration_pending',
+        preparation: {},
+        applied_feedback_ids: [],
+        engineering_status: 'pending',
+        matching_evidence: {},
         parameter_rules: [
           {
             path: '/operations/2/attributes/parameters/rough_step',
@@ -104,6 +109,20 @@ describe('Core plan DTO and view model', () => {
       name: '步骤 ring-op-2',
     })
     expect(view.id).toContain('task-synthetic')
+  })
+  it('sorts legal unordered arrays by server sequence while retaining the original rule path', () => {
+    const plan = validPlan()
+    const rough = plan.payload.operations.splice(2, 1)[0]!
+    rough.steps.unshift({ id: 'second-step', sequence: 2, content: '第二步', attributes: {} })
+    plan.payload.operations.unshift(rough)
+    plan.payload.extensions.parameter_rules[0]!.path =
+      '/operations/0/attributes/parameters/rough_step'
+    const view = toLiveProcessPlan(parsePlanProduced(plan))
+    expect(view.operations.map((item) => item.id)).toEqual(orderedIds)
+    expect(view.operations[2]!.steps.map((item) => item.sequence)).toEqual([1, 2])
+    expect(view.operations[2]!.parameters.find((item) => item.id === 'rough_step')?.editable).toBe(
+      true,
+    )
   })
   it('uses metadata and matching discrete rules only for editable values', () => {
     const operation = toLiveProcessPlan(parsePlanProduced(validPlan())).operations[2]!
@@ -142,7 +161,7 @@ describe('Core plan DTO and view model', () => {
     expect(parameter).toMatchObject({ value: 0.4, editable: false })
     expect(parameter?.unit).toBeUndefined()
   })
-  it('rejects duplicate IDs and non-increasing server sequence', () => {
+  it('rejects duplicate IDs and duplicate server sequence', () => {
     const duplicate = validPlan()
     duplicate.payload.operations[1]!.id = duplicate.payload.operations[0]!.id
     expect(() => parsePlanProduced(duplicate)).toThrow(/duplicate|sequence/i)
@@ -157,6 +176,17 @@ describe('Core plan DTO and view model', () => {
     const malformed = validPlan()
     malformed.payload.extensions.parameter_rules[0]!.allowed_values = [0.5, 0.45]
     expect(() => parsePlanProduced(malformed)).toThrow(/allowed_values|metadata/)
+  })
+  it('rejects unknown providers and schema/profile state mismatches', () => {
+    const unknown = validPlan()
+    unknown.provider = 'mock'
+    expect(() => parsePlanProduced(unknown)).toThrow(/provider/)
+    const mismatch = validPlan()
+    mismatch.schema_version = 'template-plan-v1'
+    expect(() => parsePlanProduced(mismatch)).toThrow(/reference_only|profile/)
+    const absent = validPlan()
+    delete (absent.payload.extensions as Record<string, unknown>).matching_evidence
+    expect(() => parsePlanProduced(absent)).toThrow(/matching_evidence/)
   })
   it('validates an exact NC version and retains file identity, encoding and sequence', () => {
     const nc = parseNcVersion({
@@ -190,5 +220,50 @@ describe('Core plan DTO and view model', () => {
       allowed_actions: ['review'],
     })
     expect(nc.files[0]).toMatchObject({ file_id: 'setup/T.NC', encoding: 'utf-8-sig', sequence: 1 })
+  })
+  it('normalizes omitted NC default fields and sorts files by server sequence', () => {
+    const raw = {
+      ref: { cam_run_id: 'cam-synthetic', version: 2, content_digest: sha },
+      plan_ref: {
+        task_id: 'task-synthetic',
+        result_id: 'result-synthetic',
+        revision: 2,
+        archive_digest: sha,
+      },
+      origin: 'cam_generated',
+      review_status: 'pending',
+      files: [
+        {
+          file_id: 'second',
+          filename: 'B.NC',
+          setup_id: 'setup',
+          sequence: 2,
+          encoding: 'utf-8',
+          sha256: sha,
+          size_bytes: 8,
+        },
+        {
+          file_id: 'first',
+          filename: 'A.NC',
+          setup_id: 'setup',
+          sequence: 1,
+          encoding: 'utf-8',
+          sha256: sha,
+          size_bytes: 8,
+        },
+      ],
+      reviews: [],
+      root_run_id: 'cam-synthetic',
+      is_current_candidate: true,
+      allowed_actions: [],
+    }
+    const nc = parseNcVersion(raw)
+    expect(nc).toMatchObject({
+      parent: null,
+      simulation_version: null,
+      feedback_id: null,
+      comparison_sha256: null,
+    })
+    expect(nc.files.map((item) => item.file_id)).toEqual(['first', 'second'])
   })
 })

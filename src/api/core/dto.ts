@@ -92,13 +92,13 @@ function sha(value: unknown, path: string): string {
   return value
 }
 function ordered(items: { id: string; sequence: number }[], path: string) {
-  let last = 0
   const ids = new Set<string>()
+  const sequences = new Set<number>()
   for (const item of items) {
     if (ids.has(item.id)) throw new Error(`${path} duplicate ID`)
-    if (item.sequence <= last) throw new Error(`${path} sequence must increase`)
+    if (sequences.has(item.sequence)) throw new Error(`${path} duplicate sequence`)
     ids.add(item.id)
-    last = item.sequence
+    sequences.add(item.sequence)
   }
 }
 function scalar(value: unknown, path: string) {
@@ -132,6 +132,9 @@ export function parsePlanProduced(value: unknown): PlanProducedDto {
     'trigger_request_id',
   ])
     str(plan[key], key)
+  if (plan.provider !== 'template') throw new Error('Unsupported provider')
+  if (!['template-plan-v1', 'template-plan-v1-integration'].includes(String(plan.schema_version)))
+    throw new Error('Unsupported template profile')
   int(plan.revision, 'revision', 1)
   const feedback = obj(plan.feedback_snapshot, 'feedback_snapshot')
   int(feedback.feedback_version, 'feedback_snapshot.feedback_version')
@@ -139,13 +142,23 @@ export function parsePlanProduced(value: unknown): PlanProducedDto {
   const payload = obj(plan.payload, 'payload')
   for (const key of ['part', 'blank', 'resources']) obj(payload[key], `payload.${key}`)
   const ext = obj(payload.extensions, 'payload.extensions')
-  if (ext.template !== undefined) {
-    const template = obj(ext.template, 'extensions.template')
-    str(template.id, 'template.id')
-    str(template.version, 'template.version')
-    sha(template.digest, 'template.digest')
+  const integration = plan.schema_version === 'template-plan-v1-integration'
+  if (ext.reference_only !== !integration) throw new Error('profile reference_only mismatch')
+  if (ext.execution_ready !== integration) throw new Error('profile execution_ready mismatch')
+  if (ext.source_binding !== (integration ? 'integration_pending' : 'source_unbound'))
+    throw new Error('profile source_binding mismatch')
+  obj(ext.preparation, 'extensions.preparation')
+  if (arr(ext.applied_feedback_ids, 'extensions.applied_feedback_ids').length)
+    throw new Error('profile applied_feedback_ids must be empty')
+  if (integration) {
+    if (ext.engineering_status !== 'pending') throw new Error('profile engineering_status mismatch')
+    obj(ext.matching_evidence, 'extensions.matching_evidence')
   }
-  if (ext.plan_digest !== undefined) sha(ext.plan_digest, 'plan_digest')
+  const template = obj(ext.template, 'extensions.template')
+  str(template.id, 'template.id')
+  str(template.version, 'template.version')
+  sha(template.digest, 'template.digest')
+  sha(ext.plan_digest, 'plan_digest')
   const rules =
     ext.parameter_rules === undefined
       ? []
@@ -221,8 +234,8 @@ function ncRef(value: unknown, path: string): NcRef {
 export function parseNcVersion(value: unknown): NcVersionDto {
   const version = obj(value, 'NcVersionView')
   ncRef(version.ref, 'ref')
-  if (version.parent !== null) ncRef(version.parent, 'parent')
-  if (version.simulation_version !== null) ncRef(version.simulation_version, 'simulation_version')
+  if (version.parent != null) ncRef(version.parent, 'parent')
+  if (version.simulation_version != null) ncRef(version.simulation_version, 'simulation_version')
   const plan = obj(version.plan_ref, 'plan_ref')
   str(plan.task_id, 'plan_ref.task_id')
   str(plan.result_id, 'plan_ref.result_id')
@@ -237,8 +250,8 @@ export function parseNcVersion(value: unknown): NcVersionDto {
     throw new Error('is_current_candidate invalid')
   arr(version.allowed_actions, 'allowed_actions').forEach((v) => str(v, 'allowed_action'))
   arr(version.reviews, 'reviews')
-  if (version.feedback_id !== null) str(version.feedback_id, 'feedback_id')
-  if (version.comparison_sha256 !== null) sha(version.comparison_sha256, 'comparison_sha256')
+  if (version.feedback_id != null) str(version.feedback_id, 'feedback_id')
+  if (version.comparison_sha256 != null) sha(version.comparison_sha256, 'comparison_sha256')
   const files = arr(version.files, 'files').map((raw) => {
     const file = obj(raw, 'file')
     for (const key of ['file_id', 'filename', 'setup_id', 'encoding']) str(file[key], `file.${key}`)
@@ -251,5 +264,12 @@ export function parseNcVersion(value: unknown): NcVersionDto {
     files.map((file) => ({ id: file.file_id, sequence: file.sequence })),
     'files',
   )
-  return version as NcVersionDto
+  return {
+    ...version,
+    parent: version.parent ?? null,
+    simulation_version: version.simulation_version ?? null,
+    feedback_id: version.feedback_id ?? null,
+    comparison_sha256: version.comparison_sha256 ?? null,
+    files: files.slice().sort((a, b) => a.sequence - b.sequence),
+  } as NcVersionDto
 }

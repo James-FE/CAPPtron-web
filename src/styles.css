@@ -507,3 +507,15 @@ button:focus-visible {
   border-radius: 6px;
   background: var(--surface-panel);
 }
+
+.core-workspace table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.core-workspace th,
+.core-workspace td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #cbd5e1;
+}

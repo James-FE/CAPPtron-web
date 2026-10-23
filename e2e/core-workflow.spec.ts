@@ -40,7 +40,7 @@ test('an approved older revision never enables current CAM execution', async ({ 
       },
     }),
   )
-  await page.route('**/process-cards/tasks/task-1/results/2', (route) =>
+  await page.route('**/process-cards/tasks/id_dGFzay0x/results/2', (route) =>
     route.fulfill({ json: { status: 'ready', expected_feedback_version: 1, card: {} } }),
   )
   await page.route('**/cam/tasks/task-1/runs', (route) => route.fulfill({ json: { runs: [] } }))
@@ -78,7 +78,7 @@ async function readyTask(page: import('@playwright/test').Page) {
   await page.route('**/planning/tasks/task-a/results/*', (route) =>
     route.fulfill({ json: { payload: { operations: [], extensions: {} } } }),
   )
-  await page.route('**/process-cards/tasks/task-a/results/*', (route) =>
+  await page.route('**/process-cards/tasks/id_dGFzay1h/results/*', (route) =>
     route.fulfill({ json: { status: 'ready', expected_feedback_version: 0, card: {} } }),
   )
   await page.route('**/cam/tasks/task-a/runs', (route) => route.fulfill({ json: { runs: [] } }))
@@ -204,4 +204,39 @@ test('a definitive planning rejection allows correction after authoritative refr
   await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
   await expect(page.getByRole('button', { name: '生成模板工艺' })).toBeEnabled()
   await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeEnabled()
+})
+
+test('active CAM observes progress and blocks duplicate dispatch', async ({ page }) => {
+  await readyTask(page)
+  await page.route('**/cam/runs', (route) =>
+    route.fulfill({ json: { context: { cam_run_id: 'cam-active' } } }),
+  )
+  await page.route('**/cam/runs/cam-active', (route) =>
+    route.fulfill({
+      json: {
+        cam_run_id: 'cam-active',
+        status: 'running',
+        phase: 'prepare',
+        current_candidate: null,
+        allowed_actions: [],
+      },
+    }),
+  )
+  let observed = 0
+  await page.route('**/cam/runs/cam-active/observe', (route) => {
+    observed++
+    return route.fulfill({
+      json: {
+        cam_run_id: 'cam-active',
+        status: 'running',
+        phase: 'simulate',
+        current_candidate: null,
+        allowed_actions: [],
+      },
+    })
+  })
+  await page.getByRole('button', { name: '运行 Mastercam', exact: true }).click()
+  await expect(page.getByText('CAM cam-active · running / simulate')).toBeVisible()
+  expect(observed).toBe(1)
+  await expect(page.getByRole('button', { name: '运行 Mastercam', exact: true })).toBeDisabled()
 })

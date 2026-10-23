@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { CoreClient, CoreHttpError, ncPath } from '../../api/core/client'
+import { goldenPlanningRequest, goldenTemplate } from '../../api/core/golden'
+import { CoreClient, CoreHttpError, cardPath, ncPath } from '../../api/core/client'
 import type {
   ApprovedPlans,
   Asset,
@@ -127,9 +128,7 @@ export function CoreWorkspace() {
         : undefined
     const nextCard =
       next.current_revision > 0
-        ? await api.get<NonNullable<typeof card>>(
-            `/process-cards/tasks/${encodeURIComponent(key)}/results/${next.current_revision}`,
-          )
+        ? await api.get<NonNullable<typeof card>>(cardPath(key, next.current_revision))
         : undefined
     const nextApproved =
       next.current_revision > 0
@@ -146,7 +145,7 @@ export function CoreWorkspace() {
     setRun(undefined)
     setNc(undefined)
     setText('')
-    const next = await api.get<CamRun>(`/cam/runs/${encodeURIComponent(key)}`)
+    const next = await api.observeRun(key)
     setRun(next)
     if (next.current_candidate) {
       const version = await api.get<NcVersion>(ncPath(next.current_candidate))
@@ -174,8 +173,11 @@ export function CoreWorkspace() {
   return (
     <section className="core-workspace" aria-label="Core 真实工作区">
       <h2>Core 真实工作区</h2>
-      <p>圆环 OD41 / ID39 / 厚5 · 切断侧外缘 C0.2×45° · golden-b7 2.2.0</p>
-      <p>此处仅显示 Core 返回。上传、解析、工艺批准与 NC 批准是独立步骤；工程准入由后端决定。</p>
+      <p>Golden-B7 七工序圆环 · 2024 铝 · 模板 {goldenTemplate.version}</p>
+      <p>
+        固定模板联调：STEP 几何由 NX 解析；切断侧 C0.2×45° 是工艺要求。工艺批准后可生成待审核
+        NC，不代表制造放行。
+      </p>
       <fieldset disabled={busy}>
         <legend>1. STEP 与 NX 解析</legend>
         <input
@@ -205,7 +207,8 @@ export function CoreWorkspace() {
         {asset && (
           <>
             <p>
-              已存储 {asset.filename} · {asset.asset_id}（尚未解析）
+              已存储 {asset.filename} · {asset.asset_id}（
+              {parse?.status === 'parsed' ? '已解析' : '尚未解析'}）
             </p>
             <button
               onClick={() =>
@@ -249,36 +252,10 @@ export function CoreWorkspace() {
           disabled={parse?.status !== 'parsed'}
           onClick={() =>
             void act(async () => {
-              const next = await api.post<Task>('/planning/tasks', {
-                command_id: id(),
-                schema_version: 'template-request-v1',
-                payload: {
-                  part: {
-                    family: 'turning.ring',
-                    outer_diameter_mm: 41,
-                    inner_diameter_mm: 39,
-                    thickness_mm: 5,
-                    chamfer: {
-                      edge: 'cutoff_side_outer',
-                      width_mm: 0.2,
-                      angle_deg: 45,
-                      axial_side: 'negative_z',
-                      top_radius_mm: 0,
-                      bottom_radius_mm: 0,
-                    },
-                  },
-                  template: {
-                    id: 'golden-b7',
-                    version: '2.2.0',
-                    digest: 'e0afbf56c74474a135a152a614932e02ee7ea2d43f093f2e3a5f11ce11bb556a',
-                  },
-                  source: {
-                    asset_id: asset!.asset_id,
-                    sha256: asset!.sha256,
-                    parse_command_id: parse!.command_id,
-                  },
-                },
-              })
+              const next = await api.post<Task>(
+                '/planning/tasks',
+                goldenPlanningRequest(asset!, parse!, id()),
+              )
               await refreshTask(next.task_id)
             })
           }
@@ -370,7 +347,33 @@ export function CoreWorkspace() {
           </>
         )}
         {plan && (
-          <details open>
+          <div>
+            <p>
+              当前工艺：{plan.payload.operations.length} 道工序 · 工程状态{' '}
+              {plan.payload.extensions.engineering_status ?? '未提供'}
+            </p>
+            <table aria-label="当前工艺工序">
+              <thead>
+                <tr>
+                  <th>工序</th>
+                  <th>名称</th>
+                  <th>粗车步距 (mm)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.payload.operations.map((op) => (
+                  <tr key={op.id}>
+                    <td>{op.id}</td>
+                    <td>{op.name ?? '未提供'}</td>
+                    <td>{op.attributes.parameters?.rough_step ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {plan && (
+          <details>
             <summary>服务端工艺与准入证据</summary>
             <pre>{JSON.stringify(plan.payload, null, 2)}</pre>
           </details>
@@ -390,7 +393,7 @@ export function CoreWorkspace() {
             void act(async () => {
               setReceipt(
                 await api.post(
-                  `/process-cards/tasks/${encodeURIComponent(task!.task_id)}/results/${task!.current_revision}/review`,
+                  `${cardPath(task!.task_id, task!.current_revision)}/review`,
                   {
                     command_id: id(),
                     decision: 'approve',
@@ -419,7 +422,10 @@ export function CoreWorkspace() {
             : '阻塞：尚无匹配当前修订的可执行配置与批准计划。'}
         </p>
         <button
-          disabled={!executable}
+          disabled={
+            !executable ||
+            (!!run && ['accepted', 'running', 'awaiting_confirmation'].includes(run.status))
+          }
           onClick={() =>
             void act(async () => {
               const result = await api.post<{ context: { cam_run_id: string } }>('/cam/runs', {

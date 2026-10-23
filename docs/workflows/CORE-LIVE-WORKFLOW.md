@@ -6,10 +6,10 @@
 
 - 原始 STEP 二进制上传与存储回执；以 asset_id + command_id 触发/读取 NX 解析。
 - 解析成功后创建 template-request-v1，绑定 source.asset_id/sha256/parse_command_id。
-- 固定 golden-b7 2.2.0 及 digest（来自 Core `load_chamfer_template()`）；part 字段是用户目标声明，不是解析证据。
+- 固定 golden-b7 2.3.0 七工序及 digest（来自 Core `load_integration_template()`）；请求只携带模板与真实解析回执身份，尺寸/特征由 Core 推导。
 - 读取/恢复任务、生成模板、展示完整服务端计划和工艺卡；使用 current_revision/feedback_version/template_digest/plan_digest 提交 rough_step 修订。
 - 工艺卡批准后，必须由 approved-plans 返回 execution_configured/profile_matches 且匹配当前 revision 才可发起 CAM。
-- 读取已有 CAM 运行、刷新/核实状态、读取所有候选 NC 文件、按完整 NcVersionRef 审核和下载。文件 ID 使用查询参数，保留斜线。
+- 工艺卡任务路径使用 Core 的 `id_` + UTF-8 base64url 编码。读取已有 CAM 运行，对 accepted/running 调用 observe，终态只读；读取所有候选 NC 文件、按完整 NcVersionRef 审核和下载。文件 ID 使用查询参数，保留斜线。
 
 ## 边界
 
@@ -30,3 +30,34 @@
 补充跨任务刷新失败、规划 POST 响应丢失、终态与修订读取先后、NC 正文读取失败的保护。规划请求发出前冻结审核与 CAM；结果不确定时保留原请求，并通过刷新重用 command_id 恢复。当前任务快照全部读取成功后统一展示；NC 正文全部读取成功后才能审核。补充回归后 Core 双视口 E2E 共 12 项通过，`npm run quality` 再次通过（265 项单元测试）。
 
 明确 HTTP 4xx 拒绝与网络/5xx 不确定结果分开处理：拒绝后清除待确认命令，需重新读取权威任务才能继续；未知结果仍保留原命令恢复。新增 422 拒绝恢复测试后 Core 双视口 E2E 为 14 项通过，quality 再次通过。
+
+
+## 2026-10-23 Golden 七工序联调
+
+开发启动可使用同源代理（仅开发服务器生效）：
+
+```sh
+VITE_API_BASE_URL=/core-api CAPPTRON_CORE_PROXY=http://127.0.0.1:8000 npm run dev
+```
+
+将代理目标替换为受控 Core 地址；浏览器只访问 Core 业务接口，不接触 SSH/IPC。生产部署仍需同源反向代理或正确配置 Core CORS。
+
+页面演示步骤：
+
+1. 打开 Core 真实工作区，上传已准入的 Golden STEP，执行 NX 解析。
+2. 解析 parsed 后创建模板规划任务，生成模板工艺，读取/刷新任务直到规划终态。
+3. 查看七工序表，提交外圆粗车 rough_step=0.4 修订，再刷新任务确认修订2及0.4数值。
+4. 填写审核人ID，批准当前工艺卡。Core 返回匹配批准版本后才可运行 Mastercam。
+5. 显式刷新 CAM/NC 直到终态，查看候选正文和版本摘要。NC审核和下载仍按服务端权限，不自动批准。
+6. 刷新页面后可填入原任务ID，读取服务端运行历史并打开同一NC版本。Core进程重启后的规划任务恢复不在本轮保证范围内。
+
+初步演示仍限定固定 Golden：重复 NX 解析会改变报告时间/路径和浮点末位，现行 Core 的完整报告摘要门禁要求管理员核对并绑定本次报告。前端不能自动放宽此门禁，也不能声称任意新 STEP 可执行。NC几何、刀具、毛坯及制造安全需工程审核。
+
+软件验证：quality通过（270项单元测试）；完整Playwright两个视口共68项通过。原4项编辑器失败为测试硬编码Windows快捷键，在macOS改用对应Meta键后通过，产品编辑器逻辑未改。公开仓库只保存合成/空状态截图，真实NC、原件、执行配置与实机截图留在私有验证资料中。
+
+实机结果：本轮从浏览器完成上传、真实 NX 解析、七工序生成、参数修订、工艺批准、实际 NC 生成及正文读取；页面刷新后重新读取同一任务和候选成功。生成结果仍为 pending，未执行人工 NC 批准/下载。详细身份、摘要与本次报告准入操作记录在 Core 私有 issue135。
+
+双视口空状态截图（不含私有制造数据）：
+
+![1440×900 Core工作区](golden-web-evidence/core-1440x900.png)
+![1920×1080 Core工作区](golden-web-evidence/core-1920x1080.png)

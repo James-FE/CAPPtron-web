@@ -39,3 +39,28 @@ describe('Core HTTP contract', () => {
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 })
+
+it('observes in-flight CAM before returning its authoritative candidate', async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'running' })))
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ status: 'succeeded', current_candidate: { version: 1 } })),
+    )
+  const result = await new CoreClient('', fetcher).observeRun('run/a')
+  expect(fetcher.mock.calls[1]![0]).toBe('/cam/runs/run%2Fa/observe')
+  expect(fetcher.mock.calls[1]![1].method).toBe('POST')
+  expect(result.status).toBe('succeeded')
+})
+
+it('does not dispatch observation for an already completed CAM run', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'succeeded' })))
+  await new CoreClient('', fetcher).observeRun('run')
+  expect(fetcher).toHaveBeenCalledTimes(1)
+})
+
+it('encodes process-card task keys using the Core opaque UTF-8 token contract', async () => {
+  const { cardPath } = await import('./client')
+  expect(cardPath('task-a', 2)).toBe('/process-cards/tasks/id_dGFzay1h/results/2')
+  expect(cardPath('环/1', 1)).toBe('/process-cards/tasks/id_546vLzE/results/1')
+})

@@ -37,7 +37,21 @@ function ParameterField({
         )}
       </label>
       <div className="parameter-value">
-        {parameter.editable ? (
+        {parameter.editable && parameter.allowedValues ? (
+          <select
+            id={id}
+            aria-label={parameter.name}
+            value={value ?? String(parameter.value ?? '')}
+            aria-describedby={`${id}-help`}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {parameter.allowedValues.map((entry) => (
+              <option key={String(entry)} value={String(entry)}>
+                {String(entry)}
+              </option>
+            ))}
+          </select>
+        ) : parameter.editable ? (
           <input
             id={id}
             aria-label={parameter.name}
@@ -62,7 +76,7 @@ function ParameterField({
       >
         {value !== undefined
           ? (error ?? '本地草稿 · 格式有效，未校核')
-          : `${sources[parameter.source]} · ${parameter.status === 'missing' ? '待补充' : parameter.status === 'pending' ? '待确认' : '已提供，未校核'}`}
+          : `${sources[parameter.source] ?? parameter.source} · ${parameter.status === 'missing' ? '待补充' : parameter.status === 'pending' ? '待确认' : '已提供，未校核'}`}
         {parameter.description && (
           <>
             <br />

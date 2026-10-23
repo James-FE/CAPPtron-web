@@ -11,6 +11,8 @@ coverage/
 .worktrees/
 playwright-report/
 test-results/
+playwright-report-core-prototype/
+test-results-core-prototype/
 playwright/.cache/
 
 # 私有程序正文不得进入公开仓库；测试使用明确的合成文本。

@@ -1,6 +1,6 @@
 # Core 部署配置与适配边界
 
-本批只提供 API 数据层，原 r06 页面、组件与样式不变。接口基础来自 PR27；配置和请求恢复在下一批页面接线时消费。
+数据层已由原三阶段原型消费；页面接线范围和验收边界见[真实原型说明](../workflows/CORE-PROTOTYPE-LIVE.md)。接口基础来自 PR27，配置与请求恢复继续保持单独可测试。
 
 ## 配置交付
 
@@ -20,11 +20,11 @@ CAM 启动前仍需读取 Core 当前批准归档、修订和 `profile_matches`�
 
 配置单测覆盖 UTF-8 原始字节校验、篡改/加载失败、未知版本、重复身份、模板及报告不匹配、工序和规则不匹配。本地还以 Core 导出的真实配置完成跨语言加载检查；该配置仅保留在私有/本地证据位置，不提交到公共 Web 仓库。
 
-本批未把配置接到原页面，也未运行新的 NX 解析或 NC 生成。后续页面接线需要实际调用这些校验，不能因为模块已经存在就标记整链完成。
+原页面通过受控摘要加载配置，并在任务创建和 CAM 前消费匹配校验。本批未运行新的真实 NX 解析或 NC 生成，不能把前端接线标记为整链制造完成。
 
 ## 请求编排与恢复接线
 
-`CoreWorkflow` 是下一批原组件接线的单一请求入口；页面决定何时执行动作，不新增技术工作区。构造时注入 CoreClient、可选的 CommandJournal/命令 ID 生成器以及已加载的配置。默认 journal 使用浏览器存储并按 Core 地址隔离。可通过 `snapshot()` 读取展示状态，通过 `location()` 取得持久定位。
+`CoreWorkflow` 是原组件接线的单一请求入口；页面决定何时执行动作，不新增技术工作区。构造时注入 CoreClient、可选的 CommandJournal/命令 ID 生成器以及已加载的配置。默认 journal 使用浏览器存储并按 Core 地址隔离。可通过 `snapshot()` 读取展示状态，通过 `location()` 取得持久定位。
 
 - 上传/解析：`upload`、`retryUpload`、`parse`、`refreshParse`；复用已有解析用 `reuseParse`，只执行查询。未知上传必须重选同名、同大小、同摘要的原文件。
 - 工艺：`createTask`、`replan`、`refreshPlanningRun`、`refreshTask`、`approveCard`。草稿通过 `setDraft`/`clearDrafts` 按任务和修订管理；未提交草稿或未决命令阻止批准。

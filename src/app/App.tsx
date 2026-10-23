@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { CoreWorkspace } from '../features/core/CoreWorkspace'
+import { CorePrototype } from '../features/core/CorePrototype'
 import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
@@ -16,16 +16,23 @@ export default function App({
 }: {
   foundationReader?: DataFoundationReader
 }) {
-  const [live, setLive] = useState(false)
+  const [live, setLive] = useState(
+    Boolean(
+      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL ||
+      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256,
+    ),
+  )
+  const [liveInitialized, setLiveInitialized] = useState(live)
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
+  const [sourceStatus, setSourceStatus] = useState('尚未上传或解析')
+  const [showParseReport, setShowParseReport] = useState(false)
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
   const [stage, setStage] = useState<WorkflowStage>('input')
   const [view, setView] = useState<'workflow' | 'foundation'>('workflow')
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   function changeView(next: 'workflow' | 'foundation') {
-    setLive(false)
     if (workspaceRef.current?.contains(document.activeElement))
       (document.activeElement as HTMLElement | null)?.blur()
     setView(next)
@@ -39,7 +46,10 @@ export default function App({
   return (
     <AppShell
       live={live}
-      onToggleLive={() => setLive(!live)}
+      onToggleLive={() => {
+        setLiveInitialized(true)
+        setLive(!live)
+      }}
       currentStage={stage}
       currentView={view}
       onView={changeView}
@@ -49,29 +59,65 @@ export default function App({
       }}
       onUnavailable={setNotice}
       fileBar={
-        <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
+        <FileInfoBar
+          selection={selection}
+          onReplace={openFilePicker}
+          onUnavailable={setNotice}
+          sourceStatus={live ? sourceStatus : undefined}
+          onInterpret={
+            live
+              ? () => {
+                  setStage('input')
+                  setShowParseReport(true)
+                }
+              : undefined
+          }
+        />
       }
     >
-      {live && <CoreWorkspace />}
+      <input
+        ref={inputRef}
+        className="visually-hidden"
+        type="file"
+        accept=".step,.stp"
+        aria-label="选择 STEP 模型文件"
+        tabIndex={-1}
+        onChange={(event) => {
+          selectFiles(Array.from(event.currentTarget.files ?? []))
+          // 清空控件值以支持重复选择同一文件；有效选择保存在 React 状态中。
+          event.currentTarget.value = ''
+        }}
+      />
+      {liveInitialized && (
+        <div
+          className="workflow-view"
+          hidden={!live || view !== 'workflow'}
+          inert={!live || view !== 'workflow'}
+        >
+          <CorePrototype
+            active={live && view === 'workflow'}
+            onSourceStatus={setSourceStatus}
+            showParseReport={showParseReport}
+            stage={stage}
+            onNavigate={setStage}
+            selection={selection}
+            onChoose={openFilePicker}
+            onFiles={selectFiles}
+            fileError={error}
+            onDemo={() => {
+              setLive(false)
+              selectDemo()
+              setStage('planning')
+            }}
+          />
+        </div>
+      )}
       <div
         ref={workspaceRef}
         className="workflow-view"
         hidden={live || view !== 'workflow'}
         inert={live || view !== 'workflow'}
       >
-        <input
-          ref={inputRef}
-          className="visually-hidden"
-          type="file"
-          accept=".step,.stp"
-          aria-label="选择 STEP 模型文件"
-          tabIndex={-1}
-          onChange={(event) => {
-            selectFiles(Array.from(event.currentTarget.files ?? []))
-            // 清空控件值以支持重复选择同一文件；有效选择保存在 React 状态中。
-            event.currentTarget.value = ''
-          }}
-        />
         {stage === 'input' && (
           <ModelInputPage
             selection={selection}
@@ -88,7 +134,7 @@ export default function App({
         <WorkflowWorkspace
           key={sourceVersion}
           stage={stage}
-          visible={view === 'workflow'}
+          visible={!live && view === 'workflow'}
           onNavigate={setStage}
           initialCaseReference={selection.kind === 'demo' ? inputExampleCase : undefined}
         />
@@ -106,7 +152,7 @@ export default function App({
           </div>
         )}
       </div>
-      {!live && view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
+      {view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
     </AppShell>
   )
 }

@@ -1,4 +1,9 @@
-export type Task = { task_id: string; current_revision: number; feedback_version: number }
+export type Task = {
+  task_id: string
+  result_id: string
+  current_revision: number
+  feedback_version: number
+}
 export type NcRef = { cam_run_id: string; version: number; content_digest: string }
 export type PlanRef = {
   task_id: string
@@ -8,6 +13,7 @@ export type PlanRef = {
 }
 export type CamRun = {
   cam_run_id: string
+  plan_ref: PlanRef
   status: string
   phase: string
   current_candidate: NcRef | null

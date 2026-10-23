@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CoreClient } from './client'
+import { CoreClient, CoreHttpError, cardPath } from './client'
 
 describe('Core HTTP contract', () => {
   it('reuses the command identity after an uncertain POST instead of creating another run', async () => {
@@ -24,7 +24,7 @@ describe('Core HTTP contract', () => {
     expect(fetcher.mock.calls[0]![1].headers['Content-Type']).toBe('application/octet-stream')
   })
   it('keeps slash-containing NC file IDs in query parameters', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response('{}'))
+    const fetcher = vi.fn().mockImplementation(async () => new Response('{}'))
     await new CoreClient('', fetcher).file(
       { cam_run_id: 'run', version: 2, content_digest: 'digest' },
       'setup/T.NC',
@@ -37,5 +37,71 @@ describe('Core HTTP contract', () => {
       .mockResolvedValue(new Response('{"error":{"message":"not configured"}}', { status: 503 }))
     await expect(new CoreClient('', fetcher).get('/cam/executor')).rejects.toThrow('503')
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it('retains Core error identity and input issues', async () => {
+    const payload = {
+      error: { code: 4003, message: 'Invalid input' },
+      request_id: 'request-1',
+      trace_id: 'trace-1',
+      issues: [{ path: '/payload/source', code: 'missing', message: 'Source required' }],
+      stage: 'prepare',
+      reset_required: false,
+      file_id: 'setup/T.NC',
+    }
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(payload), { status: 422 }))
+    const error = await new CoreClient('', fetcher)
+      .get('/inputs/prepare')
+      .catch((value: unknown) => value)
+    expect(error).toBeInstanceOf(CoreHttpError)
+    expect(error).toMatchObject({
+      status: 422,
+      code: 4003,
+      request_id: 'request-1',
+      trace_id: 'trace-1',
+      issues: payload.issues,
+      stage: 'prepare',
+      reset_required: false,
+      file_id: 'setup/T.NC',
+    })
+  })
+  it('retains HTTP status when a proxy returns a non-contract error body', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response('null', { status: 502 }))
+    const error = await new CoreClient('', fetcher)
+      .get('/cam/executor')
+      .catch((value: unknown) => value)
+    expect(error).toMatchObject({ status: 502, code: null, request_id: null, issues: [] })
+  })
+  it('encodes card task IDs as canonical UTF-8 base64url tokens', () => {
+    expect(cardPath('任务/甲', 2)).toBe('/process-cards/tasks/id_5Lu75YqhL-eUsg/results/2')
+  })
+  it('posts observe and reconcile without a JSON body', async () => {
+    const fetcher = vi.fn().mockImplementation(async () => new Response('{}'))
+    const client = new CoreClient('', fetcher)
+    await client.observe('run/1')
+    await client.reconcile('run/1')
+    expect(fetcher.mock.calls.map(([url, init]) => [url, init.method, init.body])).toEqual([
+      ['/cam/runs/run%2F1/observe', 'POST', undefined],
+      ['/cam/runs/run%2F1/reconcile', 'POST', undefined],
+    ])
+  })
+  it('returns ZIP headers with the exact downloaded bytes while preserving download()', async () => {
+    const headers = {
+      'Content-Disposition': 'attachment; filename="approved.zip"',
+      'X-Content-SHA256': 'a'.repeat(64),
+      'X-Engineering-Status': 'unconfirmed',
+    }
+    const fetcher = vi.fn().mockImplementation(async () => new Response('ZIP', { headers }))
+    const client = new CoreClient('', fetcher)
+    const ref = { cam_run_id: 'run', version: 2, content_digest: 'b'.repeat(64) }
+    const item = await client.downloadPackage(ref)
+    expect(item).toMatchObject({
+      filename: 'approved.zip',
+      sha256: 'a'.repeat(64),
+      engineering_status: 'unconfirmed',
+    })
+    expect(item.blob.size).toBe(3)
+    expect((await client.download(ref)).size).toBe(3)
   })
 })

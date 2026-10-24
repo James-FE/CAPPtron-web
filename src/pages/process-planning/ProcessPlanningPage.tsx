@@ -3,15 +3,19 @@ import { OperationDetails } from '../../features/process-planning/OperationDetai
 import { TaskMeasurements } from '../../features/process-planning/TaskMeasurements'
 import { DemoPlanningProgress } from '../../features/process-planning/DemoPlanningProgress'
 import type { WorkflowSession } from '../../features/process-planning/useWorkflowSession'
+import type { LiveWorkflow } from '../../features/core/useLiveWorkflow'
+import { LiveFeedback, LiveProgress } from '../../features/core/LiveProgress'
 
 export function ProcessPlanningPage({
   active,
   workflow,
   onReview,
+  live,
 }: {
   active: boolean
   workflow: WorkflowSession
   onReview: () => void
+  live?: LiveWorkflow
 }) {
   const {
     session,
@@ -39,19 +43,27 @@ export function ProcessPlanningPage({
           <h2 id="planning-title">工艺决策</h2>
           <p className="page-subtitle">工艺规划 · 参数推荐 · 生产资源匹配</p>
         </div>
-        <PlanningSourceSelector
-          active={active}
-          choice={demoChoice}
-          onChoice={setDemoChoice}
-          onLoad={loadDemo}
-        />
+        {!live && (
+          <PlanningSourceSelector
+            active={active}
+            choice={demoChoice}
+            onChoice={setDemoChoice}
+            onLoad={loadDemo}
+          />
+        )}
       </header>
       <p className="plan-source">
         {session
           ? `${session.plan.partName} · ${session.plan.sourceDescription}`
-          : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
+          : live
+            ? live.task
+              ? 'Core 真实模式 · 当前任务状态见下方。'
+              : 'Core 真实模式 · 请从模型输入完成上传与解析。'
+            : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
-      {caseLoad.state !== 'idle' ? (
+      {live && (!session || !session.resultViewed) ? (
+        <LiveProgress live={live} />
+      ) : caseLoad.state !== 'idle' ? (
         <div className="planning-empty">
           {caseLoad.state === 'loading' ? (
             <h3 role="status">正在加载并校验参考案例…</h3>
@@ -174,53 +186,113 @@ export function ProcessPlanningPage({
           <p className="muted-text">所选本地 STEP 文件未上传、未解析，也不会与演示工艺自动关联。</p>
         </div>
       )}
-      {(!session || session.resultViewed) && (
+      {live && session?.resultViewed ? (
         <footer className="planning-actions">
-          <p className="muted-text" id="planning-readiness">
-            {!session
-              ? '请先加载演示方案。'
-              : readiness?.missing.length
-                ? `还有 ${readiness.missing.length} 项必填信息待补充；填写完整且格式有效后启用审核入口。`
-                : !readiness?.ready
-                  ? '工序或工步信息不完整，暂不能进入下一步。'
-                  : '必填信息已补齐 · 仅完成演示填写，未完成制造校核。'}
-            <br />
-            Mock 方案未经机加工专家确认。
-          </p>
           <div>
+            <p className="muted-text">
+              {live.dirty
+                ? '未提交参数草稿 · 请提交后审核新 revision'
+                : `当前 revision ${live.task?.current_revision} · ${live.executable ? 'Core 已返回执行资格' : '尚无匹配当前修订的执行资格'}`}
+            </p>
+            <LiveFeedback live={live} />
+          </div>
+          <div>
+            <label>
+              审核人 ID（声明）
+              <input
+                aria-label="审核人 ID"
+                value={live.reviewer}
+                disabled={live.busy || live.canRetry}
+                onChange={(e) => live.setReviewer(e.target.value)}
+              />
+            </label>
             <button
-              type="button"
               className="button"
-              disabled={!operation && !session?.plan.taskMeasurements?.length}
+              disabled={!live.dirty || live.busy || live.canRetry || live.activeCam}
+              onClick={live.submitParameters}
+            >
+              提交参数修订
+            </button>
+            <button
+              className="button"
+              disabled={
+                live.dirty ||
+                live.busy ||
+                live.canRetry ||
+                !live.reviewer.trim() ||
+                live.card?.status !== 'ready'
+              }
+              onClick={live.approvePlan}
+            >
+              批准当前工艺卡
+            </button>
+            <button
+              className="button primary-button"
+              disabled={!live.executable || !!live.cam || live.canRetry}
               onClick={() => {
-                const next = readiness?.missing.find((item) => item.parameter.editable)
-                updateSession((current) => ({
-                  ...current,
-                  selectedId:
-                    next?.section === 'task'
-                      ? current.selectedId
-                      : (next?.operationId ?? current.selectedId),
-                  view: next
-                    ? fieldView(next.section)
-                    : session?.plan.taskMeasurements?.length
-                      ? 'task'
-                      : 'onsite',
-                }))
+                live.startCam()
+                onReview()
               }}
             >
-              补充工序信息
+              运行 Mastercam
             </button>
-            <button
-              type="button"
-              className="button primary-button"
-              disabled={!readiness?.ready}
-              aria-describedby="planning-readiness"
-              onClick={onReview}
-            >
-              查看参考程序并进入审核
-            </button>
+            {live.cam && (
+              <button className="button" onClick={onReview}>
+                查看 CAM / NC
+              </button>
+            )}
           </div>
         </footer>
+      ) : (
+        !live &&
+        (!session || session.resultViewed) && (
+          <footer className="planning-actions">
+            <p className="muted-text" id="planning-readiness">
+              {!session
+                ? '请先加载演示方案。'
+                : readiness?.missing.length
+                  ? `还有 ${readiness.missing.length} 项必填信息待补充；填写完整且格式有效后启用审核入口。`
+                  : !readiness?.ready
+                    ? '工序或工步信息不完整，暂不能进入下一步。'
+                    : '必填信息已补齐 · 仅完成演示填写，未完成制造校核。'}
+              <br />
+              Mock 方案未经机加工专家确认。
+            </p>
+            <div>
+              <button
+                type="button"
+                className="button"
+                disabled={!operation && !session?.plan.taskMeasurements?.length}
+                onClick={() => {
+                  const next = readiness?.missing.find((item) => item.parameter.editable)
+                  updateSession((current) => ({
+                    ...current,
+                    selectedId:
+                      next?.section === 'task'
+                        ? current.selectedId
+                        : (next?.operationId ?? current.selectedId),
+                    view: next
+                      ? fieldView(next.section)
+                      : session?.plan.taskMeasurements?.length
+                        ? 'task'
+                        : 'onsite',
+                  }))
+                }}
+              >
+                补充工序信息
+              </button>
+              <button
+                type="button"
+                className="button primary-button"
+                disabled={!readiness?.ready}
+                aria-describedby="planning-readiness"
+                onClick={onReview}
+              >
+                查看参考程序并进入审核
+              </button>
+            </div>
+          </footer>
+        )
       )}
     </section>
   )

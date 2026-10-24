@@ -61,6 +61,29 @@
 .planning-progress-status progress::-moz-progress-bar {
   background: var(--accent-primary);
 }
+.planning-progress-status progress:indeterminate::-webkit-progress-bar {
+  background: linear-gradient(
+    90deg,
+    var(--border-subtle) 25%,
+    var(--accent-primary) 50%,
+    var(--border-subtle) 75%
+  );
+  background-size: 200% 100%;
+  animation: core-waiting 1.6s linear infinite;
+}
+@keyframes core-waiting {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planning-progress-status progress:indeterminate::-webkit-progress-bar {
+    animation: none;
+  }
+}
 .progress-percentage {
   color: var(--accent-primary);
   font-variant-numeric: tabular-nums;

@@ -7,12 +7,14 @@ export type PlanRef = {
   archive_digest: string
 }
 export type CamRun = {
+  plan_ref?: PlanRef
+  observation?: { state: string | null; availability: string } | null
   cam_run_id: string
   status: string
   phase: string
   current_candidate: NcRef | null
   allowed_actions: string[]
-  error?: unknown
+  error?: { code: number; message: string } | null
 }
 export type NcVersion = {
   ref: NcRef
@@ -49,12 +51,36 @@ export type ParseResult = {
 export type Asset = { asset_id: string; sha256: string; filename: string; status: string }
 const part = encodeURIComponent
 export const ncPath = (ref: NcRef) => `/cam/runs/${part(ref.cam_run_id)}/nc/versions/${ref.version}`
+export const cardPath = (task: string, revision: number) => {
+  const token = btoa(
+    Array.from(new TextEncoder().encode(task), (byte) => String.fromCharCode(byte)).join(''),
+  )
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `/process-cards/tasks/id_${token}/results/${revision}`
+}
 export class CoreHttpError extends Error {
+  readonly confirmed: boolean
   constructor(
     readonly status: number,
     detail: string,
+    readonly method = 'GET',
   ) {
-    super(`Core HTTP ${status}: ${detail}`)
+    let message = `Core HTTP ${status}`
+    let confirmed = false
+    try {
+      const data = JSON.parse(detail)
+      confirmed =
+        typeof data.error?.code === 'number' &&
+        typeof data.error?.message === 'string' &&
+        !!data.request_id
+      message += ` · ${data.error?.code ?? 'request_failed'} · ${data.error?.message ?? '请求失败'} · request ${data.request_id ?? '未知'}`
+    } catch {
+      message += ' · 无有效 Core 错误回执，操作结果待查询'
+    }
+    super(message)
+    this.confirmed = confirmed
   }
 }
 export class CoreClient {
@@ -65,11 +91,15 @@ export class CoreClient {
   ) {}
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await this.fetcher(this.base.replace(/\/$/, '') + path, init)
-    if (!response.ok) throw new CoreHttpError(response.status, await response.text())
+    if (!response.ok)
+      throw new CoreHttpError(response.status, await response.text(), init.method ?? 'GET')
     return response.json() as Promise<T>
   }
   get<T>(path: string) {
-    return this.request<T>(path)
+    return this.request<T>(path, { cache: 'no-store' })
+  }
+  observe<T>(run: string) {
+    return this.request<T>(`/cam/runs/${part(run)}/observe`, { method: 'POST' })
   }
   async post<T>(path: string, body: Record<string, unknown>, reviewer?: string) {
     const { command_id: command, ...content } = body

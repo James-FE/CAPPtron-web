@@ -13,8 +13,193 @@ import {
 import type { ProgramDocument } from '../../features/program-review/programDocument'
 import { ProgramEditor } from '../../features/program-review/ProgramEditor'
 import { ProgramDiff } from '../../features/program-review/ProgramDiff'
+import type { LiveWorkflow } from '../../features/core/useLiveWorkflow'
+import { LiveFeedback, LiveProgress } from '../../features/core/LiveProgress'
 
-export function ProgramReviewPage({
+type Props = {
+  workflow: WorkflowSession
+  onBack: () => void
+  onOpenAgent?: () => void
+  reader?: ProgramContentReader
+  active?: boolean
+  live?: LiveWorkflow
+}
+export function ProgramReviewPage(props: Props) {
+  return props.live ? (
+    <LiveProgramReview live={props.live} onBack={props.onBack} active={props.active} />
+  ) : (
+    <DemoProgramReview {...props} />
+  )
+}
+function LiveProgramReview({
+  live,
+  onBack,
+  active = true,
+}: {
+  live: LiveWorkflow
+  onBack: () => void
+  active?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [confirmation, setConfirmation] = useState<string | null>(null)
+  const dialog = useRef<HTMLDialogElement>(null)
+  const file = live.files?.find((f) => f.file_id === live.selectedFile)
+  const nc = live.nc
+  const identity = nc ? JSON.stringify(nc.ref) : ''
+  useEffect(() => {
+    if (confirmation && active) dialog.current?.showModal()
+    else dialog.current?.close()
+    if (!active) {
+      setConfirmation(null)
+      setExpanded(false)
+    }
+  }, [confirmation, active])
+  return (
+    <section
+      className={`program-review-page${expanded ? ' code-expanded' : ''}`}
+      aria-labelledby="review-title"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !confirmation) setExpanded(false)
+      }}
+    >
+      <header className="review-heading">
+        <div className="review-title">
+          <h2 id="review-title">程序审核</h2>
+          <span className="warning-text" role="status">
+            {nc ? `NC v${nc.ref.version} · ${nc.review_status}` : '尚无可审核正文'}
+          </span>
+        </div>
+        <button className="button" onClick={onBack}>
+          返回工艺决策
+        </button>
+      </header>
+      <div className="review-source">
+        <p>
+          {live.task?.task_id ?? '尚无任务'} · 工艺 revision {live.task?.current_revision ?? '—'} ·{' '}
+          {live.cam?.cam_run_id ?? 'CAM 尚未启动'}
+        </p>
+        <p className="muted-text">Core 原始正文 · 当前版本人工审核 · 只读服务器版本</p>
+      </div>
+      {nc && file ? (
+        <div className="program-panel">
+          <div className="program-toolbar">
+            <div>
+              <div className="program-document-heading">
+                <h3>
+                  {file.filename} · NC v{nc.ref.version}
+                </h3>
+              </div>
+              <p className="muted-text">
+                {nc.origin} · {file.encoding} / {file.newline} · {nc.review_status}
+              </p>
+            </div>
+            <div className="program-tools">
+              <select
+                aria-label="NC 文件"
+                value={file.file_id}
+                onChange={(e) => live.selectFile(e.target.value)}
+              >
+                {live.files?.map((item) => (
+                  <option key={item.file_id} value={item.file_id}>
+                    {item.filename}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="button"
+                aria-pressed={expanded}
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? '退出专注编辑' : '展开代码'}
+              </button>
+            </div>
+          </div>
+          <div className="program-content">
+            <ProgramEditor
+              readOnly
+              document={{
+                id: `${identity}/${file.file_id}`,
+                revision: nc.ref.version,
+                draftText: file.text,
+              }}
+              onChange={() => {}}
+            />
+          </div>
+          <footer className="program-actions">
+            <div>
+              <p className="warning-text">
+                精确版本人工审核 ·{' '}
+                {live.dirty ? '工艺有未提交草稿，禁止审核和下载' : '未替代制造安全验证'}
+              </p>
+              <LiveFeedback live={live} />
+            </div>
+            <div className="program-tools">
+              <label>
+                审核人 ID（声明）
+                <input
+                  aria-label="审核人 ID"
+                  disabled={live.busy || live.canRetry}
+                  value={live.reviewer}
+                  onChange={(e) => live.setReviewer(e.target.value)}
+                />
+              </label>
+              <button
+                className="button primary-button"
+                disabled={
+                  live.busy ||
+                  live.canRetry ||
+                  live.dirty ||
+                  !live.reviewer.trim() ||
+                  !nc.allowed_actions.includes('review')
+                }
+                onClick={() => setConfirmation(identity)}
+              >
+                批准当前 NC
+              </button>
+              <button
+                className="button"
+                disabled={
+                  live.busy ||
+                  live.canRetry ||
+                  live.dirty ||
+                  nc.review_status !== 'approved' ||
+                  !nc.allowed_actions.includes('download')
+                }
+                onClick={live.download}
+              >
+                下载批准版本
+              </button>
+            </div>
+          </footer>
+        </div>
+      ) : (
+        <LiveProgress live={live} cam />
+      )}
+      <dialog ref={dialog} onCancel={() => setConfirmation(null)} aria-labelledby="live-nc-confirm">
+        <h3 id="live-nc-confirm">批准当前 NC 版本</h3>
+        <p>
+          审核对象：v{nc?.ref.version} · {nc?.ref.content_digest}
+        </p>
+        <p>审核人：{live.reviewer}（声明身份）</p>
+        <button className="button" onClick={() => setConfirmation(null)}>
+          取消
+        </button>
+        <button
+          className="button primary-button"
+          disabled={!nc || confirmation !== identity || live.dirty || live.busy}
+          onClick={() => {
+            if (confirmation === identity) live.approveNc()
+            setConfirmation(null)
+          }}
+        >
+          确认批准精确版本
+        </button>
+      </dialog>
+    </section>
+  )
+}
+
+function DemoProgramReview({
   workflow,
   onBack,
   onOpenAgent,

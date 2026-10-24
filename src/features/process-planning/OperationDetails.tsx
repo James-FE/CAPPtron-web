@@ -100,9 +100,11 @@ export function OperationDetails({
         {view === 'resources' && (
           <>
             <section>
-              <h4>工艺参数 · Mock 演示</h4>
+              <h4>工艺参数 · {plan.origin === 'live' ? 'Core 实际结果' : 'Mock 演示'}</h4>
               <p className="muted-text">
-                预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。
+                {plan.origin === 'live'
+                  ? '当前 revision 参数，来源与单位见字段；草稿提交后才产生新修订。'
+                  : '预设或基线记录，来源见字段；未执行本次参数推荐或 CAM 仿真。'}
               </p>
               <div
                 className="parameter-scroll"
@@ -119,8 +121,12 @@ export function OperationDetails({
               </div>
             </section>
             <section>
-              <h4>生产资源 · Mock 演示</h4>
-              {!operation.resources.length && <p className="muted-text">暂无生产资源信息</p>}
+              <h4>生产资源 · {plan.origin === 'live' ? 'Core' : 'Mock 演示'}</h4>
+              {!operation.resources.length && (
+                <p className="muted-text">
+                  {plan.origin === 'live' ? '未提供' : '暂无生产资源信息'}
+                </p>
+              )}
               <ul className="resource-list">
                 {operation.resources.map((resource) => (
                   <li key={resource.id}>

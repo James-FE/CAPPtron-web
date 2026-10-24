@@ -1,8 +1,11 @@
 import { InputPreparationPanel } from '../../features/model-input/InputPreparationPanel'
 import { ModelFilePicker } from '../../features/model-input/ModelFilePicker'
 import type { ModelSelection } from '../../features/model-input/modelInput'
+import type { LiveWorkflow } from '../../features/core/useLiveWorkflow'
 
 type ModelInputPageProps = {
+  live?: LiveWorkflow
+  onPlan?: () => void
   selection: ModelSelection
   error: string
   onChoose: () => void
@@ -16,8 +19,21 @@ export function ModelInputPage(props: ModelInputPageProps) {
       <h2 id="model-input-title">模型输入</h2>
       <p className="page-subtitle">上传工序模型 / 设计文件</p>
       <div className="model-input-columns">
-        <ModelFilePicker {...props} />
-        <InputPreparationPanel selection={props.selection} />
+        <ModelFilePicker
+          {...props}
+          liveStatus={
+            props.live?.asset
+              ? props.live.parsed?.status === 'parsed'
+                ? 'Core 已解析'
+                : 'Core 已上传，解析状态见右侧'
+              : undefined
+          }
+        />
+        <InputPreparationPanel
+          selection={props.selection}
+          live={props.live}
+          onPlan={props.onPlan}
+        />
       </div>
     </section>
   )

@@ -238,6 +238,10 @@ test('解析后进入02；补充字段可填、待填定位、提交回读', asy
   await page.getByRole('button', { name: '任务共用信息 已补齐' }).click()
   await expect(page.getByRole('textbox', { name: '现场毛坯外径', exact: true })).toHaveValue('43')
   await shot(page, info, 'live-task-information')
+  await expect(page.getByRole('button', { name: '根据补充信息重新规划' })).toBeEnabled()
+  await page.getByRole('button', { name: '根据补充信息重新规划' }).click()
+  await openPlan(page)
+  await expect(page.getByText('revision 2', { exact: false }).first()).toBeVisible()
   await page
     .getByRole('navigation', { name: '工序列表' })
     .getByRole('button')

@@ -281,6 +281,15 @@ export function ProcessPlanningPage({
             >
               提交补充信息
             </button>
+            {live.supplementStatus && (
+              <button
+                className="button"
+                disabled={live.dirty || live.busy || live.canRetry || live.activeCam}
+                onClick={live.replanSupplement}
+              >
+                根据补充信息重新规划
+              </button>
+            )}
             <label>
               审核人 ID（声明）
               <input

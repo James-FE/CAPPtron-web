@@ -490,6 +490,10 @@ export function useLiveWorkflow(file?: File) {
       deployment: Deployment | undefined
     void act(async (context) => {
       const { api, signal, update } = context
+      update({
+        status: '正在按最新补充信息重新规划',
+        ...(state.session ? { session: { ...state.session, resultViewed: false } } : {}),
+      })
       if (!deployment) {
         deployment = await loadDeployment(signal, asset.sha256)
       }
@@ -799,6 +803,16 @@ export function useLiveWorkflow(file?: File) {
     upload,
     parse,
     createPlan,
+    replanSupplement: () => {
+      if (dirty || !state.session) return
+      try {
+        supplementValues(state.session.plan, {})
+      } catch (error) {
+        setState((s) => ({ ...s, error: String(error) }))
+        return
+      }
+      createPlan()
+    },
     submitParameters,
     submitSupplement,
     approvePlan,

@@ -36,7 +36,7 @@ export function supplementFields(plan: ProcessPlan) {
   ]
 }
 export function supplementValues(plan: ProcessPlan, drafts: Drafts) {
-  return Object.fromEntries(
+  const values = Object.fromEntries(
     supplementFields(plan).map(({ key, p }) => {
       const value = drafts[key] ?? String(p.value ?? '')
       const error = validateDraft(p, value)
@@ -45,6 +45,22 @@ export function supplementValues(plan: ProcessPlan, drafts: Drafts) {
       return [key, value]
     }),
   )
+  const read = (id: string) => Number(values[draftKey(plan.id, 'task', id)])
+  const od = read('stock-od'),
+    inner = read('stock-id'),
+    length = read('stock-length')
+  if (!(od > inner) || length <= 0) throw new Error('毛坯外径必须大于预孔直径，长度必须大于0。')
+  const geometry = plan.verifiedGeometry
+  if (
+    geometry &&
+    (od < geometry.outer_diameter_mm ||
+      inner > geometry.inner_diameter_mm ||
+      length < geometry.thickness_mm)
+  )
+    throw new Error(
+      `毛坯尺寸无法加工当前零件（外径${geometry.outer_diameter_mm}、内径${geometry.inner_diameter_mm}、厚度${geometry.thickness_mm} mm）；请修正测试值。`,
+    )
+  return values
 }
 export type SupplementList = {
   feedback_version: number

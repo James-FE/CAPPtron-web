@@ -52,6 +52,7 @@ export type LivePlan = {
       steps: { id: string; sequence: number; content: string; attributes?: Attributes }[]
     }[]
     extensions: {
+      verified_part?: { outer_diameter_mm: number; inner_diameter_mm: number; thickness_mm: number }
       template: { id: string; version: string; digest: string }
       plan_digest: string
       execution_profile_digest?: string

@@ -43,6 +43,7 @@ export type ProcessOperation = {
 }
 
 export type ProcessPlan = {
+  verifiedGeometry?: { outer_diameter_mm: number; inner_diameter_mm: number; thickness_mm: number }
   caseReference?: { caseId: string; version: string; planId: string; contentDigest: string }
   id: string
   name: string

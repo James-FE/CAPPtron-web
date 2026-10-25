@@ -22,10 +22,22 @@ it('Golden字段缺失、非法数值不能提交；服务端记录回读不改C
   const values = Object.fromEntries(
     supplementFields(plan).map(({ key, p }) => [
       key,
-      p.inputKind === 'number' ? '1.6' : '人工记录',
+      p.id === 'stock-od'
+        ? '43'
+        : p.id === 'stock-id'
+          ? '38'
+          : p.id === 'stock-length'
+            ? '100'
+            : p.inputKind === 'number'
+              ? '1.6'
+              : '人工记录',
     ]),
   )
+  plan.verifiedGeometry = { outer_diameter_mm: 41, inner_diameter_mm: 39, thickness_mm: 5 }
   expect(supplementValues(plan, values)).toEqual(values)
+  expect(() =>
+    supplementValues(plan, { ...values, [supplementFields(plan)[1]!.key]: '100' }),
+  ).toThrow()
   expect(() =>
     supplementValues(plan, { ...values, [supplementFields(plan)[0]!.key]: '-1' }),
   ).toThrow()

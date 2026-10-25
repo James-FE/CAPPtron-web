@@ -66,6 +66,7 @@ export function toProcessPlan(plan: LivePlan, deployment: Deployment): ProcessPl
     })
   const model: ProcessPlan = {
     id: plan.task_id,
+    verifiedGeometry: ext.verified_part,
     name: 'Core 工艺方案',
     partName: plan.payload.part?.name ?? '当前 STEP',
     origin: 'live',

@@ -212,6 +212,19 @@ test('解析后自动进入02原进度区；缺失现场契约显示入口和明
   await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
   await expect(page.getByText('现场补充字段待接入 · 不代表信息已补齐')).toBeVisible()
   await shot(page, info, 'live-task-information')
+  await page
+    .getByRole('navigation', { name: '工序列表' })
+    .getByRole('button')
+    .filter({ hasText: '外圆粗车' })
+    .click()
+  await expect(page.getByRole('region', { name: '任务共用信息详情' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '工步详情', exact: true })).toBeVisible()
+  await expect(
+    page
+      .getByRole('navigation', { name: '工序列表' })
+      .getByRole('button')
+      .filter({ hasText: '外圆粗车' }),
+  ).toHaveAttribute('aria-pressed', 'true')
   expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
 })
 

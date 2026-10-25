@@ -39,6 +39,7 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    lostSupplementReceipt?: boolean
     parseDelay?: number
     planDelay?: number
     deliveryPending?: boolean
@@ -52,6 +53,8 @@ export async function coreFixture(
     referenceOnly?: boolean
   } = {},
 ) {
+  const feedbackItems: Record<string, unknown>[] = []
+  let lostSupplement = !!options.lostSupplementReceipt
   let revision = 0,
     approvedRevision = 0,
     ncApproved = false,
@@ -125,6 +128,27 @@ export async function coreFixture(
       if (options.parseDelay)
         await new Promise((resolve) => setTimeout(resolve, options.parseDelay))
       return send('CadParseResult', { ...fixture.parse, command_id: body.command_id })
+    }
+    if (path.endsWith('/feedback')) {
+      if (post) {
+        const body = req.postDataJSON()
+        if (!feedbackItems.some((x) => x.feedback_id === body.feedback_id))
+          feedbackItems.push({ ...body, status: 'active' })
+        if (lostSupplement) {
+          lostSupplement = false
+          return route.abort('failed')
+        }
+        return route.fulfill({
+          json: {
+            feedback_version: feedbackItems.length,
+            feedback_id: body.feedback_id,
+            status: 'added',
+          },
+        })
+      }
+      return route.fulfill({
+        json: { feedback_version: feedbackItems.length, items: feedbackItems },
+      })
     }
     if (path === '/planning/tasks' && post) {
       const body = command('CreateTaskRequest')

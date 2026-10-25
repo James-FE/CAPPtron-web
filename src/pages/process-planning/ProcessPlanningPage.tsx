@@ -65,9 +65,11 @@ export function ProcessPlanningPage({
       </p>
       {live && session?.resultViewed && (
         <p className="warning-text" role="status">
-          {readiness?.missing.length
-            ? `下一步：补充 ${readiness.missing.length} 项待填信息，再提交修订并审核。`
-            : '下一步：核对任务共用信息及各工序的参数与资源；修改参数后提交修订，再填写审核人并批准工艺卡。'}
+          {live.supplementStatus && !live.dirty
+            ? live.supplementStatus
+            : readiness?.missing.length
+              ? `下一步：补充 ${readiness.missing.length} 项待填信息，点击“提交补充信息”保存并回读；加工参数修改另行提交修订。`
+              : '下一步：核对任务共用信息及各工序的参数与资源；修改参数后提交修订，再填写审核人并批准工艺卡。'}
           {!session.plan.taskMeasurements?.length &&
             ' 现场补充字段尚未由 Core 提供，请查看左侧“任务共用信息”。'}
         </p>
@@ -214,6 +216,19 @@ export function ProcessPlanningPage({
             <LiveFeedback live={live} />
           </div>
           <div>
+            <button
+              className="button"
+              disabled={
+                live.busy ||
+                live.canRetry ||
+                live.activeCam ||
+                !live.dirty ||
+                !!readiness?.missing.length
+              }
+              onClick={live.submitSupplement}
+            >
+              提交补充信息
+            </button>
             <label>
               审核人 ID（声明）
               <input

@@ -201,16 +201,38 @@ test('旧修订已有 CAM 后提交新修订并刷新，不沿用旧 NC 或阻�
   await expect(page.getByLabel('NC 文件')).toHaveCount(0)
 })
 
-test('解析后自动进入02原进度区；缺失现场契约显示入口和明确提示', async ({ page }, info) => {
-  const core = await coreFixture(page, { planDelay: 700 })
+test('解析后进入02；补充字段可填、待填定位、提交回读', async ({ page }, info) => {
+  const core = await coreFixture(page, { planDelay: 700, lostSupplementReceipt: true })
   await startPlanning(page)
   await expect(page.getByRole('region', { name: '输入处理进度' })).toHaveCount(0)
   await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
   await openPlan(page)
-  await expect(page.getByText('下一步：核对任务共用信息', { exact: false })).toBeVisible()
-  await page.getByRole('button', { name: '任务共用信息 待接入' }).click()
+  await expect(page.getByText('下一步：补充 6 项待填信息', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: '任务共用信息 待填 5' }).click()
   await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
-  await expect(page.getByText('现场补充字段待接入 · 不代表信息已补齐')).toBeVisible()
+  for (const [name, value] of [
+    ['现场毛坯外径', '43'],
+    ['现场毛坯预孔直径', '38'],
+    ['现场毛坯长度', '100'],
+    ['工件零点 / 偏置核对', 'G54 待工程核对'],
+    ['装夹方式与夹具核对', '三爪卡盘 待工程核对'],
+  ]) {
+    await page.getByRole('textbox', { name, exact: true }).fill(value)
+  }
+  await expect(page.getByRole('button', { name: '任务共用信息 已补齐' })).toBeVisible()
+  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await page.getByRole('textbox', { name: '内孔表面粗糙度要求 Ra', exact: true }).fill('1.6')
+  await page.getByRole('button', { name: '提交补充信息', exact: true }).click()
+  await page.getByRole('button', { name: '重试 / 继续查询', exact: true }).click()
+  await expect(
+    page.getByText('现场信息已提交并回读；未应用到 CAM，需重新核对工艺与审批。'),
+  ).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: '切换真实联调' }).click()
+  await page.getByRole('button', { name: '02 工艺决策' }).click()
+  await openPlan(page)
+  await page.getByRole('button', { name: '任务共用信息 已补齐' }).click()
+  await expect(page.getByRole('textbox', { name: '现场毛坯外径', exact: true })).toHaveValue('43')
   await shot(page, info, 'live-task-information')
   await page
     .getByRole('navigation', { name: '工序列表' })

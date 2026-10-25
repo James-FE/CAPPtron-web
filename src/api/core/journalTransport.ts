@@ -35,22 +35,24 @@ export function journalFetcher(
         : (JSON.parse(String(init.body)) as Record<string, unknown>)
       const command = upload
         ? new URLSearchParams(url.split('?')[1]).get('command_id')
-        : request.command_id
+        : (request.command_id ?? request.feedback_id)
       if (typeof command === 'string') {
         const location = journal.read()
         const domain: CommandDomain = upload
           ? 'upload'
-          : url.includes('/nc/')
-            ? 'nc'
-            : url.endsWith('/parse')
-              ? 'parse'
-              : url === '/planning/tasks'
-                ? 'task'
-                : url.endsWith('/replan')
-                  ? 'replan'
-                  : url.includes('/process-cards/')
-                    ? 'card'
-                    : 'cam'
+          : url.endsWith('/feedback')
+            ? 'feedback'
+            : url.includes('/nc/')
+              ? 'nc'
+              : url.endsWith('/parse')
+                ? 'parse'
+                : url === '/planning/tasks'
+                  ? 'task'
+                  : url.endsWith('/replan')
+                    ? 'replan'
+                    : url.includes('/process-cards/')
+                      ? 'card'
+                      : 'cam'
         pending = {
           domain,
           command_id: command,

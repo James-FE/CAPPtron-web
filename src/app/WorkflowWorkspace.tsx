@@ -1,3 +1,4 @@
+import { supplementFields } from '../api/core/supplement'
 import { useWorkflowSession } from '../features/process-planning/useWorkflowSession'
 import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
 import { lazy, Suspense, useEffect } from 'react'
@@ -31,6 +32,9 @@ export function WorkflowWorkspace({
   live?: LiveWorkflow
 }) {
   const demo = useWorkflowSession(visible && stage === 'planning' && !live, initialCaseReference)
+  const liveMissing = live?.session
+    ? getPlanReadiness(live.session.plan, live.session.drafts).missing
+    : []
   const workflow = live
     ? {
         ...demo,
@@ -39,9 +43,10 @@ export function WorkflowWorkspace({
           ? resolveOperation(live.session.plan, live.session.selectedId)
           : null,
         readiness: live.session ? getPlanReadiness(live.session.plan, live.session.drafts) : null,
-        taskMissing: 0,
-        operationMissing: [],
-        operationPending: () => [],
+        taskMissing: liveMissing.filter((x) => x.section === 'task').length,
+        operationMissing: liveMissing.filter((x) => x.section !== 'task'),
+        operationPending: (id: string) =>
+          liveMissing.filter((x) => x.section !== 'task' && x.operationId === id),
         caseLoad: { state: 'idle' as const },
         agentOpen: live.agentOpen,
         setAgentOpen: live.setAgentOpen,
@@ -54,11 +59,12 @@ export function WorkflowWorkspace({
           })),
         updateDraft: (key: string, value: string) =>
           live.updateSession((s) => {
-            const parameter = s.plan.operations
-              .flatMap((op) =>
+            const parameter = [
+              ...supplementFields(s.plan),
+              ...s.plan.operations.flatMap((op) =>
                 op.parameters.map((p) => ({ key: draftKey(op.id, 'parameters', p.id), p })),
-              )
-              .find((p) => p.key === key)?.p
+              ),
+            ].find((p) => p.key === key)?.p
             if (!parameter?.editable) return s
             const drafts = { ...s.drafts, [key]: value }
             if (value === String(parameter.value)) delete drafts[key]

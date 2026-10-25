@@ -1,3 +1,10 @@
+import {
+  applySupplement,
+  supplementFields,
+  supplementSchema,
+  supplementValues,
+} from '../../api/core/supplement'
+import type { SupplementList } from '../../api/core/supplement'
 import { useEffect, useRef, useState } from 'react'
 import {
   CoreClient,
@@ -45,6 +52,7 @@ type State = {
   selectedFile?: string
   session?: PlanningSession
   deployment?: Deployment
+  supplementStatus?: string
   busy: boolean
   error: string
   status: string
@@ -425,12 +433,13 @@ export function useLiveWorkflow(file?: File) {
         if (blocked)
           for (const operation of model.operations)
             for (const parameter of operation.parameters) parameter.editable = false
+        const feedback = await api.get<SupplementList>(`${path(task)}/feedback`)
+        const recorded = applySupplement(model, feedback)
         const card = await api.get<Card>(cardPath(task.task_id, plan.revision))
         if (
           card.task_id !== task.task_id ||
           card.revision !== plan.revision ||
           card.result_id !== plan.result_id ||
-          card.status !== 'ready' ||
           !card.card
         )
           throw new Error('工艺卡尚未就绪，不能解锁结果或审批')
@@ -443,6 +452,9 @@ export function useLiveWorkflow(file?: File) {
           card,
           approved,
           status: '工艺方案已就绪',
+          supplementStatus: recorded
+            ? '现场信息已从服务端回读；未应用到 CAM，仍需工程核对。'
+            : undefined,
           admission: blocked
             ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
             : undefined,
@@ -494,6 +506,45 @@ export function useLiveWorkflow(file?: File) {
       await readPlan(context, task, run, deployment)
     })
   }
+  function submitSupplement() {
+    if (!state.task || !state.session || state.busy || retry.current || activeCam) return
+    const task = state.task,
+      session = state.session
+    let values: Record<string, string>
+    try {
+      values = supplementValues(session.plan, session.drafts)
+    } catch (error) {
+      setState((s) => ({ ...s, error: String(error) }))
+      return
+    }
+    const feedbackId = uuid()
+    const body = {
+      feedback_id: feedbackId,
+      expected_feedback_version: task.feedback_version,
+      base_revision: task.current_revision,
+      kind: 'onsite_record',
+      supplement_schema_version: supplementSchema,
+      supplement: { values },
+      text: '人工现场信息记录，未自动应用到 CAM；需独立工程核对。',
+    }
+    void act(async ({ api, update }) => {
+      await api.post(`${path(task)}/feedback`, body)
+      const list = await api.get<SupplementList>(`${path(task)}/feedback`)
+      if (!list.items.some((x) => x.feedback_id === feedbackId && x.status === 'active'))
+        throw new Error('现场信息回读未确认，请继续查询')
+      const plan = structuredClone(session.plan)
+      applySupplement(plan, list)
+      const drafts = { ...session.drafts }
+      for (const { key } of supplementFields(plan)) delete drafts[key]
+      update({
+        task: { ...task, feedback_version: list.feedback_version },
+        approved: undefined,
+        card: undefined,
+        session: { ...session, plan, drafts },
+        supplementStatus: '现场信息已提交并回读；未应用到 CAM，需重新核对工艺与审批。',
+      })
+    })
+  }
   function submitParameters() {
     if (
       !state.task ||
@@ -519,6 +570,10 @@ export function useLiveWorkflow(file?: File) {
     const command = uuid()
     let run: PlanningRun | undefined
     void act(async (context) => {
+      if (supplementFields(session.plan).some(({ key }) => session.drafts[key] !== undefined)) {
+        context.update({ error: '请先提交补充信息，再提交加工参数修订。' })
+        return
+      }
       if (!changes.length) {
         context.update({ session: { ...session, drafts: {} } })
         return
@@ -745,6 +800,7 @@ export function useLiveWorkflow(file?: File) {
     parse,
     createPlan,
     submitParameters,
+    submitSupplement,
     approvePlan,
     startCam,
     refreshCam,

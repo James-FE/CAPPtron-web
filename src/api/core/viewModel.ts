@@ -1,3 +1,4 @@
+import { attachSupplementFields } from './supplement'
 import type { Drafts, Parameter, ProcessPlan } from '../../features/process-planning/processPlan'
 import { draftKey, validateDraft } from '../../features/process-planning/processPlan'
 import type { Attributes, LivePlan, Deployment } from './contracts'
@@ -63,7 +64,7 @@ export function toProcessPlan(plan: LivePlan, deployment: Deployment): ProcessPl
         description: `${meta?.unit ? '' : '单位未提供 · '}${meta?.source ? `${meta.source.kind} · ${meta.source.resource_id} · ${meta.source.sha256} · ${meta.source.pointer}` : '参数描述来源未提供，保持只读'}`,
       }
     })
-  return {
+  const model: ProcessPlan = {
     id: plan.task_id,
     name: 'Core 工艺方案',
     partName: plan.payload.part?.name ?? '当前 STEP',
@@ -89,6 +90,8 @@ export function toProcessPlan(plan: LivePlan, deployment: Deployment): ProcessPl
       })),
     })),
   }
+  attachSupplementFields(model, ext.template.id)
+  return model
 }
 export function parameterChanges(plan: ProcessPlan, drafts: Drafts) {
   return plan.operations.flatMap((op) =>

@@ -155,7 +155,11 @@ export function OperationDetails({
           <>
             <section>
               <h4>加工要求与现场信息</h4>
-              <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
+              <p className="warning-text">
+                {plan.origin === 'live'
+                  ? '现场信息可填写并提交记录；未应用到 CAM，未完成制造校核。'
+                  : '本地演示草稿，未提交服务器，未完成制造校核。'}
+              </p>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
                   共用字段已集中到左侧“任务共用信息”，本页只展示当前工序专用信息。

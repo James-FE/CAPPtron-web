@@ -160,6 +160,8 @@ describe('刷新后恢复原写意图', () => {
     localStorage.setItem(key, JSON.stringify(saved))
     const fetcher = vi.fn().mockImplementation(async (url: string) => {
       if (url === '/config') return new Response(bytes)
+      if (url.endsWith('/feedback'))
+        return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
       const value = url.includes('/parse?')
         ? fixture.parse
         : url.includes('/cad/assets/')

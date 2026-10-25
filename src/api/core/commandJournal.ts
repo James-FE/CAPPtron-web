@@ -1,6 +1,7 @@
 import type { NcRef } from './client'
 
-export type CommandDomain = 'upload' | 'parse' | 'task' | 'replan' | 'card' | 'cam' | 'nc'
+export type CommandDomain =
+  'upload' | 'parse' | 'task' | 'replan' | 'card' | 'cam' | 'nc' | 'feedback'
 export type PendingCommand = {
   url?: string
   domain: CommandDomain
@@ -28,7 +29,16 @@ export type WorkflowLocation = {
   drafts?: Record<string, unknown>
 }
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-const domains: CommandDomain[] = ['upload', 'parse', 'task', 'replan', 'card', 'cam', 'nc']
+const domains: CommandDomain[] = [
+  'upload',
+  'parse',
+  'task',
+  'replan',
+  'card',
+  'cam',
+  'nc',
+  'feedback',
+]
 function validId(value: unknown) {
   return value === undefined || (typeof value === 'string' && value.length > 0)
 }
@@ -102,7 +112,9 @@ export class CommandJournal {
         !p.request ||
         typeof p.request !== 'object' ||
         Array.isArray(p.request) ||
-        (p.domain !== 'upload' && p.request.command_id !== p.command_id) ||
+        (p.domain !== 'upload' &&
+          (p.domain === 'feedback' ? p.request.feedback_id : p.request.command_id) !==
+            p.command_id) ||
         (!validRevision(p.expected_version) && p.expected_version !== null) ||
         ![p.task_id, p.asset_id, p.run_id, p.reviewer].every(validId) ||
         !validRevision(p.revision) ||
@@ -120,7 +132,7 @@ export class CommandJournal {
             !p.request.payload ||
             typeof p.request.payload !== 'object' ||
             Array.isArray(p.request.payload))) ||
-        (['replan', 'card', 'cam', 'nc'].includes(p.domain) && !p.task_id) ||
+        (['replan', 'card', 'cam', 'nc', 'feedback'].includes(p.domain) && !p.task_id) ||
         (p.task_id !== undefined && p.task_id !== state.task_id) ||
         (['upload', 'parse', 'task'].includes(p.domain) && p.expected_version !== null) ||
         (p.domain === 'replan' &&

@@ -351,6 +351,7 @@ export function useLiveWorkflow(file?: File) {
     const command = uuid()
     let receipt: ParseResult | undefined
     void act(async ({ api, signal, update }) => {
+      update({ status: '正在执行 NX 解析，请稍候' })
       const url = `/cad/assets/${encodeURIComponent(asset.asset_id)}/parse`
       receipt ??= await api.post<ParseResult>(url, { command_id: command })
       for (;;) {

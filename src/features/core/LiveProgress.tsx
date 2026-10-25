@@ -23,6 +23,7 @@ export function LiveFeedback({ live }: { live: LiveWorkflow }) {
 }
 export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: boolean }) {
   const ready = !cam && !!live.session && live.status === '工艺方案已就绪'
+  const complete = !live.error && !live.canRetry && (cam ? live.cam?.status === 'succeeded' : ready)
   return (
     <>
       <div className="planning-progress-columns">
@@ -43,8 +44,17 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
           aria-label={cam ? 'CAM 真实进度' : '工艺规划真实进度'}
         >
           <h3 aria-live="polite">{live.status}</h3>
-          {live.busy && <progress aria-label={cam ? 'CAM 运行中' : 'Core 规划中'} />}
-          <p className="muted-text">以 Core 实际状态为准 · 未提供可信百分比</p>
+          <progress
+            aria-label={cam ? 'CAM 运行中' : 'Core 规划中'}
+            max={100}
+            value={complete ? 100 : live.busy && !live.error ? undefined : 0}
+          />
+          <p className="progress-percentage">
+            {complete ? '100%' : live.busy ? '处理中…' : '等待继续'}
+          </p>
+          <p className="muted-text">
+            {complete ? '服务端已返回完成结果' : '以 Core 实际阶段为准 · 运行中不估算百分比'}
+          </p>
           {cam && live.cam?.observation && (
             <p>执行器观测：{live.cam.observation.state ?? live.cam.observation.availability}</p>
           )}

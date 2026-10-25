@@ -20,6 +20,21 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 describe('Live会话的异步边界', () => {
+  it('NX 请求尚未返回时立即显示正在解析', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(fixture.asset)))
+      .mockImplementationOnce(() => new Promise(() => {}))
+    vi.stubGlobal('fetch', fetcher)
+    const file = new File(['STEP'], 'input.step')
+    const { result, unmount } = renderHook(() => useLiveWorkflow(file))
+    act(() => result.current.upload())
+    await waitFor(() => expect(result.current.asset).toBeDefined())
+    act(() => result.current.parse())
+    await waitFor(() => expect(result.current.status).toBe('正在执行 NX 解析，请稍候'))
+    expect(result.current.busy).toBe(true)
+    unmount()
+  })
   it('替换输入会中止请求，迟到资产不能覆盖新任务', async () => {
     let finish: (response: Response) => void = () => {}
     const fetcher = vi.fn(

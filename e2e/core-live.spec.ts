@@ -62,6 +62,9 @@ test('长于四秒继续真实等待；不确定进度；完成交付后停止�
   await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeEnabled({
     timeout: 5000,
   })
+  await expect(progress).toHaveAttribute('value', '100')
+  await expect(page.getByText('100%', { exact: true })).toBeVisible()
+  await shot(page, info, 'live-progress-complete')
   const queries = core.counts().runGets
   await page.waitForTimeout(1000)
   expect(core.counts().runGets).toBe(queries)

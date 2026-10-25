@@ -208,6 +208,10 @@ test('解析后进入02；补充字段可填、待填定位、提交回读', asy
   await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
   await openPlan(page)
   await expect(page.getByText('下一步：补充 6 项待填信息', { exact: false })).toBeVisible()
+  await expect(
+    page.getByText('提交补充信息暂不可用：还有 6 项未填或格式无效。', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: '提交参数修订', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: '任务共用信息 待填 5' }).click()
   await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
   for (const [name, value] of [

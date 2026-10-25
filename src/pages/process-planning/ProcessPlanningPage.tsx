@@ -1,3 +1,4 @@
+import { supplementFields } from '../../api/core/supplement'
 import { PlanningSourceSelector } from '../../features/process-planning/PlanningSourceSelector'
 import { OperationDetails } from '../../features/process-planning/OperationDetails'
 import { TaskMeasurements } from '../../features/process-planning/TaskMeasurements'
@@ -36,6 +37,26 @@ export function ProcessPlanningPage({
     setCaseLoad,
     setCaseRequest,
   } = workflow
+  const supplementalKeys = new Set(
+    session ? supplementFields(session.plan).map(({ key }) => key) : [],
+  )
+  const draftKeys = Object.keys(session?.drafts ?? {})
+  const supplementDirty = draftKeys.some((key) => supplementalKeys.has(key))
+  const parameterDirty = draftKeys.some((key) => !supplementalKeys.has(key))
+  const missing = readiness?.missing ?? []
+  const missingTask = missing.filter((item) => item.section === 'task')
+  const missingOperations = missing.filter((item) => item.section !== 'task')
+  const submitHint = live?.busy
+    ? '正在处理请求，请等待完成。'
+    : live?.canRetry
+      ? '上一条请求结果待确认，请先点击“重试 / 继续查询”。'
+      : live?.activeCam
+        ? 'CAM 正在运行，暂不能提交补充信息。'
+        : missing.length
+          ? `提交补充信息暂不可用：还有 ${missing.length} 项未填或格式无效。`
+          : !supplementDirty
+            ? '没有待提交的补充信息修改。'
+            : '补充信息已填齐，请点击“提交补充信息”保存并回读。'
   return (
     <section className="process-planning-page" hidden={!active} aria-labelledby="planning-title">
       <header className="planning-heading">
@@ -64,12 +85,36 @@ export function ProcessPlanningPage({
             : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
       {live && session?.resultViewed && (
-        <p className="warning-text" role="status">
+        <p className="warning-text" role="status" id="supplement-submit-hint">
           {live.supplementStatus && !live.dirty
             ? live.supplementStatus
             : readiness?.missing.length
               ? `下一步：补充 ${readiness.missing.length} 项待填信息，点击“提交补充信息”保存并回读；加工参数修改另行提交修订。`
-              : '下一步：核对任务共用信息及各工序的参数与资源；修改参数后提交修订，再填写审核人并批准工艺卡。'}
+              : supplementDirty
+                ? '补充信息已填齐，尚未提交。'
+                : '下一步：核对各工序的参数与资源。'}
+          <br />
+          {submitHint}
+          {!!missingTask.length && (
+            <>
+              <br />
+              请点左侧“任务共用信息 · 待填 {missingTask.length}”：
+              {missingTask.map((item) => item.parameter.name).join('、')}。
+            </>
+          )}
+          {!!missingOperations.length && (
+            <>
+              <br />
+              请点左侧“待填 {missingOperations.length} 项”定位：
+              {missingOperations
+                .map(
+                  (item) =>
+                    `${session.plan.operations.find((op) => op.id === item.operationId)?.name ?? '工序'} / ${item.parameter.name}`,
+                )
+                .join('、')}
+              。
+            </>
+          )}
           {!session.plan.taskMeasurements?.length &&
             ' 现场补充字段尚未由 Core 提供，请查看左侧“任务共用信息”。'}
         </p>
@@ -210,7 +255,12 @@ export function ProcessPlanningPage({
           <div>
             <p className="muted-text">
               {live.dirty
-                ? '未提交参数草稿 · 请提交后审核新 revision'
+                ? [
+                    supplementDirty ? '补充信息草稿未提交' : '',
+                    parameterDirty ? '加工参数草稿未提交' : '',
+                  ]
+                    .filter(Boolean)
+                    .join('；')
                 : `当前 revision ${live.task?.current_revision} · ${live.executable ? 'Core 已返回执行资格' : '尚无匹配当前修订的执行资格'}`}
             </p>
             <LiveFeedback live={live} />
@@ -222,9 +272,11 @@ export function ProcessPlanningPage({
                 live.busy ||
                 live.canRetry ||
                 live.activeCam ||
-                !live.dirty ||
+                !supplementDirty ||
                 !!readiness?.missing.length
               }
+              aria-describedby="supplement-submit-hint"
+              title={submitHint}
               onClick={live.submitSupplement}
             >
               提交补充信息
@@ -240,7 +292,9 @@ export function ProcessPlanningPage({
             </label>
             <button
               className="button"
-              disabled={!live.dirty || live.busy || live.canRetry || live.activeCam}
+              disabled={
+                !parameterDirty || supplementDirty || live.busy || live.canRetry || live.activeCam
+              }
               onClick={live.submitParameters}
             >
               提交参数修订

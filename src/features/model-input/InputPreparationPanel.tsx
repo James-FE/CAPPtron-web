@@ -42,12 +42,6 @@ export function InputPreparationPanel({
       </dl>
       {live ? (
         <>
-          {live.busy && (
-            <div className="planning-progress-status" aria-label="输入处理进度">
-              <progress aria-label={live.status} />
-              <p className="progress-percentage">处理中…</p>
-            </div>
-          )}
           <p className="preparation-note">Core 真实模式 · 上传、解析、规划分别确认</p>
           <button
             className="button"

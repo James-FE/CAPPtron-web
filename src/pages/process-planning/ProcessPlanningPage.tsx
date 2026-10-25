@@ -61,6 +61,15 @@ export function ProcessPlanningPage({
               : 'Core 真实模式 · 请从模型输入完成上传与解析。'
             : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
+      {live && session?.resultViewed && (
+        <p className="warning-text" role="status">
+          {readiness?.missing.length
+            ? `下一步：补充 ${readiness.missing.length} 项待填信息，再提交修订并审核。`
+            : '下一步：核对任务共用信息及各工序的参数与资源；修改参数后提交修订，再填写审核人并批准工艺卡。'}
+          {!session.plan.taskMeasurements?.length &&
+            ' 现场补充字段尚未由 Core 提供，请查看左侧“任务共用信息”。'}
+        </p>
+      )}
       {live && (!session || !session.resultViewed) ? (
         <LiveProgress live={live} />
       ) : caseLoad.state !== 'idle' ? (
@@ -95,7 +104,7 @@ export function ProcessPlanningPage({
       ) : session ? (
         <div className="decision-columns">
           <aside className="planning-sidebar" aria-label="任务信息与工序">
-            {!!session.plan.taskMeasurements?.length && (
+            {(!!session.plan.taskMeasurements?.length || !!live) && (
               <div className="task-information-entry">
                 <button
                   className="button task-information-button"
@@ -103,8 +112,14 @@ export function ProcessPlanningPage({
                   onClick={() => updateSession((current) => ({ ...current, view: 'task' }))}
                 >
                   <span>任务共用信息</span>
-                  <span className={`input-badge ${taskMissing ? '' : 'draft-complete'}`}>
-                    {taskMissing ? `待填 ${taskMissing}` : '已补齐'}
+                  <span
+                    className={`input-badge ${taskMissing || (live && !session.plan.taskMeasurements?.length) ? '' : 'draft-complete'}`}
+                  >
+                    {live && !session.plan.taskMeasurements?.length
+                      ? '待接入'
+                      : taskMissing
+                        ? `待填 ${taskMissing}`
+                        : '已补齐'}
                   </span>
                 </button>
                 <p className="muted-text">所有工序共享 · 集中填写一次</p>

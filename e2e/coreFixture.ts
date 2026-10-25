@@ -284,7 +284,7 @@ export async function startPlanning(page: Page) {
   })
   await page.getByRole('button', { name: '上传 STEP', exact: true }).click()
   await page.getByRole('button', { name: '执行 NX 解析' }).click()
-  await page.getByRole('button', { name: '创建任务并规划' }).click()
+  await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
 }
 export async function openPlan(page: Page) {
   await page.getByRole('button', { name: '查看工艺规划结果' }).click()

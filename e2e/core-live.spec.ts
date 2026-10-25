@@ -200,3 +200,17 @@ test('旧修订已有 CAM 后提交新修订并刷新，不沿用旧 NC 或阻�
   await page.getByRole('button', { name: '03 程序审核' }).click()
   await expect(page.getByLabel('NC 文件')).toHaveCount(0)
 })
+
+test('解析后自动进入02原进度区；缺失现场契约显示入口和明确提示', async ({ page }, info) => {
+  const core = await coreFixture(page, { planDelay: 700 })
+  await startPlanning(page)
+  await expect(page.getByRole('region', { name: '输入处理进度' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
+  await openPlan(page)
+  await expect(page.getByText('下一步：核对任务共用信息', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: '任务共用信息 待接入' }).click()
+  await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
+  await expect(page.getByText('现场补充字段待接入 · 不代表信息已补齐')).toBeVisible()
+  await shot(page, info, 'live-task-information')
+  expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
+})

@@ -18,16 +18,24 @@ export function TaskMeasurements({
         <h3>任务共用信息</h3>
         <p className="muted-text">{plan.partName} · 所有工序共用，只需集中填写一次</p>
         <p className="warning-text">
-          {missingCount
-            ? `还有 ${missingCount} 项必填信息待填写或修正`
-            : '共用必填信息已补齐 · 未完成制造校核'}
+          {plan.origin === 'live' && !plan.taskMeasurements?.length
+            ? '现场补充字段待接入 · 不代表信息已补齐'
+            : missingCount
+              ? `还有 ${missingCount} 项必填信息待填写或修正`
+              : '共用必填信息已补齐 · 未完成制造校核'}
         </p>
       </header>
       <div className="detail-scroll" tabIndex={0} role="region" aria-label="任务共用现场信息">
         <section>
-          <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
+          <p className="warning-text">
+            {plan.origin === 'live'
+              ? '当前 Core 未提供现场补充字段及其提交规则，暂不能在这里填写或确认。'
+              : '本地演示草稿，未提交服务器，未完成制造校核。'}
+          </p>
           <p className="muted-text">
-            以下必填项为 Demo 填写门槛，尚未定义正式制造必填清单。工序专用信息请查看左侧“待填”标记。
+            {plan.origin === 'live'
+              ? '毛坯、工件零点和装夹等现场信息仍需确认。当前可在各工序“参数与资源”中修订允许编辑的参数；参数修订不等于现场条件已确认。'
+              : '以下必填项为 Demo 填写门槛，尚未定义正式制造必填清单。工序专用信息请查看左侧“待填”标记。'}
           </p>
         </section>
         <ParameterFields

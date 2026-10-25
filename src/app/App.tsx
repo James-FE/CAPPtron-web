@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveWorkflow } from '../features/core/useLiveWorkflow'
 import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
@@ -21,9 +21,21 @@ export default function App({
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
   const liveWorkflow = useLiveWorkflow(selection.kind === 'local' ? selection.file : undefined)
+  const [advanceAfterParse, setAdvanceAfterParse] = useState(false)
   const [stage, setStage] = useState<WorkflowStage>('input')
   const [view, setView] = useState<'workflow' | 'foundation'>('workflow')
   const workspaceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!advanceAfterParse || !live || liveWorkflow.busy || liveWorkflow.canRetry) return
+    if (liveWorkflow.parsed?.status === 'parsed') {
+      setAdvanceAfterParse(false)
+      setStage('planning')
+      if (!liveWorkflow.task && !liveWorkflow.planning) liveWorkflow.createPlan()
+    } else if (liveWorkflow.error || liveWorkflow.parsed?.status === 'failed') {
+      setAdvanceAfterParse(false)
+    }
+  }, [advanceAfterParse, live, liveWorkflow])
 
   function changeView(next: 'workflow' | 'foundation') {
     if (workspaceRef.current?.contains(document.activeElement))
@@ -102,7 +114,17 @@ export default function App({
         />
         {stage === 'input' && (
           <ModelInputPage
-            live={live ? liveWorkflow : undefined}
+            live={
+              live
+                ? {
+                    ...liveWorkflow,
+                    parse: () => {
+                      setAdvanceAfterParse(true)
+                      liveWorkflow.parse()
+                    },
+                  }
+                : undefined
+            }
             onPlan={() => {
               liveWorkflow.createPlan()
               setStage('planning')

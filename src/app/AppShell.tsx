@@ -44,7 +44,7 @@ export function AppShell({
         <div className="header-tools">
           {onToggleLive && (
             <button className="button" onClick={onToggleLive}>
-              {live ? '返回演示工作区' : '打开 Core 真实工作区'}
+              {live ? '切换原型演示' : '切换真实联调'}
             </button>
           )}
           <button

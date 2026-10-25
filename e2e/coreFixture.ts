@@ -1,10 +1,33 @@
 import { expect } from '@playwright/test'
 import type { Page, Route } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import Ajv from 'ajv'
 import fixture from './fixtures/core-golden.json' with { type: 'json' }
 import schemas from './fixtures/core-schemas.json' with { type: 'json' }
 import { cardPath } from '../src/api/core/client'
 
+export const integrationFixture = {
+  schema_version: 'frontend-integration.v1',
+  templates: [
+    {
+      template: fixture.deployment.template,
+      execution_profile_id: fixture.approved.execution_profile_id,
+      matching_evidence: fixture.plan.payload.extensions.matching_evidence,
+      operations: fixture.plan.payload.operations.map((op) => ({
+        id: op.id,
+        sequence: op.sequence,
+        name: op.name,
+        steps: op.steps,
+        parameter_metadata:
+          'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
+      })),
+      parameter_rules: fixture.plan.payload.extensions.parameter_rules,
+    },
+  ],
+}
+export const integrationSha = createHash('sha256')
+  .update(JSON.stringify(integrationFixture))
+  .digest('hex')
 const ajv = new Ajv({ strict: false, validateFormats: false })
 const validators = Object.fromEntries(
   Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]),
@@ -25,6 +48,7 @@ export async function coreFixture(
     lostCamReceipt?: boolean
     missingConfig?: boolean
     lostReplanReceipt?: boolean
+    referenceOnly?: boolean
   } = {},
 ) {
   let revision = 0,
@@ -83,15 +107,16 @@ export async function coreFixture(
       commands.push({ path, body })
       return body
     }
-    if (path === '/core-deployment.json')
+    if (path === '/frontend-integration.v1.json')
       return options.missingConfig
         ? route.fulfill({ status: 404 })
-        : route.fulfill({ json: fixture.deployment })
+        : route.fulfill({ json: integrationFixture })
     if (path === '/cad/assets' && post) {
       expect(req.headers()['content-type']).toBe('application/octet-stream')
       expect(req.postDataBuffer()?.toString()).toBe('STEP TEST ONLY')
       return send('CadAsset', { ...fixture.asset, command_id: url.searchParams.get('command_id') })
     }
+    if (path === `/cad/assets/${fixture.asset.asset_id}`) return send('CadAsset', fixture.asset)
     if (path.startsWith('/cad/assets/') && path.endsWith('/parse')) {
       const body = post
         ? command('CadParseCommand')
@@ -161,6 +186,11 @@ export async function coreFixture(
     }
     if (path.startsWith('/planning/tasks/') && path.includes('/results/')) {
       const plan = structuredClone(revision === 2 ? fixture.plan2 : fixture.plan)
+      if (options.referenceOnly) {
+        plan.payload.extensions.reference_only = true
+        plan.payload.extensions.execution_ready = false
+        delete (plan.payload.extensions as { matching_evidence?: unknown }).matching_evidence
+      }
       plan.revision = revision
       plan.run_id = `planning-${revision}`
       return send('PlanProduced', plan)
@@ -198,6 +228,8 @@ export async function coreFixture(
       }
       return send('CamRunReceipt', { ...fixture.camReceipt, command_id: body.command_id }, 202)
     }
+    if (path === `/cam/tasks/${fixture.task.task_id}/runs`)
+      return send('CamRunList', { runs: camStarted ? [cam()] : [] })
     if (path === '/cam/runs/cam-1') {
       camGets++
       return send('CamRunView', cam())
@@ -244,7 +276,7 @@ export async function coreFixture(
 }
 export async function startPlanning(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
+  await page.getByRole('button', { name: '切换真实联调' }).click()
   await page.getByLabel('选择 STEP 模型文件').setInputFiles({
     name: 'Golden.step',
     mimeType: 'application/octet-stream',

@@ -220,6 +220,7 @@ export function ProcessPlanningPage({
                 live.busy ||
                 live.canRetry ||
                 !live.reviewer.trim() ||
+                !!live.admission ||
                 live.card?.status !== 'ready'
               }
               onClick={live.approvePlan}

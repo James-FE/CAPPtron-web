@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { CoreClient, CoreHttpError, cardPath, ncPath } from '../../api/core/client'
+import {
+  CoreClient,
+  CoreHttpError,
+  cardPath,
+  ncPath,
+  sameNcRef,
+  samePlanRef,
+  assertNcFiles,
+  validateNcFile,
+} from '../../api/core/client'
 import type { ApprovedPlans, Asset, CamRun, ParseResult, Task } from '../../api/core/client'
 import type {
   Card,
@@ -9,7 +18,16 @@ import type {
   NcFile,
   PlanningRun,
 } from '../../api/core/contracts'
-import { goldenRequest, validateDeployment } from '../../api/core/golden'
+import { goldenRequest } from '../../api/core/golden'
+import { CommandJournal } from '../../api/core/commandJournal'
+import { recoverLocation, UnrecoverableTaskError } from '../../api/core/liveRecovery'
+import { journalFetcher, fileDigest } from '../../api/core/journalTransport'
+import {
+  loadIntegrationConfig,
+  deploymentFromTemplate,
+  matchIntegrationTemplate,
+} from '../../api/core/integrationConfig'
+import type { IntegrationConfig } from '../../api/core/integrationConfig'
 import { parameterChanges, toProcessPlan } from '../../api/core/viewModel'
 import type { PlanningSession } from '../process-planning/useWorkflowSession'
 
@@ -30,6 +48,10 @@ type State = {
   busy: boolean
   error: string
   status: string
+  admission?: string
+  pendingUpload?: boolean
+  recovered?: boolean
+  downloadReceipt?: Omit<Awaited<ReturnType<CoreClient['download']>>, 'blob'>
 }
 const initial: State = { busy: false, error: '', status: '请选择并上传 STEP' }
 const path = (task: Task) => `/planning/tasks/${encodeURIComponent(task.task_id)}`
@@ -53,6 +75,13 @@ export function useLiveWorkflow(file?: File) {
   const [state, setState] = useState<State>(initial)
   const [reviewer, setReviewer] = useState('')
   const [agentOpen, setAgentOpen] = useState(false)
+  const integration = useRef<IntegrationConfig | null>(null)
+  const journal = useRef<CommandJournal | null>(null)
+  const storageBlocked = useRef(false)
+  const previousInput = useRef<{ file?: File } | null>(null)
+  const [restoreAssetId, setRestoreAssetId] = useState('')
+  const [restoreParseId, setRestoreParseId] = useState('')
+  const [restoreTaskId, setRestoreTaskId] = useState('')
   const controller = useRef<AbortController | null>(null)
   const retry = useRef<((context: Context) => Promise<void>) | null>(null)
   const locked = useRef(false)
@@ -61,21 +90,71 @@ export function useLiveWorkflow(file?: File) {
     retry.current = null
     locked.current = false
     setState(initial)
+    try {
+      journal.current = new CommandJournal(
+        localStorage,
+        `${import.meta.env.VITE_API_BASE_URL ?? ''}|${import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256 ?? ''}`,
+      )
+      const saved = journal.current.read()
+      const changed = previousInput.current !== null && previousInput.current.file !== file
+      previousInput.current = { file }
+      if (saved.pending) {
+        retry.current = async (context) => resumePending(context)
+        setState({
+          ...initial,
+          status: '存在未决原请求，请核对来源并恢复',
+          recovered: true,
+          pendingUpload: saved.pending.domain === 'upload',
+        })
+      } else if (changed) {
+        journal.current.update({
+          asset_id: undefined,
+          parse_command_id: undefined,
+          task_id: undefined,
+          run_id: undefined,
+          revision: undefined,
+          cam_run_id: undefined,
+          nc_ref: undefined,
+          drafts: undefined,
+        })
+      } else if (saved.task_id || saved.asset_id) {
+        void act(restore)
+      }
+    } catch (error) {
+      storageBlocked.current = true
+      setState({ ...initial, error: String(error), status: '恢复日志损坏，已阻止写操作' })
+    }
     return () => controller.current?.abort()
+    // 仅输入身份改变时重建会话；恢复函数使用本次输入闭包，不能随渲染重发恢复。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file])
 
   async function act(work: (context: Context) => Promise<void>) {
-    if (locked.current) return
+    if (locked.current || storageBlocked.current) return
     locked.current = true
     const abort = new AbortController()
     controller.current?.abort()
     controller.current = abort
     const signal = abort.signal
-    const api = new CoreClient(import.meta.env.VITE_API_BASE_URL ?? '', (url, init) =>
-      fetch(url, { ...init, signal }),
-    )
+    const base = import.meta.env.VITE_API_BASE_URL ?? ''
+    const api = new CoreClient(base, journalFetcher(journal.current!, base, signal))
     const update = (patch: Partial<State>) => {
-      if (!signal.aborted) setState((s) => ({ ...s, ...patch }))
+      if (!signal.aborted) {
+        const saved: Parameters<CommandJournal['update']>[0] = {}
+        if (patch.asset) saved.asset_id = patch.asset.asset_id
+        if (patch.parsed) saved.parse_command_id = patch.parsed.command_id
+        if (patch.task) {
+          saved.task_id = patch.task.task_id
+          saved.revision = patch.task.current_revision
+        }
+        if (patch.planning) saved.run_id = patch.planning.run_id
+        if ('cam' in patch) saved.cam_run_id = patch.cam?.cam_run_id
+        if ('nc' in patch) saved.nc_ref = patch.nc?.ref
+        if (patch.nc) saved.nc_ref = patch.nc.ref
+        if (patch.session) saved.drafts = patch.session.drafts
+        if (Object.keys(saved).length) journal.current!.update(saved)
+        setState((s) => ({ ...s, ...patch }))
+      }
     }
     retry.current = work
     update({ busy: true, error: '' })
@@ -83,6 +162,12 @@ export function useLiveWorkflow(file?: File) {
       await work({ api, signal, update })
       if (!signal.aborted) retry.current = null
     } catch (error) {
+      if (
+        !signal.aborted &&
+        error instanceof UnrecoverableTaskError &&
+        !journal.current!.read().pending
+      )
+        retry.current = null
       if (
         !signal.aborted &&
         error instanceof CoreHttpError &&
@@ -109,7 +194,12 @@ export function useLiveWorkflow(file?: File) {
   }
   function updateSession(update: (session: PlanningSession) => PlanningSession) {
     if (locked.current || retry.current) return
-    setState((s) => (s.session ? { ...s, session: update(s.session) } : s))
+    setState((s) => {
+      if (!s.session) return s
+      const session = update(s.session)
+      journal.current!.update({ drafts: session.drafts })
+      return { ...s, session }
+    })
   }
   const dirty = Object.keys(state.session?.drafts ?? {}).length > 0
   const activeCam =
@@ -130,6 +220,121 @@ export function useLiveWorkflow(file?: File) {
         )
       : undefined
 
+  async function loadDeployment(signal: AbortSignal, stepSha?: string) {
+    const url = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL
+    const digest = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256
+    if (!url || !digest) throw new Error('未发布受控 frontend-integration.v1 配置 URL 与 SHA-256')
+    const loaded = await loadIntegrationConfig(url, digest, (input, init) =>
+      fetch(input, { ...init, signal }),
+    )
+    integration.current = loaded.config
+    const entries = loaded.config.templates.filter(
+      (entry) => !stepSha || entry.matching_evidence.step_sha256 === stepSha,
+    )
+    if (entries.length !== 1) throw new Error('部署配置未唯一匹配当前 STEP，请核对受控输入')
+    return deploymentFromTemplate(entries[0]!, `${url} · SHA-256 ${loaded.sha256}`)
+  }
+  async function restore(context: Context) {
+    const location = journal.current!.read()
+    const recovered = await recoverLocation(context.api, location)
+    context.update({
+      ...recovered,
+      recovered: true,
+      status: recovered.parsed ? '复用已验证解析 · 保留原命令与报告来源' : '已恢复服务端输入身份',
+    })
+    if (recovered.task) {
+      const deployment = await loadDeployment(context.signal, recovered.asset?.sha256)
+      context.update({ deployment })
+      if (location.run_id) {
+        const run = await context.api.get<PlanningRun>(
+          `${path(recovered.task)}/runs/${encodeURIComponent(location.run_id)}`,
+        )
+        await readPlan(context, recovered.task, run, deployment)
+      } else if (recovered.task.current_revision > 0) {
+        const plan = await context.api.get<LivePlan>(
+          `${path(recovered.task)}/results/${recovered.task.current_revision}`,
+        )
+        const run = await context.api.get<PlanningRun>(
+          `${path(recovered.task)}/runs/${encodeURIComponent(plan.run_id)}`,
+        )
+        await readPlan(context, recovered.task, run, deployment)
+      }
+      context.signal.throwIfAborted()
+      const drafts = location.drafts
+      if (drafts) journal.current!.update({ drafts })
+      if (drafts)
+        setState((s) =>
+          s.session
+            ? { ...s, session: { ...s.session, drafts: drafts as PlanningSession['drafts'] } }
+            : s,
+        )
+      if (recovered.cam?.status === 'succeeded')
+        await readNc(context, recovered.cam, recovered.task)
+    }
+  }
+  async function resumePending(context: Context) {
+    const pending = journal.current!.read().pending
+    if (!pending?.url) throw new Error('原命令缺少请求来源，不能自动恢复')
+    if (pending.domain === 'upload') {
+      if (
+        !file ||
+        file.name !== pending.request.filename ||
+        file.size !== pending.request.size_bytes ||
+        (await fileDigest(file)) !== pending.request.sha256
+      )
+        throw new Error('请重新选择同名、大小和 SHA-256 一致的原 STEP 文件后恢复')
+      const asset = await context.api.upload(file, pending.command_id)
+      context.update({ asset, pendingUpload: false, status: '原上传命令已恢复' })
+      return
+    }
+    await context.api.post(pending.url, pending.request, pending.reviewer)
+    await restore(context)
+  }
+  function restoreParsedInput() {
+    if (
+      !restoreAssetId.trim() ||
+      !restoreParseId.trim() ||
+      state.busy ||
+      retry.current ||
+      activeCam ||
+      dirty ||
+      storageBlocked.current
+    )
+      return
+    journal.current!.update({
+      asset_id: restoreAssetId.trim(),
+      parse_command_id: restoreParseId.trim(),
+      task_id: undefined,
+      run_id: undefined,
+      cam_run_id: undefined,
+      revision: undefined,
+      nc_ref: undefined,
+      drafts: undefined,
+    })
+    setState(initial)
+    void act(restore)
+  }
+  function restoreKnownTask() {
+    if (
+      !restoreTaskId.trim() ||
+      state.busy ||
+      retry.current ||
+      activeCam ||
+      dirty ||
+      storageBlocked.current
+    )
+      return
+    setState(initial)
+    journal.current!.update({
+      task_id: restoreTaskId.trim(),
+      run_id: undefined,
+      cam_run_id: undefined,
+      nc_ref: undefined,
+      revision: undefined,
+      drafts: undefined,
+    })
+    void act(restore)
+  }
   function upload() {
     if (!file || state.busy || retry.current) return
     const command = uuid()
@@ -210,7 +415,15 @@ export function useLiveWorkflow(file?: File) {
           nextTask.current_revision !== plan.revision
         )
           throw new Error('规划结果身份已变化，请重新核对当前任务')
+        const blocked =
+          plan.payload.extensions.reference_only ||
+          plan.payload.extensions.source_unbound ||
+          !plan.payload.extensions.matching_evidence
+        if (integration.current && !blocked) matchIntegrationTemplate(integration.current, plan)
         const model = toProcessPlan(plan, deployment)
+        if (blocked)
+          for (const operation of model.operations)
+            for (const parameter of operation.parameters) parameter.editable = false
         const card = await api.get<Card>(cardPath(task.task_id, plan.revision))
         if (
           card.task_id !== task.task_id ||
@@ -229,6 +442,9 @@ export function useLiveWorkflow(file?: File) {
           card,
           approved,
           status: '工艺方案已就绪',
+          admission: blocked
+            ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+            : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,
@@ -256,19 +472,13 @@ export function useLiveWorkflow(file?: File) {
       parsed = state.parsed
     const createCommand = uuid(),
       planCommand = uuid()
-    let task: Task | undefined, run: PlanningRun | undefined, deployment: Deployment | undefined
+    let task: Task | undefined = state.task,
+      run: PlanningRun | undefined,
+      deployment: Deployment | undefined
     void act(async (context) => {
       const { api, signal, update } = context
       if (!deployment) {
-        const response = await fetch(`${import.meta.env.BASE_URL}core-deployment.json`, {
-          signal,
-          cache: 'no-store',
-        })
-        if (!response.ok || !response.headers.get('Content-Type')?.includes('json'))
-          throw new Error(
-            '未发布固定 Golden 部署配置 core-deployment.json；请确认模板与 EngineeringBinding。',
-          )
-        deployment = validateDeployment(await response.json())
+        deployment = await loadDeployment(signal, asset.sha256)
       }
       task ??= await api.post<Task>(
         '/planning/tasks',
@@ -335,7 +545,15 @@ export function useLiveWorkflow(file?: File) {
     })
   }
   function approvePlan() {
-    if (!state.task || !state.card || dirty || !reviewer.trim() || state.busy || retry.current)
+    if (
+      !state.task ||
+      !state.card ||
+      state.admission ||
+      dirty ||
+      !reviewer.trim() ||
+      state.busy ||
+      retry.current
+    )
       return
     const task = state.task,
       card = state.card,
@@ -365,22 +583,23 @@ export function useLiveWorkflow(file?: File) {
     })
   }
 
-  async function readNc({ api, update }: Context, cam: CamRun) {
+  async function readNc({ api, update }: Context, cam: CamRun, currentTask = state.task) {
     update({ nc: undefined, files: undefined })
     if (!cam.current_candidate) return
     const nc = await api.get<LiveNc>(ncPath(cam.current_candidate))
     if (
-      nc.ref.cam_run_id !== cam.current_candidate.cam_run_id ||
-      nc.ref.version !== cam.current_candidate.version ||
-      nc.ref.content_digest !== cam.current_candidate.content_digest ||
+      !sameNcRef(nc.ref, cam.current_candidate) ||
+      !cam.plan_ref ||
+      !samePlanRef(nc.plan_ref, cam.plan_ref) ||
       !nc.is_current_candidate ||
-      nc.plan_ref.task_id !== state.task?.task_id ||
-      nc.plan_ref.revision !== state.task?.current_revision ||
-      nc.plan_ref.result_id !== state.plan?.result_id ||
+      nc.plan_ref.task_id !== currentTask?.task_id ||
+      nc.plan_ref.revision !== currentTask?.current_revision ||
+      nc.plan_ref.result_id !== cam.plan_ref?.result_id ||
       nc.plan_ref.archive_digest !== cam.plan_ref?.archive_digest ||
       !nc.files.length
     )
       throw new Error('NC 候选或工艺版本不匹配')
+    assertNcFiles(nc.files)
     const files: NcFile[] = []
     for (const file of [...nc.files].sort((a, b) => a.sequence - b.sequence)) {
       const body = await api.get<NcFile>(
@@ -398,6 +617,7 @@ export function useLiveWorkflow(file?: File) {
         !body.text.trim()
       )
         throw new Error('NC 正文与清单不匹配，禁止审核')
+      await validateNcFile(body, file)
       files.push(body)
     }
     update({ nc, files, selectedFile: files[0]?.file_id })
@@ -490,18 +710,28 @@ export function useLiveWorkflow(file?: File) {
     )
       return
     const nc = state.nc
-    void act(async ({ api }) => {
-      const blob = await api.download(nc.ref)
+    void act(async ({ api, update }) => {
+      const receipt = await api.download(nc.ref)
+      const { blob, ...downloadReceipt } = receipt
+      update({ downloadReceipt })
       const url = URL.createObjectURL(blob),
         link = document.createElement('a')
       link.href = url
-      link.download = `NC-${nc.ref.cam_run_id}-v${nc.ref.version}.zip`
+      link.download = receipt.filename ?? `NC-${nc.ref.cam_run_id}-v${nc.ref.version}.zip`
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     })
   }
   return {
     ...state,
+    restoreAssetId,
+    setRestoreAssetId,
+    restoreParseId,
+    setRestoreParseId,
+    restoreParsedInput,
+    restoreTaskId,
+    setRestoreTaskId,
+    restoreKnownTask,
     reviewer,
     setReviewer,
     dirty,

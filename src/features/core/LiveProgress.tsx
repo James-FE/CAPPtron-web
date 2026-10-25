@@ -3,6 +3,11 @@ import type { LiveWorkflow } from './useLiveWorkflow'
 export function LiveFeedback({ live }: { live: LiveWorkflow }) {
   return (
     <>
+      {live.admission && (
+        <p className="warning-text" role="status">
+          {live.admission}
+        </p>
+      )}
       {live.error && (
         <p role="alert" className="warning-text">
           {live.error}

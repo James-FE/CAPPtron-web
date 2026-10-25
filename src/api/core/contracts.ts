@@ -57,7 +57,10 @@ export type LivePlan = {
       execution_profile_digest?: string
       reference_only: boolean
       execution_ready: boolean
+      matching_evidence?: { step_sha256: string; report_sha256: string; mcam_sha256: string }
+      source_unbound?: boolean
       parameter_rules?: {
+        path?: string
         operation_id: string
         parameter_id: string
         unit: string

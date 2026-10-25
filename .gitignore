@@ -19,3 +19,5 @@ playwright/.cache/
 
 # 每个部署独立发布受控Golden配置；测试配置不得意外上线。
 public/core-deployment.json
+
+public/frontend-integration.v1.json

@@ -59,11 +59,73 @@ export function InputPreparationPanel({
           </button>
           <button
             className="button primary-button"
-            disabled={live.parsed?.status !== 'parsed' || live.busy || live.canRetry || !!live.task}
+            disabled={
+              live.parsed?.status !== 'parsed' || live.busy || live.canRetry || !!live.planning
+            }
             onClick={onPlan}
           >
             创建任务并规划
           </button>
+          <details>
+            <summary>恢复已有输入 / 任务</summary>
+            <label>
+              资产 ID
+              <input
+                aria-label="恢复资产 ID"
+                value={live.restoreAssetId}
+                onChange={(event) => live.setRestoreAssetId(event.target.value)}
+              />
+            </label>
+            <label>
+              解析命令 ID
+              <input
+                aria-label="恢复解析命令 ID"
+                value={live.restoreParseId}
+                onChange={(event) => live.setRestoreParseId(event.target.value)}
+              />
+            </label>
+            <button
+              className="button"
+              disabled={
+                live.busy ||
+                live.canRetry ||
+                live.dirty ||
+                live.activeCam ||
+                !live.restoreAssetId.trim() ||
+                !live.restoreParseId.trim()
+              }
+              onClick={live.restoreParsedInput}
+            >
+              复用已验证解析
+            </button>
+            <label>
+              任务 ID
+              <input
+                aria-label="恢复任务 ID"
+                value={live.restoreTaskId}
+                onChange={(event) => live.setRestoreTaskId(event.target.value)}
+              />
+            </label>
+            <button
+              className="button"
+              disabled={
+                live.busy ||
+                live.canRetry ||
+                live.dirty ||
+                live.activeCam ||
+                !live.restoreTaskId.trim()
+              }
+              onClick={live.restoreKnownTask}
+            >
+              查询已有任务与 CAM
+            </button>
+          </details>
+          {live.recovered && live.parsed && (
+            <p className="muted-text">
+              复用已验证解析 · {live.parsed.command_id} · 报告 SHA-256{' '}
+              {live.parsed.report_sha256 ?? '未提供'}（运输摘要）
+            </p>
+          )}
           <LiveFeedback live={live} />
         </>
       ) : (

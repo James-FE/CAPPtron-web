@@ -36,7 +36,11 @@ export default function App({
     inputRef.current?.click()
   }
   function canReplaceInput() {
-    if (liveWorkflow.busy || liveWorkflow.canRetry || liveWorkflow.activeCam) {
+    if (
+      liveWorkflow.busy ||
+      (liveWorkflow.canRetry && !liveWorkflow.pendingUpload) ||
+      liveWorkflow.activeCam
+    ) {
       setNotice('当前真实任务仍在运行或存在待确认命令，请先完成查询后再更换输入。')
       return false
     }
@@ -64,6 +68,7 @@ export default function App({
       fileBar={
         <FileInfoBar
           selection={selection}
+          liveAssetName={live ? liveWorkflow.asset?.filename : undefined}
           liveStatus={
             live && liveWorkflow.asset
               ? liveWorkflow.parsed?.status === 'parsed'

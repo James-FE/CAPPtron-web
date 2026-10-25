@@ -39,6 +39,7 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    parseDelay?: number
     planDelay?: number
     deliveryPending?: boolean
     failed?: boolean
@@ -121,6 +122,8 @@ export async function coreFixture(
       const body = post
         ? command('CadParseCommand')
         : { command_id: url.searchParams.get('command_id') }
+      if (options.parseDelay)
+        await new Promise((resolve) => setTimeout(resolve, options.parseDelay))
       return send('CadParseResult', { ...fixture.parse, command_id: body.command_id })
     }
     if (path === '/planning/tasks' && post) {

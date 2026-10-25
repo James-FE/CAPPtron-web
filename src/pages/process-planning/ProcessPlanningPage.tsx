@@ -58,7 +58,9 @@ export function ProcessPlanningPage({
           : live
             ? live.task
               ? 'Core 真实模式 · 当前任务状态见下方。'
-              : 'Core 真实模式 · 请从模型输入完成上传与解析。'
+              : live.busy
+                ? '正在处理当前模型，解析完成后将继续生成工艺方案。'
+                : 'Core 真实模式 · 请从模型输入完成上传与解析。'
             : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
       {live && session?.resultViewed && (

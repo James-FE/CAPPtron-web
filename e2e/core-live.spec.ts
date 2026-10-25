@@ -214,3 +214,18 @@ test('解析后自动进入02原进度区；缺失现场契约显示入口和明
   await shot(page, info, 'live-task-information')
   expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
 })
+
+test('点击解析立即进入02，解析尚未返回也显示原进度条', async ({ page }, info) => {
+  const core = await coreFixture(page, { parseDelay: 2500 })
+  await startPlanning(page)
+  await expect(page.getByRole('heading', { name: '正在执行 NX 解析，请稍候' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '02 工艺决策' })).toHaveAttribute(
+    'aria-current',
+    'step',
+  )
+  await expect(page.getByRole('progressbar', { name: 'Core 规划中' })).not.toHaveAttribute('value')
+  expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(0)
+  await shot(page, info, 'live-parsing-in-planning')
+  await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeEnabled()
+  expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
+})

@@ -120,6 +120,7 @@ export default function App({
                     ...liveWorkflow,
                     parse: () => {
                       setAdvanceAfterParse(true)
+                      setStage('planning')
                       liveWorkflow.parse()
                     },
                   }

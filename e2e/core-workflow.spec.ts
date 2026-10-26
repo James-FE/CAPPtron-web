@@ -49,7 +49,7 @@ test('换输入清除旧工艺和NC；新任务失败不保留旧批准', async 
     buffer: Buffer.from('NEW'),
   })
   await expect(page.getByLabel('NC 文件')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '批准当前 NC', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '程序可用', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: '02 工艺决策' }).click()
   await expect(page.getByRole('navigation', { name: '工序列表' })).toHaveCount(0)
   await page.route('**/cad/assets?*', (route) =>

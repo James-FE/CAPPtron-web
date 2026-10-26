@@ -61,6 +61,12 @@ function LiveProgramReview({
   const dialog = useRef<HTMLDialogElement>(null)
   const file = live.files?.find((f) => f.file_id === live.selectedFile)
   const nc = live.nc
+  const reviewStatus =
+    nc?.review_status === 'approved'
+      ? `程序可用 · ${live.simulation ? '模拟确认' : '人工确认'}`
+      : nc?.review_status === 'pending'
+        ? '待人工确认'
+        : nc?.review_status
   const identity = nc ? JSON.stringify(nc.ref) : ''
   const draft = useNcDraft(
     JSON.stringify([live.simulation, live.task?.task_id, identity, file?.file_id, file?.sha256]),
@@ -89,8 +95,11 @@ function LiveProgramReview({
       <header className="review-heading">
         <div className="review-title">
           <h2 id="review-title">程序审核</h2>
-          <span className="warning-text" role="status">
-            {nc ? `NC v${nc.ref.version} · ${nc.review_status}` : '尚无可审核正文'}
+          <span
+            className={nc?.review_status === 'approved' ? 'review-verified' : 'warning-text'}
+            role="status"
+          >
+            {nc ? `NC v${nc.ref.version} · ${reviewStatus}` : '尚无可审核正文'}
           </span>
         </div>
         <button className="button" onClick={onBack}>
@@ -121,7 +130,7 @@ function LiveProgramReview({
               </div>
               <p className="muted-text">
                 {nc.origin} · {file.encoding} / {file.newline} ·{' '}
-                {draft.changed ? '本地草稿 · 未提交服务端' : nc.review_status}
+                {draft.changed ? '本地草稿 · 未提交服务端' : reviewStatus}
               </p>
             </div>
             <div className="program-tools">
@@ -262,7 +271,7 @@ function LiveProgramReview({
                 }
                 onClick={() => setConfirmation(identity)}
               >
-                批准当前 NC
+                程序可用
               </button>
               <button
                 className="button"
@@ -276,7 +285,7 @@ function LiveProgramReview({
                 }
                 onClick={live.download}
               >
-                下载批准版本
+                下载已确认版本
               </button>
             </div>
           </footer>
@@ -284,27 +293,47 @@ function LiveProgramReview({
       ) : (
         <LiveProgress live={live} cam />
       )}
-      <dialog ref={dialog} onCancel={() => setConfirmation(null)} aria-labelledby="live-nc-confirm">
-        <h3 id="live-nc-confirm">批准当前 NC 版本</h3>
-        <p>
-          审核对象：v{nc?.ref.version} · {nc?.ref.content_digest}
-        </p>
-        <p>审核人：{live.reviewer}（声明身份）</p>
-        <button className="button" onClick={() => setConfirmation(null)}>
-          取消
-        </button>
-        <button
-          className="button primary-button"
-          disabled={
-            !nc || confirmation !== identity || live.dirty || live.busy || draft.groupChanged
-          }
-          onClick={() => {
-            if (confirmation === identity && !draft.groupChanged) live.approveNc()
-            setConfirmation(null)
-          }}
-        >
-          确认批准精确版本
-        </button>
+      <dialog
+        className="review-dialog nc-confirm-dialog"
+        ref={dialog}
+        onCancel={() => setConfirmation(null)}
+        aria-labelledby="live-nc-confirm"
+        aria-describedby="live-nc-confirm-description"
+      >
+        <div className="nc-confirm-heading">
+          <h3 id="live-nc-confirm">确认程序可用</h3>
+          {live.simulation && <span className="nc-confirm-badge">模拟</span>}
+        </div>
+        <p id="live-nc-confirm-description">确认以下版本已完成人工审核。</p>
+        <dl className="nc-confirm-info">
+          <div>
+            <dt>确认范围</dt>
+            <dd>
+              NC v{nc?.ref.version} · 全部 {nc?.files.length ?? 0} 个文件
+            </dd>
+          </div>
+          <div>
+            <dt>审核人</dt>
+            <dd>{live.reviewer}</dd>
+          </div>
+        </dl>
+        <div className="program-tools">
+          <button className="button" onClick={() => setConfirmation(null)}>
+            取消
+          </button>
+          <button
+            className="button primary-button"
+            disabled={
+              !nc || confirmation !== identity || live.dirty || live.busy || draft.groupChanged
+            }
+            onClick={() => {
+              if (confirmation === identity && !draft.groupChanged) live.approveNc()
+              setConfirmation(null)
+            }}
+          >
+            确认可用
+          </button>
+        </div>
       </dialog>
     </section>
   )

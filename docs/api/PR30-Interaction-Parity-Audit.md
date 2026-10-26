@@ -45,3 +45,16 @@
 ![数值输入和统一提交](simulation-evidence/chromium-1440x900/parameters-unified.png)
 
 ![恢复代码差异与草稿操作](simulation-evidence/chromium-1440x900/nc-diff-restored.png)
+
+
+## 程序可用确认弹窗修正
+
+按钮改为“程序可用”，确认按钮为“确认可用”，下载入口为“下载已确认版本”。确认后显示“程序可用 · 人工确认”，模拟模式显示“程序可用 · 模拟确认”。后台审批请求、精确版本比对与下载门禁保持原有语义。
+
+弹窗复用深色对话框样式，440px 宽、视口居中，只显示版本/全部文件范围与审核人，不再铺开摘要。保留取消、Esc 关闭与返回触发按钮的焦点。普通/专注视图在 1920×1080、1440×900 均通过截图与几何检查。
+
+本次验证：quality 通过（313 项单元测试），相关浏览器回归 56/56 通过，无重试。
+
+![程序可用确认](simulation-evidence/chromium-1440x900/nc-available-confirm.png)
+
+![展开代码中的确认弹窗](simulation-evidence/chromium-1440x900/nc-available-confirm-expanded.png)

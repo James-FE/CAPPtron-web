@@ -85,6 +85,7 @@ test('规划失败不解锁且终止轮询', async ({ page }) => {
   await startPlanning(page)
   await expect(page.getByRole('heading', { name: '规划失败' })).toBeVisible()
   await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeDisabled()
+  await shot(page, info, 'live-needs-replan-readable')
   const count = core.counts().runGets
   await page.waitForTimeout(1000)
   expect(core.counts().runGets).toBe(count)
@@ -271,4 +272,24 @@ test('点击解析立即进入02，解析尚未返回也显示原进度条', asy
   await shot(page, info, 'live-parsing-in-planning')
   await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeEnabled()
   expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
+})
+
+test('已交付但needs_replan的工艺可查看，不能批准或执行且不重复查询', async ({ page }, info) => {
+  const core = await coreFixture(page, { needsReplan: true })
+  await startPlanning(page)
+  await expect(
+    page.getByText(
+      '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。',
+    ),
+  ).toBeVisible()
+  await openPlan(page)
+  await expect(page.getByRole('navigation', { name: '工序列表' })).toBeVisible()
+  await page.getByRole('textbox', { name: '审核人 ID', exact: true }).fill('test-reviewer')
+  await expect(page.getByRole('button', { name: '批准当前工艺卡', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '运行 Mastercam', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '重试 / 继续查询' })).toHaveCount(0)
+  await shot(page, info, 'live-needs-replan-readable')
+  const count = core.counts().runGets
+  await page.waitForTimeout(1000)
+  expect(core.counts().runGets).toBe(count)
 })

@@ -213,6 +213,8 @@ export function useLiveWorkflow(file?: File) {
   const activeCam =
     !!state.cam && ['accepted', 'running', 'awaiting_confirmation'].includes(state.cam.status)
   const executable =
+    !state.admission &&
+    !state.planning?.needs_replan &&
     !dirty &&
     !state.busy &&
     !state.error &&
@@ -413,8 +415,7 @@ export function useLiveWorkflow(file?: File) {
         return
       }
       if (current.status === 'completed' && current.delivery_state.frontend === 'available') {
-        if (!current.output_revision || current.needs_replan)
-          throw new Error('规划已结束，但结果版本或校验状态尚未就绪')
+        if (!current.output_revision) throw new Error('规划已结束，但结果版本或校验状态尚未就绪')
         const nextTask = await api.get<Task>(path(task))
         const plan = await api.get<LivePlan>(`${path(task)}/results/${current.output_revision}`)
         if (
@@ -425,6 +426,7 @@ export function useLiveWorkflow(file?: File) {
         )
           throw new Error('规划结果身份已变化，请重新核对当前任务')
         const blocked =
+          current.needs_replan ||
           plan.payload.extensions.reference_only ||
           plan.payload.extensions.source_unbound ||
           !plan.payload.extensions.matching_evidence
@@ -440,7 +442,7 @@ export function useLiveWorkflow(file?: File) {
           card.task_id !== task.task_id ||
           card.revision !== plan.revision ||
           card.result_id !== plan.result_id ||
-          !card.card
+          (!blocked && !card.card)
         )
           throw new Error('工艺卡尚未就绪，不能解锁结果或审批')
         const approved = await api.get<ApprovedPlans>(
@@ -455,9 +457,11 @@ export function useLiveWorkflow(file?: File) {
           supplementStatus: recorded
             ? '现场信息已从服务端回读；未应用到 CAM，仍需工程核对。'
             : undefined,
-          admission: blocked
-            ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
-            : undefined,
+          admission: current.needs_replan
+            ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
+            : blocked
+              ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+              : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,

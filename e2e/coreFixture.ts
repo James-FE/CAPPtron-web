@@ -39,6 +39,7 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    needsReplan?: boolean
     lostSupplementReceipt?: boolean
     parseDelay?: number
     planDelay?: number
@@ -72,6 +73,7 @@ export async function coreFixture(
     const waiting = Date.now() - planningStarted < (options.planDelay ?? 0)
     return {
       ...fixture.run,
+      needs_replan: !!options.needsReplan,
       run_id: `planning-${revision}`,
       output_revision: waiting || options.failed ? null : revision,
       basis_revision: revision - 1,

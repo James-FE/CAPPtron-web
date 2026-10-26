@@ -37,7 +37,21 @@ function ParameterField({
         )}
       </label>
       <div className="parameter-value">
-        {parameter.editable ? (
+        {parameter.editable && parameter.allowedValues ? (
+          <select
+            id={id}
+            aria-label={parameter.name}
+            value={value ?? String(parameter.value ?? '')}
+            onChange={(event) => onChange(event.target.value)}
+            aria-describedby={`${id}-help`}
+          >
+            {parameter.allowedValues.map((option) => (
+              <option key={option} value={String(option)}>
+                {option}
+              </option>
+            ))}
+          </select>
+        ) : parameter.editable ? (
           <input
             id={id}
             aria-label={parameter.name}

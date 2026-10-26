@@ -1,0 +1,271 @@
+import { expect } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
+import Ajv from 'ajv'
+import fixture from './fixtures/core-golden.json' with { type: 'json' }
+import schemas from './fixtures/core-schemas.json' with { type: 'json' }
+import { cardPath } from '../src/api/core/client'
+
+const ajv = new Ajv({ strict: false, validateFormats: false })
+const validators = Object.fromEntries(
+  Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]),
+)
+export function validate(name: string, value: unknown) {
+  const check = validators[name]!
+  expect(check(value), `${name}: ${JSON.stringify(check.errors)}`).toBe(true)
+}
+export async function coreFixture(
+  page: Page,
+  options: {
+    planDelay?: number
+    deliveryPending?: boolean
+    failed?: boolean
+    ncFailure?: boolean
+    camWait?: boolean
+    camStages?: boolean
+    lostCamReceipt?: boolean
+    missingConfig?: boolean
+    lostReplanReceipt?: boolean
+  } = {},
+) {
+  let revision = 0,
+    approvedRevision = 0,
+    ncApproved = false,
+    planningStarted = 0,
+    camStarted = 0
+  let runGets = 0,
+    camGets = 0,
+    observe = 0
+  let camLost = !!options.lostCamReceipt,
+    planLost = !!options.lostReplanReceipt
+  const commands: { path: string; body: Record<string, unknown> }[] = []
+  const plannedCommands = new Map<string, number>()
+  const planRef = () => ({ ...fixture.approved.plans[0]!.plan_ref, revision: approvedRevision })
+  const run = () => {
+    const waiting = Date.now() - planningStarted < (options.planDelay ?? 0)
+    return {
+      ...fixture.run,
+      run_id: `planning-${revision}`,
+      output_revision: waiting || options.failed ? null : revision,
+      basis_revision: revision - 1,
+      status: waiting ? 'running' : options.failed ? 'failed' : 'completed',
+      execution_error: options.failed && !waiting ? { code: 5006, message: '规划服务失败' } : null,
+      delivery_state: {
+        consumer: 'delivered',
+        frontend: waiting || options.deliveryPending ? 'pending' : 'available',
+      },
+    }
+  }
+  const cam = () => {
+    const elapsed = Date.now() - camStarted
+    const running = options.camStages && elapsed < 2600
+    return {
+      ...fixture.cam,
+      plan_ref: planRef(),
+      current_candidate: running || options.camWait ? null : fixture.nc.ref,
+      status: running ? 'running' : options.camWait ? 'awaiting_confirmation' : 'succeeded',
+      phase: running ? (elapsed < 1300 ? 'build' : 'execute') : 'collect',
+      allowed_actions: running ? ['observe'] : options.camWait ? ['reconcile'] : [],
+      error: !running && options.camWait ? { code: 3000, message: '执行器状态待核实' } : null,
+    }
+  }
+  await page.route('**/*', async (route) => {
+    const req = route.request(),
+      url = new URL(req.url()),
+      path = decodeURIComponent(url.pathname)
+    const post = req.method() === 'POST'
+    const send = (model: string, value: unknown, status = 200) => {
+      validate(model, value)
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })
+    }
+    const command = (model: string) => {
+      const body = req.postDataJSON() as Record<string, unknown>
+      validate(model, body)
+      commands.push({ path, body })
+      return body
+    }
+    if (path === '/core-deployment.json')
+      return options.missingConfig
+        ? route.fulfill({ status: 404 })
+        : route.fulfill({ json: fixture.deployment })
+    if (path === '/cad/assets' && post) {
+      expect(req.headers()['content-type']).toBe('application/octet-stream')
+      expect(req.postDataBuffer()?.toString()).toBe('STEP TEST ONLY')
+      return send('CadAsset', { ...fixture.asset, command_id: url.searchParams.get('command_id') })
+    }
+    if (path.startsWith('/cad/assets/') && path.endsWith('/parse')) {
+      const body = post
+        ? command('CadParseCommand')
+        : { command_id: url.searchParams.get('command_id') }
+      return send('CadParseResult', { ...fixture.parse, command_id: body.command_id })
+    }
+    if (path === '/planning/tasks' && post) {
+      const body = command('CreateTaskRequest')
+      expect(body.payload).toEqual({
+        template: fixture.deployment.template,
+        source: {
+          asset_id: fixture.asset.asset_id,
+          sha256: fixture.asset.sha256,
+          parse_command_id: commands.find((c) => c.path.endsWith('/parse'))?.body.command_id,
+        },
+      })
+      return send('TaskView', { ...fixture.task, current_revision: 0 })
+    }
+    if (path.endsWith('/replan') && post) {
+      const body = command('HumanReplanRequest')
+      const previous = plannedCommands.get(String(body.command_id))
+      if (!previous) {
+        revision++
+        plannedCommands.set(String(body.command_id), revision)
+        planningStarted = Date.now()
+        if (body.parameter_patch) {
+          expect(body.parameter_patch).toMatchObject({
+            template_digest: fixture.deployment.template.digest,
+            changes: [
+              { operation_id: 'ring-op-2', parameter_id: 'rough_step', value: 0.4, unit: 'mm' },
+            ],
+          })
+        }
+      }
+      if (planLost) {
+        planLost = false
+        return route.abort('failed')
+      }
+      const receipt = {
+        ...fixture.run,
+        run_id: `planning-${revision}`,
+        command_id: body.command_id,
+        basis_revision: revision - 1,
+      }
+      const {
+        output_revision,
+        execution_error,
+        delivery_error,
+        reason,
+        repair_chain_id,
+        repair_attempt,
+        ...accepted
+      } = receipt
+      void [
+        output_revision,
+        execution_error,
+        delivery_error,
+        reason,
+        repair_chain_id,
+        repair_attempt,
+      ]
+      return send('RunReceipt', accepted, 202)
+    }
+    if (path.startsWith('/planning/tasks/') && path.includes('/runs/')) {
+      runGets++
+      return send('RunView', run())
+    }
+    if (path.startsWith('/planning/tasks/') && path.includes('/results/')) {
+      const plan = structuredClone(revision === 2 ? fixture.plan2 : fixture.plan)
+      plan.revision = revision
+      plan.run_id = `planning-${revision}`
+      return send('PlanProduced', plan)
+    }
+    if (path === `/planning/tasks/${fixture.task.task_id}`)
+      return send('TaskView', { ...fixture.task, current_revision: revision })
+    if (path.startsWith('/process-cards/')) {
+      expect(path).toBe(cardPath(fixture.task.task_id, revision) + (post ? '/review' : ''))
+      if (post) {
+        command('ReviewRequest')
+        expect(req.headers()['x-reviewer-id']).toBe('test-reviewer')
+        approvedRevision = revision
+        return send('ReviewReceipt', { ...fixture.cardReview, revision })
+      }
+      const card = structuredClone(fixture.card)
+      card.revision = revision
+      card.run_id = `planning-${revision}`
+      card.card.identity.revision = revision
+      card.card.identity.run_id = `planning-${revision}`
+      return send('ProcessCardResponse', card)
+    }
+    if (path.endsWith('/approved-plans'))
+      return send('ApprovedPlanList', {
+        ...fixture.approved,
+        plans: approvedRevision ? [{ ...fixture.approved.plans[0], plan_ref: planRef() }] : [],
+      })
+    if (path === '/cam/runs' && post) {
+      const body = command('StartCamCommand')
+      expect(body.expected_current_revision).toBe(revision)
+      expect(body.plan_ref).toEqual(planRef())
+      if (!camStarted) camStarted = Date.now()
+      if (camLost) {
+        camLost = false
+        return route.abort('failed')
+      }
+      return send('CamRunReceipt', { ...fixture.camReceipt, command_id: body.command_id }, 202)
+    }
+    if (path === '/cam/runs/cam-1') {
+      camGets++
+      return send('CamRunView', cam())
+    }
+    if (path.endsWith('/observe')) {
+      expect(post).toBe(true)
+      expect(req.postData()).toBe(null)
+      observe++
+      return send('CamRunView', cam())
+    }
+    if (path.endsWith('/nc/versions/1'))
+      return send('NcVersionView', {
+        ...fixture.nc,
+        plan_ref: planRef(),
+        review_status: ncApproved ? 'approved' : 'pending',
+        allowed_actions: ncApproved ? ['download'] : ['review'],
+      })
+    if (path.endsWith('/file')) {
+      if (options.ncFailure) return send('ApiErrorResponse', fixture.error, 503)
+      return send(
+        'NcFileView',
+        fixture.files.find((f) => f.file_id === url.searchParams.get('file_id')),
+      )
+    }
+    if (path.endsWith('/nc/versions/1/review')) {
+      const body = command('ReviewNcCommand')
+      expect(body.nc_ref).toEqual(fixture.nc.ref)
+      ncApproved = true
+      return send('NcReviewReceipt', { ...fixture.ncReview, command_id: body.command_id })
+    }
+    if (path.endsWith('/download')) {
+      expect(ncApproved).toBe(true)
+      return route.fulfill({
+        contentType: 'application/zip',
+        body: Buffer.from('504b0506000000000000000000000000000000000000', 'hex'),
+        headers: { 'Content-Disposition': 'attachment; filename="approved-test.zip"' },
+      })
+    }
+    if (/^\/(cam|planning|process-cards|cad)\//.test(path))
+      throw new Error(`未定义 Core fixture: ${path}`)
+    return route.continue()
+  })
+  return { commands, counts: () => ({ runGets, camGets, observe }), options }
+}
+export async function startPlanning(page: Page) {
+  await page.goto('/')
+  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
+  await page.getByLabel('选择 STEP 模型文件').setInputFiles({
+    name: 'Golden.step',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('STEP TEST ONLY'),
+  })
+  await page.getByRole('button', { name: '上传 STEP', exact: true }).click()
+  await page.getByRole('button', { name: '执行 NX 解析' }).click()
+  await page.getByRole('button', { name: '创建任务并规划' }).click()
+}
+export async function openPlan(page: Page) {
+  await page.getByRole('button', { name: '查看工艺规划结果' }).click()
+  await expect(page.getByRole('navigation', { name: '工序列表' }).getByRole('button')).toHaveCount(
+    7,
+  )
+}
+export async function approvePlan(page: Page) {
+  await page.getByLabel('审核人 ID', { exact: true }).fill('test-reviewer')
+  await page.getByRole('button', { name: '批准当前工艺卡' }).click()
+  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeEnabled()
+}
+export async function response(route: Route, model: string, value: unknown) {
+  validate(model, value)
+  await route.fulfill({ json: value })
+}

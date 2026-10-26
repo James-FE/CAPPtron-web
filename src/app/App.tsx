@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { CoreWorkspace } from '../features/core/CoreWorkspace'
+import { useLiveWorkflow } from '../features/core/useLiveWorkflow'
 import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
 import { useModelInput } from '../features/model-input/useModelInput'
@@ -20,12 +20,12 @@ export default function App({
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
+  const liveWorkflow = useLiveWorkflow(selection.kind === 'local' ? selection.file : undefined)
   const [stage, setStage] = useState<WorkflowStage>('input')
   const [view, setView] = useState<'workflow' | 'foundation'>('workflow')
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   function changeView(next: 'workflow' | 'foundation') {
-    setLive(false)
     if (workspaceRef.current?.contains(document.activeElement))
       (document.activeElement as HTMLElement | null)?.blur()
     setView(next)
@@ -34,6 +34,19 @@ export default function App({
 
   function openFilePicker() {
     inputRef.current?.click()
+  }
+  function canReplaceInput() {
+    if (liveWorkflow.busy || liveWorkflow.canRetry || liveWorkflow.activeCam) {
+      setNotice('当前真实任务仍在运行或存在待确认命令，请先完成查询后再更换输入。')
+      return false
+    }
+    return (
+      !liveWorkflow.dirty ||
+      window.confirm('存在未提交的真实工艺参数草稿。更换输入将丢弃这些草稿，是否继续？')
+    )
+  }
+  function chooseFiles(files: readonly File[]) {
+    if (files.length && canReplaceInput()) selectFiles(files)
   }
 
   return (
@@ -49,15 +62,25 @@ export default function App({
       }}
       onUnavailable={setNotice}
       fileBar={
-        <FileInfoBar selection={selection} onReplace={openFilePicker} onUnavailable={setNotice} />
+        <FileInfoBar
+          selection={selection}
+          liveStatus={
+            live && liveWorkflow.asset
+              ? liveWorkflow.parsed?.status === 'parsed'
+                ? 'Core 已解析'
+                : 'Core 已上传'
+              : undefined
+          }
+          onReplace={openFilePicker}
+          onUnavailable={setNotice}
+        />
       }
     >
-      {live && <CoreWorkspace />}
       <div
         ref={workspaceRef}
         className="workflow-view"
-        hidden={live || view !== 'workflow'}
-        inert={live || view !== 'workflow'}
+        hidden={view !== 'workflow'}
+        inert={view !== 'workflow'}
       >
         <input
           ref={inputRef}
@@ -67,18 +90,25 @@ export default function App({
           aria-label="选择 STEP 模型文件"
           tabIndex={-1}
           onChange={(event) => {
-            selectFiles(Array.from(event.currentTarget.files ?? []))
+            chooseFiles(Array.from(event.currentTarget.files ?? []))
             // 清空控件值以支持重复选择同一文件；有效选择保存在 React 状态中。
             event.currentTarget.value = ''
           }}
         />
         {stage === 'input' && (
           <ModelInputPage
+            live={live ? liveWorkflow : undefined}
+            onPlan={() => {
+              liveWorkflow.createPlan()
+              setStage('planning')
+            }}
             selection={selection}
             error={error}
             onChoose={openFilePicker}
-            onFiles={selectFiles}
+            onFiles={chooseFiles}
             onDemo={() => {
+              if (!canReplaceInput()) return
+              setLive(false)
               selectDemo()
               setStage('planning')
               setNotice('')
@@ -86,6 +116,7 @@ export default function App({
           />
         )}
         <WorkflowWorkspace
+          live={live ? liveWorkflow : undefined}
           key={sourceVersion}
           stage={stage}
           visible={view === 'workflow'}
@@ -106,7 +137,7 @@ export default function App({
           </div>
         )}
       </div>
-      {!live && view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
+      {view === 'foundation' && <DataFoundationPage reader={foundationReader} />}
     </AppShell>
   )
 }

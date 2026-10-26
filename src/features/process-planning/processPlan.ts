@@ -1,5 +1,6 @@
 // 前端展示契约；不代表后端已提供这些字段或完成制造校核。
 export type Parameter = {
+  allowedValues?: number[]
   id: string
   name: string
   value: string | number | null
@@ -46,7 +47,7 @@ export type ProcessPlan = {
   id: string
   name: string
   partName: string
-  origin: 'mock'
+  origin: 'mock' | 'live'
   sourceDescription: string
   operations: ProcessOperation[]
   initialOperationId?: string
@@ -105,6 +106,8 @@ export function resolveOperation(plan: ProcessPlan, selectedId: string | null) {
 export function validateDraft(parameter: Parameter, value: string): string | null {
   if (!parameter.editable) return '此字段不允许本地编辑。'
   if (!value.trim()) return '尚未填写，仍待补充。'
+  if (parameter.allowedValues && !parameter.allowedValues.includes(Number(value)))
+    return `仅允许：${parameter.allowedValues.join(' / ')} ${parameter.unit ?? ''}`
   if (parameter.inputKind === 'number' && !Number.isFinite(Number(value))) {
     return '请输入有限数值；单位见字段说明。'
   }

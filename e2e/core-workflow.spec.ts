@@ -1,207 +1,110 @@
 import { expect, test } from '@playwright/test'
+import fixture from './fixtures/core-golden.json' with { type: 'json' }
+import { coreFixture, startPlanning, openPlan, approvePlan, validate } from './coreFixture'
 
-test('Core workspace separates demo data and blocks missing execution', async ({ page }, info) => {
+// 旧独立Core表单已退出主界面；版本、丢回执和NC失败场景迁至core-live.spec.ts。
+// 本文件保留输入失败、模式隔离、换任务与明确拒绝后的修正回归，全部使用Core schema。
+test('真实模式保留三阶段和原文件入口，Demo数据不成为制造输入', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: '使用示例 Ring_A.step' }).click()
   await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
-  await expect(page.getByRole('region', { name: 'Core 真实工作区' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '创建模板规划任务' })).toBeDisabled()
-  await page.screenshot({ path: info.outputPath('core-workspace.png'), fullPage: true })
+  await expect(page.getByRole('button', { name: '01 模型输入' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '03 程序审核' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '工序列表' })).toHaveCount(0)
+  await page.getByRole('button', { name: '01 模型输入' }).click()
+  await expect(page.getByRole('button', { name: '上传 STEP', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '创建任务并规划' })).toBeDisabled()
+  await expect(page.getByRole('region', { name: 'Core 真实工作区' })).toHaveCount(0)
 })
 
-test('failed STEP intake cannot enable parsing or planning', async ({ page }) => {
+test('STEP上传失败不可解析或创建任务，不退回Mock', async ({ page }) => {
+  validate('ApiErrorResponse', fixture.error)
   await page.route('**/cad/assets?*', (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: '{"error":{"message":"CAD not configured"}}',
-    }),
+    route.fulfill({ status: 503, json: fixture.error }),
   )
   await page.goto('/')
   await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
-  await page.getByLabel('上传真实 STEP').setInputFiles({
+  await page.getByLabel('选择 STEP 模型文件').setInputFiles({
     name: 'ring.step',
     mimeType: 'application/octet-stream',
     buffer: Buffer.from('STEP'),
   })
+  await page.getByRole('button', { name: '上传 STEP', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('503')
-  await expect(page.getByRole('button', { name: '执行 NX 解析' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '创建模板规划任务' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '执行 NX 解析' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '创建任务并规划' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '返回演示工作区' })).toBeVisible()
 })
 
-test('an approved older revision never enables current CAM execution', async ({ page }) => {
-  await page.route('**/planning/tasks/task-1', (route) =>
-    route.fulfill({ json: { task_id: 'task-1', current_revision: 2, feedback_version: 1 } }),
-  )
-  await page.route('**/planning/tasks/task-1/results/2', (route) =>
-    route.fulfill({
-      json: {
-        payload: { operations: [], extensions: { reference_only: true, execution_ready: false } },
-      },
-    }),
-  )
-  await page.route('**/process-cards/tasks/task-1/results/2', (route) =>
-    route.fulfill({ json: { status: 'ready', expected_feedback_version: 1, card: {} } }),
-  )
-  await page.route('**/cam/tasks/task-1/runs', (route) => route.fulfill({ json: { runs: [] } }))
-  await page.route('**/cam/tasks/task-1/approved-plans', (route) =>
-    route.fulfill({
-      json: {
-        execution_configured: true,
-        execution_profile_id: 'profile',
-        plans: [
-          {
-            profile_matches: true,
-            plan_ref: {
-              task_id: 'task-1',
-              result_id: 'result',
-              revision: 1,
-              archive_digest: 'old',
-            },
-          },
-        ],
-      },
-    }),
-  )
-  await page.goto('/')
-  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
-  await page.getByLabel('恢复任务 ID').fill('task-1')
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await expect(page.getByText('任务 task-1 · 修订 2 · 反馈 1')).toBeVisible()
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-})
-
-async function readyTask(page: import('@playwright/test').Page) {
-  await page.route('**/planning/tasks/task-a', (route) =>
-    route.fulfill({ json: { task_id: 'task-a', current_revision: 1, feedback_version: 0 } }),
-  )
-  await page.route('**/planning/tasks/task-a/results/*', (route) =>
-    route.fulfill({ json: { payload: { operations: [], extensions: {} } } }),
-  )
-  await page.route('**/process-cards/tasks/task-a/results/*', (route) =>
-    route.fulfill({ json: { status: 'ready', expected_feedback_version: 0, card: {} } }),
-  )
-  await page.route('**/cam/tasks/task-a/runs', (route) => route.fulfill({ json: { runs: [] } }))
-  await page.route('**/cam/tasks/task-a/approved-plans', (route) =>
-    route.fulfill({
-      json: {
-        execution_configured: true,
-        execution_profile_id: 'profile',
-        plans: [
-          {
-            profile_matches: true,
-            plan_ref: {
-              task_id: 'task-a',
-              result_id: 'result',
-              revision: 1,
-              archive_digest: 'digest',
-            },
-          },
-        ],
-      },
-    }),
-  )
-  await page.goto('/')
-  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
-  await page.getByLabel('恢复任务 ID').fill('task-a')
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeEnabled()
-  await page.getByLabel('审核人 ID').fill('reviewer')
-}
-
-test('a failed task switch cannot retain the previous approval or plan', async ({ page }) => {
-  await readyTask(page)
-  await page.route('**/planning/tasks/task-b', (route) =>
-    route.fulfill({ json: { task_id: 'task-b', current_revision: 1, feedback_version: 0 } }),
-  )
-  await page.route('**/cam/tasks/task-b/runs', (route) =>
-    route.fulfill({ status: 503, body: 'unavailable' }),
-  )
-  await page.getByLabel('恢复任务 ID').fill('task-b')
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await expect(page.getByRole('alert')).toContainText('503')
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '批准当前工艺卡' })).toBeDisabled()
-})
-
-test('lost replan response freezes approval and recovers the same command before reading the new revision', async ({
-  page,
-}) => {
-  await readyTask(page)
-  const commands: string[] = []
-  let completed = false
-  await page.route('**/planning/tasks/task-a/replan', async (route) => {
-    commands.push(route.request().postDataJSON().command_id)
-    if (commands.length === 1) await route.abort()
-    else await route.fulfill({ json: { run_id: 'planning-2' } })
+test('换输入清除旧工艺和NC；新任务失败不保留旧批准', async ({ page }) => {
+  await coreFixture(page)
+  await startPlanning(page)
+  await openPlan(page)
+  await approvePlan(page)
+  await page.getByRole('button', { name: '运行 Mastercam' }).click()
+  await expect(page.getByLabel('NC 文件')).toBeVisible()
+  await page.getByLabel('选择 STEP 模型文件').setInputFiles({
+    name: 'new.step',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('NEW'),
   })
-  await page.route('**/planning/tasks/task-a/runs/planning-2', (route) => {
-    completed = true
-    return route.fulfill({ json: { status: 'completed' } })
-  })
-  await page.route('**/planning/tasks/task-a', (route) =>
-    route.fulfill({
-      json: { task_id: 'task-a', current_revision: completed ? 2 : 1, feedback_version: 0 },
-    }),
+  await expect(page.getByLabel('NC 文件')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '批准当前 NC', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '02 工艺决策' }).click()
+  await expect(page.getByRole('navigation', { name: '工序列表' })).toHaveCount(0)
+  await page.route('**/cad/assets?*', (route) =>
+    route.fulfill({ status: 503, json: fixture.error }),
   )
-  await page.getByRole('button', { name: '生成模板工艺' }).click()
-  await expect(page.getByRole('alert')).toBeVisible()
-  await expect(page.getByRole('button', { name: '批准当前工艺卡' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await expect(page.getByText('任务 task-a · 修订 2 · 反馈 0')).toBeVisible()
-  expect(commands).toHaveLength(2)
-  expect(commands[1]).toBe(commands[0])
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-})
-
-test('NC metadata without readable file content cannot be approved', async ({ page }) => {
-  await readyTask(page)
-  await page.route('**/cam/tasks/task-a/runs', (route) =>
-    route.fulfill({ json: { runs: [{ cam_run_id: 'cam-1', status: 'succeeded' }] } }),
-  )
-  const ref = { cam_run_id: 'cam-1', version: 1, content_digest: 'digest' }
-  await page.route('**/cam/runs/cam-1', (route) =>
-    route.fulfill({
-      json: {
-        cam_run_id: 'cam-1',
-        status: 'succeeded',
-        phase: 'collect',
-        current_candidate: ref,
-        allowed_actions: [],
-      },
-    }),
-  )
-  await page.route('**/cam/runs/cam-1/nc/versions/1', (route) =>
-    route.fulfill({
-      json: {
-        ref,
-        review_status: 'pending',
-        allowed_actions: ['review'],
-        files: [{ file_id: 'setup/a.nc', filename: 'a.nc' }],
-      },
-    }),
-  )
-  await page.route('**/cam/runs/cam-1/nc/versions/1/file?*', (route) =>
-    route.fulfill({ status: 503, body: 'unavailable' }),
-  )
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await page.getByRole('button', { name: '读取运行 cam-1 · succeeded' }).click()
+  await page.getByRole('button', { name: '01 模型输入' }).click()
+  await page.getByRole('button', { name: '上传 STEP', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('503')
-  await expect(page.getByRole('button', { name: '批准当前 NC' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '创建任务并规划' })).toBeDisabled()
 })
 
-test('a definitive planning rejection allows correction after authoritative refresh', async ({
-  page,
-}) => {
-  await readyTask(page)
-  await page.route('**/planning/tasks/task-a/replan', (route) =>
-    route.fulfill({ status: 422, body: 'invalid parameters' }),
-  )
-  await page.getByRole('button', { name: '生成模板工艺' }).click()
+test('明确422拒绝保留草稿并允许修正后提交；不继承旧批准', async ({ page }) => {
+  await coreFixture(page)
+  await startPlanning(page)
+  await openPlan(page)
+  await approvePlan(page)
+  await page
+    .getByRole('navigation', { name: '工序列表' })
+    .getByRole('button')
+    .filter({ hasText: '外圆粗车' })
+    .click()
+  await page.getByRole('button', { name: '参数与资源', exact: true }).click()
+  await page.getByLabel('粗车参数 rough_step').selectOption('0.4')
+  await page.route('**/replan', (route) => route.fulfill({ status: 422, json: fixture.error }), {
+    times: 1,
+  })
+  await page.getByRole('button', { name: '提交参数修订' }).click()
   await expect(page.getByRole('alert')).toContainText('422')
+  await expect(page.getByLabel('粗车参数 rough_step')).toHaveValue('0.4')
   await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-  await page.getByRole('button', { name: '读取 / 刷新任务' }).click()
-  await expect(page.getByRole('button', { name: '生成模板工艺' })).toBeEnabled()
-  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '提交参数修订' })).toBeEnabled()
+  await page.getByRole('button', { name: '提交参数修订' }).click()
+  await openPlan(page)
+  await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
+})
+
+test('未提交草稿的换文件提示与Live/Demo往返保留', async ({ page }) => {
+  await coreFixture(page)
+  await startPlanning(page)
+  await openPlan(page)
+  await page
+    .getByRole('navigation', { name: '工序列表' })
+    .getByRole('button')
+    .filter({ hasText: '外圆粗车' })
+    .click()
+  await page.getByRole('button', { name: '参数与资源', exact: true }).click()
+  await page.getByLabel('粗车参数 rough_step').selectOption('0.4')
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.getByLabel('选择 STEP 模型文件').setInputFiles({
+    name: 'new.step',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('NEW'),
+  })
+  await expect(page.getByLabel('粗车参数 rough_step')).toHaveValue('0.4')
+  await page.getByRole('button', { name: '返回演示工作区' }).click()
+  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
+  await expect(page.getByLabel('粗车参数 rough_step')).toHaveValue('0.4')
 })

@@ -25,10 +25,10 @@ export function AppShell({
   currentView,
   onView,
 }: AppShellProps) {
-  const foundation = !live && currentView === 'foundation'
+  const foundation = currentView === 'foundation'
   return (
     <div
-      className={`app-shell${live ? ' live-shell' : ''}${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
+      className={`app-shell${foundation ? ' foundation-shell' : currentStage !== 'input' ? ' planning-shell' : ''}`}
     >
       <header className="app-header">
         <h1>
@@ -71,7 +71,7 @@ export function AppShell({
           )}
         </div>
       </header>
-      {!foundation && !live && (
+      {!foundation && (
         <>
           <WorkflowNavigation
             currentStage={currentStage}
@@ -83,10 +83,10 @@ export function AppShell({
       )}
       <main className="app-main">{children}</main>
       <footer className="app-footer">
-        {live
-          ? '真实 API 工作区 · 以服务端准入、审核与执行证据为准。'
-          : foundation
-            ? '数据资产总量 = 知识 + 业务资源；模型单独计量。目录关联不代表制造可行性验证。'
+        {foundation
+          ? '数据资产总量 = 知识 + 业务资源；模型单独计量。目录关联不代表制造可行性验证。'
+          : live
+            ? '真实 API 工作区 · 以服务端准入、审核与执行证据为准。'
             : '原型演示 · Agent / CAM 接口待接入；输入准备不代表 CAM 加工；人工确认不等于仿真或实机验证。'}
       </footer>
     </div>

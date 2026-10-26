@@ -68,6 +68,14 @@
 .program-tools {
   flex-wrap: wrap;
 }
+.program-tools :is(input, select) {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  font: inherit;
+  padding: 8px 12px;
+}
 .program-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

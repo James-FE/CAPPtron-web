@@ -1,6 +1,16 @@
 import type { ModelSelection } from './modelInput'
+import type { LiveWorkflow } from '../core/useLiveWorkflow'
+import { LiveFeedback } from '../core/LiveProgress'
 
-export function InputPreparationPanel({ selection }: { selection: ModelSelection }) {
+export function InputPreparationPanel({
+  selection,
+  live,
+  onPlan,
+}: {
+  selection: ModelSelection
+  live?: LiveWorkflow
+  onPlan?: () => void
+}) {
   const modelStatus =
     selection.kind === 'local'
       ? '本地已选择，尚未上传或解析'
@@ -13,7 +23,7 @@ export function InputPreparationPanel({ selection }: { selection: ModelSelection
       <dl className="preparation-items">
         <div>
           <dt>模型 / 图纸</dt>
-          <dd aria-live="polite">{modelStatus}</dd>
+          <dd aria-live="polite">{live ? live.status : modelStatus}</dd>
         </div>
         <div>
           <dt>制造要求</dt>
@@ -21,14 +31,48 @@ export function InputPreparationPanel({ selection }: { selection: ModelSelection
         </div>
         <div>
           <dt>工艺模板与上游方案参考</dt>
-          <dd>待接入</dd>
+          <dd>
+            {live?.deployment
+              ? `${live.deployment.template.id} ${live.deployment.template.version}`
+              : live
+                ? '待核对部署配置'
+                : '待接入'}
+          </dd>
         </div>
       </dl>
-      <p className="preparation-note">
-        使用示例将进入 Demo 工艺规划流程；
-        <br />
-        模型上传与解析接口待接入。
-      </p>
+      {live ? (
+        <>
+          <p className="preparation-note">Core 真实模式 · 上传、解析、规划分别确认</p>
+          <button
+            className="button"
+            disabled={selection.kind !== 'local' || live.busy || live.canRetry || !!live.asset}
+            onClick={live.upload}
+          >
+            上传 STEP
+          </button>
+          <button
+            className="button"
+            disabled={!live.asset || live.busy || live.canRetry || live.parsed?.status === 'parsed'}
+            onClick={live.parse}
+          >
+            执行 NX 解析
+          </button>
+          <button
+            className="button primary-button"
+            disabled={live.parsed?.status !== 'parsed' || live.busy || live.canRetry || !!live.task}
+            onClick={onPlan}
+          >
+            创建任务并规划
+          </button>
+          <LiveFeedback live={live} />
+        </>
+      ) : (
+        <p className="preparation-note">
+          使用示例将进入 Demo 工艺规划流程；
+          <br />
+          模型上传与解析接口待接入。
+        </p>
+      )}
     </section>
   )
 }

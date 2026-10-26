@@ -10,19 +10,57 @@ import { AgentBubble } from '../features/agent/AgentBubble'
 import { AgentDrawer } from '../features/agent/AgentDrawer'
 import { createDemoExchange } from '../features/agent/agentSession'
 import type { WorkflowStage } from './WorkflowNavigation'
+import type { LiveWorkflow } from '../features/core/useLiveWorkflow'
+import {
+  draftKey,
+  getPlanReadiness,
+  resolveOperation,
+} from '../features/process-planning/processPlan'
 
 export function WorkflowWorkspace({
   stage,
   onNavigate,
   initialCaseReference,
   visible = true,
+  live,
 }: {
   stage: WorkflowStage
   onNavigate: (stage: WorkflowStage) => void
   initialCaseReference?: { caseId: string; version: string }
   visible?: boolean
+  live?: LiveWorkflow
 }) {
-  const workflow = useWorkflowSession(visible && stage === 'planning', initialCaseReference)
+  const demo = useWorkflowSession(visible && stage === 'planning' && !live, initialCaseReference)
+  const workflow = live
+    ? {
+        ...demo,
+        session: live.session,
+        operation: live.session
+          ? resolveOperation(live.session.plan, live.session.selectedId)
+          : null,
+        readiness: live.session ? getPlanReadiness(live.session.plan, live.session.drafts) : null,
+        taskMissing: 0,
+        operationMissing: [],
+        operationPending: () => [],
+        caseLoad: { state: 'idle' as const },
+        agentOpen: live.agentOpen,
+        setAgentOpen: live.setAgentOpen,
+        updateSession: live.updateSession,
+        selectOperation: (id: string) => live.updateSession((s) => ({ ...s, selectedId: id })),
+        updateDraft: (key: string, value: string) =>
+          live.updateSession((s) => {
+            const parameter = s.plan.operations
+              .flatMap((op) =>
+                op.parameters.map((p) => ({ key: draftKey(op.id, 'parameters', p.id), p })),
+              )
+              .find((p) => p.key === key)?.p
+            if (!parameter?.editable) return s
+            const drafts = { ...s.drafts, [key]: value }
+            if (value === String(parameter.value)) delete drafts[key]
+            return { ...s, drafts }
+          }),
+      }
+    : demo
   const { session, operation, selectOperation, updateSession, agentOpen, setAgentOpen } = workflow
   useEffect(() => {
     if (!visible) setAgentOpen(false)
@@ -31,6 +69,7 @@ export function WorkflowWorkspace({
   return (
     <>
       <ProcessPlanningPage
+        live={live}
         active={visible && stage === 'planning'}
         workflow={workflow}
         onReview={() => onNavigate('review')}
@@ -38,6 +77,7 @@ export function WorkflowWorkspace({
       {stage === 'review' && (
         <Suspense fallback={<p role="status">正在加载程序工作台…</p>}>
           <ProgramReviewPage
+            live={live}
             active={visible}
             workflow={workflow}
             onBack={() => onNavigate('planning')}
@@ -46,37 +86,49 @@ export function WorkflowWorkspace({
         </Suspense>
       )}
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
-      <AgentDrawer
-        open={visible && stage !== 'input' && agentOpen}
-        onClose={() => setAgentOpen(false)}
-        plan={session?.plan ?? null}
-        programContext={stage === 'review' ? programContext : undefined}
-        operationId={session?.view === 'task' ? null : (operation?.id ?? null)}
-        onOperation={selectOperation}
-        messages={session?.messages ?? []}
-        input={session?.input ?? ''}
-        onInput={(input) => updateSession((current) => ({ ...current, input }))}
-        onSend={() => {
-          if (!session?.input.trim()) return
-          const messageOperation = session.view === 'task' ? null : operation
-          const context =
-            stage === 'review'
-              ? programContext
-              : session.view === 'task'
-                ? '任务级 · 共用信息'
-                : operation
-                  ? `${operation.sequence} ${operation.name}`
-                  : '任务级 · 暂无工序'
-          updateSession((current) => ({
-            ...current,
-            input: '',
-            messages: [
-              ...current.messages,
-              ...createDemoExchange(current.input.trim(), messageOperation?.id ?? null, context),
-            ],
-          }))
-        }}
-      />
+      {live ? (
+        visible &&
+        live.agentOpen && (
+          <div className="availability-notice" role="status">
+            Live Agent 尚未接入；请通过参数提交与审核按钮操作。
+            <button className="button" onClick={() => live.setAgentOpen(false)}>
+              关闭
+            </button>
+          </div>
+        )
+      ) : (
+        <AgentDrawer
+          open={visible && stage !== 'input' && agentOpen}
+          onClose={() => setAgentOpen(false)}
+          plan={session?.plan ?? null}
+          programContext={stage === 'review' ? programContext : undefined}
+          operationId={session?.view === 'task' ? null : (operation?.id ?? null)}
+          onOperation={selectOperation}
+          messages={session?.messages ?? []}
+          input={session?.input ?? ''}
+          onInput={(input) => updateSession((current) => ({ ...current, input }))}
+          onSend={() => {
+            if (!session?.input.trim()) return
+            const messageOperation = session.view === 'task' ? null : operation
+            const context =
+              stage === 'review'
+                ? programContext
+                : session.view === 'task'
+                  ? '任务级 · 共用信息'
+                  : operation
+                    ? `${operation.sequence} ${operation.name}`
+                    : '任务级 · 暂无工序'
+            updateSession((current) => ({
+              ...current,
+              input: '',
+              messages: [
+                ...current.messages,
+                ...createDemoExchange(current.input.trim(), messageOperation?.id ?? null, context),
+              ],
+            }))
+          }}
+        />
+      )}
     </>
   )
 }

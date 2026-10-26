@@ -192,6 +192,99 @@ describe('刷新后恢复原写意图', () => {
     expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
     expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
   })
+  const baseFixture = fixture
+  it.each([false, true])('已完成旧运行恢复当前修订，保留旧草稿门禁 %s', async (hasDraft) => {
+    const fixture = structuredClone(baseFixture)
+    fixture.task.current_revision = 2
+    fixture.plan.revision = 2
+    fixture.run.output_revision = 2
+    fixture.card.revision = 2
+    const config = {
+      schema_version: 'frontend-integration.v1',
+      templates: [
+        {
+          template: fixture.deployment.template,
+          execution_profile_id: fixture.approved.execution_profile_id,
+          matching_evidence: fixture.plan.payload.extensions.matching_evidence,
+          operations: fixture.plan.payload.operations.map((op) => ({
+            ...op,
+            parameter_metadata:
+              'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
+          })),
+          parameter_rules: fixture.plan.payload.extensions.parameter_rules,
+        },
+      ],
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(config))
+    const digest = Array.from(
+      new Uint8Array(await webcrypto.subtle.digest('SHA-256', bytes)),
+      (value) => value.toString(16).padStart(2, '0'),
+    ).join('')
+    vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '/config')
+    vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', digest)
+    const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|' + digest)
+    const saved = {
+      asset_id: fixture.asset.asset_id,
+      parse_command_id: fixture.parse.command_id,
+      task_id: fixture.task.task_id,
+      revision: 1,
+      run_id: 'older-run',
+      drafts: hasDraft ? { [draftKey('ring-op-2', 'parameters', 'rough_step')]: '0.4' } : {},
+    }
+    localStorage.setItem(key, JSON.stringify(saved))
+    const fetcher = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/runs/older-run'))
+        return new Response(
+          JSON.stringify({ ...fixture.run, run_id: 'older-run', output_revision: 1 }),
+        )
+      if (url === '/config') return new Response(bytes)
+      if (url.endsWith('/feedback'))
+        return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
+      const value = url.includes('/parse?')
+        ? fixture.parse
+        : url.includes('/cad/assets/')
+          ? fixture.asset
+          : url.includes('/cam/tasks/')
+            ? url.endsWith('/runs')
+              ? { runs: [] }
+              : fixture.approved
+            : url.includes('/process-cards/')
+              ? fixture.card
+              : url.includes('/results/')
+                ? fixture.plan
+                : url.includes('/runs/')
+                  ? fixture.run
+                  : fixture.task
+      return new Response(JSON.stringify(value))
+    })
+    vi.stubGlobal('fetch', fetcher)
+    const first = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
+    const { result } = first
+    if (hasDraft) {
+      await waitFor(() => expect(result.current.error).toContain('本地仍有旧版参数草稿'))
+      expect(result.current.plan).toBeUndefined()
+      expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+      expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
+      return
+    }
+    await waitFor(() => expect(result.current.plan?.revision).toBe(2))
+    expect(result.current.session?.plan.operations).toHaveLength(7)
+    await waitFor(() => expect(result.current.session?.drafts).toEqual(saved.drafts))
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({
+      ...saved,
+      revision: 2,
+      run_id: fixture.run.run_id,
+    })
+    first.unmount()
+    const second = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
+    await waitFor(() => expect(second.result.current.session?.drafts).toEqual(saved.drafts))
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({
+      ...saved,
+      revision: 2,
+      run_id: fixture.run.run_id,
+    })
+    expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
+  })
   it('失效任务的404是终态，可明确换输入，不能被无限重试锁住', async () => {
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
     localStorage.setItem(key, JSON.stringify({ task_id: 'gone-task' }))

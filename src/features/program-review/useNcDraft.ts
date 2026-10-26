@@ -28,7 +28,6 @@ export function useNcDraft(key: string, original: string, scope: string) {
     }
     return { text: original, saved: original, revision: 1, history: [] as Change[] }
   })
-  const [editing, setEditing] = useState(draft.text !== original)
   function update(text: string, saved = draft.saved, reason = '编辑本地草稿') {
     const revision = draft.revision + 1
     const next = {
@@ -72,8 +71,6 @@ export function useNcDraft(key: string, original: string, scope: string) {
   }
   return {
     ...draft,
-    editing,
-    setEditing,
     error,
     changed: draft.text !== original,
     groupChanged,

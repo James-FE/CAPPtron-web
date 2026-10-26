@@ -40,7 +40,7 @@ test('短于四秒及时解锁；原面板、修订门禁、多文件审核及�
   await expect(page.getByLabel('NC 文件')).toBeVisible()
   await page.getByLabel('NC 文件').selectOption('file-2')
   await expect(page.locator('.cm-content')).toContainText('EVIDENCE 2')
-  await expect(page.locator('.cm-content')).toHaveAttribute('contenteditable', 'false')
+  await expect(page.locator('.cm-content')).toHaveAttribute('contenteditable', 'true')
   await shot(page, info, 'live-nc')
   await page.getByRole('button', { name: '批准当前 NC', exact: true }).click()
   await page.getByRole('button', { name: '确认批准精确版本' }).click()

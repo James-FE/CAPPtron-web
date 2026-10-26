@@ -103,11 +103,11 @@ function LiveProgramReview({
           {live.cam?.cam_run_id ?? 'CAM 尚未启动'}
         </p>
         <p className="muted-text">
-          {draft.editing || draft.changed
+          {draft.changed
             ? '本地草稿 · 未提交服务端 · 导出为 UTF-8 文本'
             : live.simulation
               ? '模拟 NC 正文 · 仅供界面验收 · 不可用于加工'
-              : 'Core 原始正文 · 当前版本人工审核 · 只读服务器版本'}
+              : '服务端原始正文 · 可直接编辑本地草稿'}
         </p>
       </div>
       {nc && file ? (
@@ -131,13 +131,6 @@ function LiveProgramReview({
                 onClick={() => setDiffOpen(!diffOpen)}
               >
                 查看差异
-              </button>
-              <button
-                className="button"
-                aria-pressed={draft.editing}
-                onClick={() => draft.setEditing(!draft.editing)}
-              >
-                {draft.editing ? '退出草稿编辑' : '编辑本地草稿'}
               </button>
               <details
                 className="nc-draft-menu"
@@ -223,7 +216,6 @@ function LiveProgramReview({
           </div>
           <div className={`program-content${diffOpen ? ' with-diff' : ''}`}>
             <ProgramEditor
-              readOnly={!draft.editing}
               document={{
                 id: `${identity}/${file.file_id}`,
                 revision: draft.revision,

@@ -26,9 +26,19 @@ test('本地 JSON 复用完整页面：审核人、参数修订、CAM、NC、下
   })
   await start(page)
   await expect(page.getByRole('navigation', { name: '工序列表' }).getByRole('button')).toHaveCount(
-    7,
+    8,
   )
   await expect(page.getByRole('button', { name: '批准当前工艺卡' })).toBeDisabled()
+  await expect(
+    page.getByRole('navigation', { name: '工序列表' }).getByRole('button').first(),
+  ).toHaveText('任务共用信息待填 5')
+  await page.getByRole('button', { name: '定位待填信息，6 项' }).click()
+  await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '任务共用信息 待填 5' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await screenshot(page, info, 'task-information-sidebar')
   await page.getByLabel('审核人 ID', { exact: true }).fill('reviewer-01')
   await screenshot(page, info, 'planning-reviewer')
   const list = await page.locator('.operation-list').boundingBox()
@@ -39,7 +49,25 @@ test('本地 JSON 复用完整页面：审核人、参数修订、CAM、NC、下
     .filter({ hasText: '外圆粗车' })
     .click()
   await page.getByRole('button', { name: '参数与资源', exact: true }).click()
+  const parameterRow = page
+    .locator('.parameter-field')
+    .filter({ has: page.getByLabel('粗车参数 rough_step') })
+  await expect(parameterRow.locator('.input-badge')).toHaveCount(0)
+  const operationBadge = page
+    .getByRole('navigation', { name: '工序列表' })
+    .getByRole('button')
+    .filter({ hasText: '外圆粗车' })
+    .locator('.input-badge')
+  await expect(operationBadge).toHaveText('待核对 1')
+  await screenshot(page, info, 'parameter-input-status')
+  await page.getByLabel('粗车参数 rough_step').fill('')
+  await expect(operationBadge).toHaveText('待填 1')
+  await screenshot(page, info, 'parameter-input-empty')
+  await expect(page.getByRole('button', { name: '定位待填信息，7 项' })).toBeVisible()
+  await page.getByLabel('粗车参数 rough_step').fill('0.7')
+  await expect(operationBadge).toHaveText('待填 1')
   await page.getByLabel('粗车参数 rough_step').fill('0.4')
+  await expect(operationBadge).toHaveText('待提交 1')
   await page.getByRole('button', { name: '提交修改并重新规划' }).click()
   await page.getByRole('button', { name: '查看工艺规划结果' }).click()
   await page.getByRole('button', { name: '批准当前工艺卡' }).click()
@@ -47,6 +75,11 @@ test('本地 JSON 复用完整页面：审核人、参数修订、CAM、NC、下
   await expect(page.getByLabel('NC 文件')).toBeVisible()
   await page.getByLabel('NC 文件').selectOption('file-2')
   await expect(page.locator('.cm-content')).toContainText('EVIDENCE 2')
+  await expect(page.locator('.program-review-page .review-source')).toHaveCount(0)
+  await expect(page.locator('.program-review-page .review-heading')).toHaveCount(0)
+  await expect(
+    page.locator('.program-toolbar').getByRole('button', { name: '返回工艺决策' }),
+  ).toBeVisible()
   await screenshot(page, info, 'nc-reviewer')
   await page.getByRole('button', { name: '查看差异', exact: true }).click()
   await expect(page.getByText('当前草稿与原始程序一致。')).toBeVisible()
@@ -169,7 +202,7 @@ test('共用信息、现场信息提交回读、准入门禁和重新规划', as
   ])
     await page.getByRole('textbox', { name, exact: true }).fill(value)
   await screenshot(page, info, 'task-information')
-  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await page.getByRole('button', { name: '定位待填信息，1 项' }).click()
   await page.getByRole('textbox', { name: '内孔表面粗糙度要求 Ra', exact: true }).fill('1.6')
 
   await page
@@ -231,6 +264,6 @@ test('模拟错误可见、解析可重试、任务 ID 可查询且未知 ID 不
   await page.getByRole('button', { name: '02 工艺决策' }).click()
   await page.getByRole('button', { name: '查看工艺规划结果' }).click()
   await expect(page.getByRole('navigation', { name: '工序列表' }).getByRole('button')).toHaveCount(
-    7,
+    8,
   )
 })

@@ -318,7 +318,7 @@ export async function startPlanning(page: Page) {
 export async function openPlan(page: Page) {
   await page.getByRole('button', { name: '查看工艺规划结果' }).click()
   await expect(page.getByRole('navigation', { name: '工序列表' }).getByRole('button')).toHaveCount(
-    7,
+    8,
   )
 }
 export async function approvePlan(page: Page) {

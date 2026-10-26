@@ -310,6 +310,12 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
   async function restore(context: Context) {
     const location = journal.current!.read()
     const recovered = await recoverLocation(context.api, location)
+    if (
+      recovered.task &&
+      location.revision !== recovered.task.current_revision &&
+      Object.keys(location.drafts ?? {}).length
+    )
+      throw new Error('服务端已有新修订，本地仍有旧版参数草稿；请先核对草稿，不能自动套用到新修订')
     context.update({
       ...recovered,
       recovered: true,
@@ -319,9 +325,30 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       const deployment = await loadDeployment(context.signal, recovered.asset?.sha256)
       context.update({ deployment })
       if (location.run_id) {
-        const run = await context.api.get<PlanningRun>(
+        let run = await context.api.get<PlanningRun>(
           `${path(recovered.task)}/runs/${encodeURIComponent(location.run_id)}`,
         )
+        if (
+          run.status === 'completed' &&
+          run.output_revision &&
+          run.output_revision < recovered.task.current_revision
+        ) {
+          if (Object.keys(location.drafts ?? {}).length)
+            throw new Error(
+              '服务端已有新修订，本地仍有旧版参数草稿；请先核对草稿，不能自动套用到新修订',
+            )
+          const latest = await context.api.get<LivePlan>(
+            `${path(recovered.task)}/results/${recovered.task.current_revision}`,
+          )
+          if (
+            latest.task_id !== recovered.task.task_id ||
+            latest.revision !== recovered.task.current_revision
+          )
+            throw new Error('当前规划结果身份不一致，请核对任务')
+          run = await context.api.get<PlanningRun>(
+            `${path(recovered.task)}/runs/${encodeURIComponent(latest.run_id)}`,
+          )
+        }
         await readPlan(context, recovered.task, run, deployment)
       } else if (recovered.task.current_revision > 0) {
         const plan = await context.api.get<LivePlan>(

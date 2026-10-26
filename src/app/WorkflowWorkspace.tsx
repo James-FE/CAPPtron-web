@@ -1,3 +1,4 @@
+import { supplementFields } from '../api/core/supplement'
 import { useWorkflowSession } from '../features/process-planning/useWorkflowSession'
 import { ProcessPlanningPage } from '../pages/process-planning/ProcessPlanningPage'
 import { lazy, Suspense, useEffect } from 'react'
@@ -31,6 +32,9 @@ export function WorkflowWorkspace({
   live?: LiveWorkflow
 }) {
   const demo = useWorkflowSession(visible && stage === 'planning' && !live, initialCaseReference)
+  const liveMissing = live?.session
+    ? getPlanReadiness(live.session.plan, live.session.drafts).missing
+    : []
   const workflow = live
     ? {
         ...demo,
@@ -39,21 +43,28 @@ export function WorkflowWorkspace({
           ? resolveOperation(live.session.plan, live.session.selectedId)
           : null,
         readiness: live.session ? getPlanReadiness(live.session.plan, live.session.drafts) : null,
-        taskMissing: 0,
-        operationMissing: [],
-        operationPending: () => [],
+        taskMissing: liveMissing.filter((x) => x.section === 'task').length,
+        operationMissing: liveMissing.filter((x) => x.section !== 'task'),
+        operationPending: (id: string) =>
+          liveMissing.filter((x) => x.section !== 'task' && x.operationId === id),
         caseLoad: { state: 'idle' as const },
         agentOpen: live.agentOpen,
         setAgentOpen: live.setAgentOpen,
         updateSession: live.updateSession,
-        selectOperation: (id: string) => live.updateSession((s) => ({ ...s, selectedId: id })),
+        selectOperation: (id: string) =>
+          live.updateSession((s) => ({
+            ...s,
+            selectedId: id,
+            view: s.view === 'task' ? 'steps' : s.view,
+          })),
         updateDraft: (key: string, value: string) =>
           live.updateSession((s) => {
-            const parameter = s.plan.operations
-              .flatMap((op) =>
+            const parameter = [
+              ...supplementFields(s.plan),
+              ...s.plan.operations.flatMap((op) =>
                 op.parameters.map((p) => ({ key: draftKey(op.id, 'parameters', p.id), p })),
-              )
-              .find((p) => p.key === key)?.p
+              ),
+            ].find((p) => p.key === key)?.p
             if (!parameter?.editable) return s
             const drafts = { ...s.drafts, [key]: value }
             if (value === String(parameter.value)) delete drafts[key]
@@ -86,29 +97,26 @@ export function WorkflowWorkspace({
         </Suspense>
       )}
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
-      {live ? (
-        visible &&
-        live.agentOpen && (
-          <div className="availability-notice" role="status">
-            Live Agent 尚未接入；请通过参数提交与审核按钮操作。
-            <button className="button" onClick={() => live.setAgentOpen(false)}>
-              关闭
-            </button>
-          </div>
-        )
-      ) : (
+      {
         <AgentDrawer
+          unavailableReason={live ? 'Agent 服务尚未接入，暂不能发送消息。' : undefined}
           open={visible && stage !== 'input' && agentOpen}
           onClose={() => setAgentOpen(false)}
           plan={session?.plan ?? null}
-          programContext={stage === 'review' ? programContext : undefined}
+          programContext={
+            stage === 'review'
+              ? live
+                ? `${live.task?.task_id ?? '无任务'} · NC v${live.nc?.ref.version ?? '—'} · ${live.simulation ? '模拟' : '服务端'}正文`
+                : programContext
+              : undefined
+          }
           operationId={session?.view === 'task' ? null : (operation?.id ?? null)}
           onOperation={selectOperation}
           messages={session?.messages ?? []}
           input={session?.input ?? ''}
           onInput={(input) => updateSession((current) => ({ ...current, input }))}
           onSend={() => {
-            if (!session?.input.trim()) return
+            if (live || !session?.input.trim()) return
             const messageOperation = session.view === 'task' ? null : operation
             const context =
               stage === 'review'
@@ -128,7 +136,7 @@ export function WorkflowWorkspace({
             }))
           }}
         />
-      )}
+      }
     </>
   )
 }

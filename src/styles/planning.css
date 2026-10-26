@@ -220,8 +220,12 @@
   margin-top: 8px;
   font-size: 12px;
 }
-.task-information-button {
+.button.task-information-button {
   width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  min-height: 40px;
+  line-height: 20px;
   justify-content: space-between;
   gap: 8px;
 }
@@ -374,7 +378,8 @@
 .parameter-field > * {
   min-width: 0;
 }
-.parameter-field p {
+.parameter-field p,
+.parameter-help {
   font-size: 12px;
   line-height: 20px;
 }
@@ -643,7 +648,7 @@
   .parameter-field {
     grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr);
   }
-  .parameter-field > p {
+  .parameter-field > .parameter-help {
     grid-column: 1 / -1;
   }
 }
@@ -691,4 +696,110 @@
   .agent-drawer {
     padding: 20px;
   }
+}
+.live-planning-page .operation-list-heading {
+  padding-block: 8px;
+}
+.live-planning-page .pending-operation-jump {
+  min-height: 24px;
+  padding-block: 0;
+}
+.live-planning-actions {
+  gap: 20px;
+}
+.live-planning-actions > .live-planning-status {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+.live-planning-status > p {
+  white-space: nowrap;
+}
+.live-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.live-status-details {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  line-height: 20px;
+}
+.live-status-details summary {
+  cursor: pointer;
+  color: var(--text-warning);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.live-status-details summary::before {
+  content: '▸';
+}
+.live-status-details[open] summary::before {
+  content: '▾';
+}
+.live-status-details summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-status-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  z-index: 20;
+  width: min(440px, 75vw);
+  max-height: 280px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--surface-canvas);
+}
+.live-status-popover p + p {
+  margin-top: 8px;
+}
+.live-status-row > .button {
+  flex-shrink: 0;
+  min-height: 24px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.live-planning-actions > .live-planning-controls {
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.live-planning-controls > .button {
+  white-space: nowrap;
+}
+.live-reviewer-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.live-reviewer-field input {
+  width: 144px;
+}
+@media (max-width: 1100px) {
+  .live-planning-actions > .live-planning-controls {
+    flex-wrap: wrap;
+  }
+  .live-planning-actions > .live-planning-status {
+    flex-basis: 100%;
+  }
+}
+
+.parameter-source-details summary {
+  cursor: pointer;
+  color: var(--accent-primary);
+}
+.parameter-source-details p {
+  overflow-wrap: anywhere;
+  margin-top: 6px;
 }

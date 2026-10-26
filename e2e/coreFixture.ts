@@ -1,10 +1,33 @@
 import { expect } from '@playwright/test'
 import type { Page, Route } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import Ajv from 'ajv'
 import fixture from './fixtures/core-golden.json' with { type: 'json' }
 import schemas from './fixtures/core-schemas.json' with { type: 'json' }
 import { cardPath } from '../src/api/core/client'
 
+export const integrationFixture = {
+  schema_version: 'frontend-integration.v1',
+  templates: [
+    {
+      template: fixture.deployment.template,
+      execution_profile_id: fixture.approved.execution_profile_id,
+      matching_evidence: fixture.plan.payload.extensions.matching_evidence,
+      operations: fixture.plan.payload.operations.map((op) => ({
+        id: op.id,
+        sequence: op.sequence,
+        name: op.name,
+        steps: op.steps,
+        parameter_metadata:
+          'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
+      })),
+      parameter_rules: fixture.plan.payload.extensions.parameter_rules,
+    },
+  ],
+}
+export const integrationSha = createHash('sha256')
+  .update(JSON.stringify(integrationFixture))
+  .digest('hex')
 const ajv = new Ajv({ strict: false, validateFormats: false })
 const validators = Object.fromEntries(
   Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]),
@@ -16,6 +39,9 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    needsReplan?: boolean
+    lostSupplementReceipt?: boolean
+    parseDelay?: number
     planDelay?: number
     deliveryPending?: boolean
     failed?: boolean
@@ -25,8 +51,11 @@ export async function coreFixture(
     lostCamReceipt?: boolean
     missingConfig?: boolean
     lostReplanReceipt?: boolean
+    referenceOnly?: boolean
   } = {},
 ) {
+  const feedbackItems: Record<string, unknown>[] = []
+  let lostSupplement = !!options.lostSupplementReceipt
   let revision = 0,
     approvedRevision = 0,
     ncApproved = false,
@@ -44,6 +73,7 @@ export async function coreFixture(
     const waiting = Date.now() - planningStarted < (options.planDelay ?? 0)
     return {
       ...fixture.run,
+      needs_replan: !!options.needsReplan,
       run_id: `planning-${revision}`,
       output_revision: waiting || options.failed ? null : revision,
       basis_revision: revision - 1,
@@ -83,20 +113,44 @@ export async function coreFixture(
       commands.push({ path, body })
       return body
     }
-    if (path === '/core-deployment.json')
+    if (path === '/frontend-integration.v1.json')
       return options.missingConfig
         ? route.fulfill({ status: 404 })
-        : route.fulfill({ json: fixture.deployment })
+        : route.fulfill({ json: integrationFixture })
     if (path === '/cad/assets' && post) {
       expect(req.headers()['content-type']).toBe('application/octet-stream')
       expect(req.postDataBuffer()?.toString()).toBe('STEP TEST ONLY')
       return send('CadAsset', { ...fixture.asset, command_id: url.searchParams.get('command_id') })
     }
+    if (path === `/cad/assets/${fixture.asset.asset_id}`) return send('CadAsset', fixture.asset)
     if (path.startsWith('/cad/assets/') && path.endsWith('/parse')) {
       const body = post
         ? command('CadParseCommand')
         : { command_id: url.searchParams.get('command_id') }
+      if (options.parseDelay)
+        await new Promise((resolve) => setTimeout(resolve, options.parseDelay))
       return send('CadParseResult', { ...fixture.parse, command_id: body.command_id })
+    }
+    if (path.endsWith('/feedback')) {
+      if (post) {
+        const body = req.postDataJSON()
+        if (!feedbackItems.some((x) => x.feedback_id === body.feedback_id))
+          feedbackItems.push({ ...body, status: 'active' })
+        if (lostSupplement) {
+          lostSupplement = false
+          return route.abort('failed')
+        }
+        return route.fulfill({
+          json: {
+            feedback_version: feedbackItems.length,
+            feedback_id: body.feedback_id,
+            status: 'added',
+          },
+        })
+      }
+      return route.fulfill({
+        json: { feedback_version: feedbackItems.length, items: feedbackItems },
+      })
     }
     if (path === '/planning/tasks' && post) {
       const body = command('CreateTaskRequest')
@@ -161,6 +215,11 @@ export async function coreFixture(
     }
     if (path.startsWith('/planning/tasks/') && path.includes('/results/')) {
       const plan = structuredClone(revision === 2 ? fixture.plan2 : fixture.plan)
+      if (options.referenceOnly) {
+        plan.payload.extensions.reference_only = true
+        plan.payload.extensions.execution_ready = false
+        delete (plan.payload.extensions as { matching_evidence?: unknown }).matching_evidence
+      }
       plan.revision = revision
       plan.run_id = `planning-${revision}`
       return send('PlanProduced', plan)
@@ -198,6 +257,8 @@ export async function coreFixture(
       }
       return send('CamRunReceipt', { ...fixture.camReceipt, command_id: body.command_id }, 202)
     }
+    if (path === `/cam/tasks/${fixture.task.task_id}/runs`)
+      return send('CamRunList', { runs: camStarted ? [cam()] : [] })
     if (path === '/cam/runs/cam-1') {
       camGets++
       return send('CamRunView', cam())
@@ -244,7 +305,7 @@ export async function coreFixture(
 }
 export async function startPlanning(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: '打开 Core 真实工作区' }).click()
+  await page.getByRole('button', { name: '切换真实联调' }).click()
   await page.getByLabel('选择 STEP 模型文件').setInputFiles({
     name: 'Golden.step',
     mimeType: 'application/octet-stream',
@@ -252,12 +313,12 @@ export async function startPlanning(page: Page) {
   })
   await page.getByRole('button', { name: '上传 STEP', exact: true }).click()
   await page.getByRole('button', { name: '执行 NX 解析' }).click()
-  await page.getByRole('button', { name: '创建任务并规划' }).click()
+  await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
 }
 export async function openPlan(page: Page) {
   await page.getByRole('button', { name: '查看工艺规划结果' }).click()
   await expect(page.getByRole('navigation', { name: '工序列表' }).getByRole('button')).toHaveCount(
-    7,
+    8,
   )
 }
 export async function approvePlan(page: Page) {

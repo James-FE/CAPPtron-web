@@ -37,21 +37,7 @@ function ParameterField({
         )}
       </label>
       <div className="parameter-value">
-        {parameter.editable && parameter.allowedValues ? (
-          <select
-            id={id}
-            aria-label={parameter.name}
-            value={value ?? String(parameter.value ?? '')}
-            onChange={(event) => onChange(event.target.value)}
-            aria-describedby={`${id}-help`}
-          >
-            {parameter.allowedValues.map((option) => (
-              <option key={option} value={String(option)}>
-                {option}
-              </option>
-            ))}
-          </select>
-        ) : parameter.editable ? (
+        {parameter.editable ? (
           <input
             id={id}
             aria-label={parameter.name}
@@ -70,20 +56,23 @@ function ParameterField({
         )}
         {parameter.unit && <span>{parameter.unit}</span>}
       </div>
-      <p
+      <div
         id={`${id}-help`}
-        className={error || parameter.value === null ? 'warning-text' : 'muted-text'}
+        className={`parameter-help ${error || parameter.value === null ? 'warning-text' : 'muted-text'}`}
       >
         {value !== undefined
           ? (error ?? '本地草稿 · 格式有效，未校核')
           : `${sources[parameter.source]} · ${parameter.status === 'missing' ? '待补充' : parameter.status === 'pending' ? '待确认' : '已提供，未校核'}`}
-        {parameter.description && (
-          <>
-            <br />
-            {parameter.description}
-          </>
-        )}
-      </p>
+        {parameter.description &&
+          (parameter.source === 'upstream' ? (
+            <details className="parameter-source-details">
+              <summary>来源详情</summary>
+              <p>{parameter.description}</p>
+            </details>
+          ) : (
+            <p>{parameter.description}</p>
+          ))}
+      </div>
     </div>
   )
 }

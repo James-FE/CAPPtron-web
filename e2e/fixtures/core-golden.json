@@ -121,10 +121,7 @@
                 "name": "粗车参数 rough_step",
                 "unit": "mm",
                 "edit_policy": "replace",
-                "allowed_values": [
-                  0.5,
-                  0.4
-                ],
+                "allowed_values": [0.5, 0.4],
                 "source": {
                   "kind": "fixed_mastercam_manifest_extension",
                   "resource_id": "golden-b7-parameter-profile",
@@ -217,10 +214,7 @@
           {
             "path": "/operations/2/attributes/parameters/rough_step",
             "value_type": "number",
-            "allowed_values": [
-              0.5,
-              0.4
-            ],
+            "allowed_values": [0.5, 0.4],
             "edit_policy": "replace",
             "operation_id": "ring-op-2",
             "parameter_id": "rough_step",
@@ -234,7 +228,12 @@
         },
         "reference_only": false,
         "execution_ready": true,
-        "plan_digest": "c55b0df286a65ec6307a104a9c9047d22894e826944a49c2828aca753962d76e"
+        "plan_digest": "c55b0df286a65ec6307a104a9c9047d22894e826944a49c2828aca753962d76e",
+        "matching_evidence": {
+          "step_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "report_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "mcam_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
       }
     },
     "provider": "template",
@@ -515,9 +514,7 @@
     "comparison_sha256": null,
     "root_run_id": "cam-1",
     "is_current_candidate": true,
-    "allowed_actions": [
-      "review"
-    ]
+    "allowed_actions": ["review"]
   },
   "files": [
     {
@@ -649,10 +646,7 @@
                 "name": "粗车参数 rough_step",
                 "unit": "mm",
                 "edit_policy": "replace",
-                "allowed_values": [
-                  0.5,
-                  0.4
-                ],
+                "allowed_values": [0.5, 0.4],
                 "source": {
                   "kind": "fixed_mastercam_manifest_extension",
                   "resource_id": "golden-b7-parameter-profile",
@@ -764,10 +758,7 @@
           {
             "path": "/operations/2/attributes/parameters/rough_step",
             "value_type": "number",
-            "allowed_values": [
-              0.5,
-              0.4
-            ],
+            "allowed_values": [0.5, 0.4],
             "edit_policy": "replace",
             "operation_id": "ring-op-2",
             "parameter_id": "rough_step",
@@ -781,7 +772,12 @@
         },
         "reference_only": false,
         "execution_ready": true,
-        "plan_digest": "cbb3be6a6aa521ecfe6e9bc5b1c4a7ed63ec78947543e618c83b841820f13e8d"
+        "plan_digest": "cbb3be6a6aa521ecfe6e9bc5b1c4a7ed63ec78947543e618c83b841820f13e8d",
+        "matching_evidence": {
+          "step_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "report_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "mcam_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
       }
     },
     "provider": "template",

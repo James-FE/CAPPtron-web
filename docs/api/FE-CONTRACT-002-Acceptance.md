@@ -1,5 +1,7 @@
 # FE-CONTRACT-002｜验收记录
 
+> 2026-10-25 后续实现已改为统一 frontend-integration.v1 配置并增加持久恢复，见 [本轮接入说明](Golden-demo-integration-20261025.md)。本文保留 10/24 历史验收状态，旧配置与刷新限制不再作为当前部署指引。
+
 日期：2026-10-24。基线 `origin/main ce46313`，分支 `feat/fe-contract-002-minimal-live-wiring`。PR #26 保持未合并，只读使用其审计成果；PR #24 仅参考归档接口实现，没有恢复其页面。原目录的未跟踪文档未改动。
 
 ## 交付结论

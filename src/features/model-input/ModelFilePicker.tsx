@@ -4,6 +4,7 @@ import { formatFileSize, selectionName } from './modelInput'
 import type { ModelSelection } from './modelInput'
 
 type ModelFilePickerProps = {
+  simulation?: boolean
   liveStatus?: string
   selection: ModelSelection
   error: string
@@ -19,6 +20,7 @@ export function ModelFilePicker({
   onFiles,
   onDemo,
   liveStatus,
+  simulation,
 }: ModelFilePickerProps) {
   const [dragging, setDragging] = useState(false)
   const name = selectionName(selection)
@@ -70,7 +72,7 @@ export function ModelFilePicker({
           </span>
         </button>
         <button className="button demo-button" type="button" onClick={onDemo}>
-          使用示例 Ring_A.step
+          {simulation ? '使用示例 Golden-simulation.step' : '使用示例 Ring_A.step'}
         </button>
       </div>
       {error && (

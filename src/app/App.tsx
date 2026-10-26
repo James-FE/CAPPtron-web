@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveWorkflow } from '../features/core/useLiveWorkflow'
 import { AppShell } from './AppShell'
 import { FileInfoBar } from '../features/model-input/FileInfoBar'
@@ -10,20 +10,46 @@ import { inputExampleCase } from '../api/case-catalog'
 import type { DataFoundationReader } from '../api/data-foundation/reader'
 import { dataFoundationReader } from './dataFoundation'
 import { DataFoundationPage } from '../pages/data-foundation/DataFoundationPage'
+import { simulationRuntime, simulationSample } from '../api/simulation/runtime'
 
 export default function App({
   foundationReader = dataFoundationReader,
 }: {
   foundationReader?: DataFoundationReader
 }) {
-  const [live, setLive] = useState(false)
+  const [simulation, setSimulation] = useState(
+    () => new URLSearchParams(location.search).get('mode') === 'simulation',
+  )
+  const [live, setLive] = useState(simulation)
   const inputRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
   const { selection, error, selectFiles, selectDemo, sourceVersion } = useModelInput()
-  const liveWorkflow = useLiveWorkflow(selection.kind === 'local' ? selection.file : undefined)
+  const liveWorkflow = useLiveWorkflow(
+    selection.kind === 'local' ? selection.file : undefined,
+    simulation ? simulationRuntime : undefined,
+  )
+  const [advanceAfterParse, setAdvanceAfterParse] = useState(false)
   const [stage, setStage] = useState<WorkflowStage>('input')
   const [view, setView] = useState<'workflow' | 'foundation'>('workflow')
   const workspaceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const url = new URL(location.href)
+    if (simulation) url.searchParams.set('mode', 'simulation')
+    else url.searchParams.delete('mode')
+    history.replaceState(null, '', url)
+  }, [simulation])
+
+  useEffect(() => {
+    if (!advanceAfterParse || !live || liveWorkflow.busy || liveWorkflow.canRetry) return
+    if (liveWorkflow.parsed?.status === 'parsed') {
+      setAdvanceAfterParse(false)
+      setStage('planning')
+      if (!liveWorkflow.task && !liveWorkflow.planning) liveWorkflow.createPlan()
+    } else if (liveWorkflow.error || liveWorkflow.parsed?.status === 'failed') {
+      setAdvanceAfterParse(false)
+    }
+  }, [advanceAfterParse, live, liveWorkflow])
 
   function changeView(next: 'workflow' | 'foundation') {
     if (workspaceRef.current?.contains(document.activeElement))
@@ -36,7 +62,11 @@ export default function App({
     inputRef.current?.click()
   }
   function canReplaceInput() {
-    if (liveWorkflow.busy || liveWorkflow.canRetry || liveWorkflow.activeCam) {
+    if (
+      liveWorkflow.busy ||
+      (liveWorkflow.canRetry && !liveWorkflow.pendingUpload) ||
+      liveWorkflow.activeCam
+    ) {
       setNotice('当前真实任务仍在运行或存在待确认命令，请先完成查询后再更换输入。')
       return false
     }
@@ -52,7 +82,24 @@ export default function App({
   return (
     <AppShell
       live={live}
-      onToggleLive={() => setLive(!live)}
+      simulation={simulation}
+      onToggleSimulation={() => {
+        if (!canReplaceInput()) return
+        setSimulation(true)
+        setLive(true)
+        setStage('input')
+        setAdvanceAfterParse(false)
+        selectFiles([simulationSample()])
+      }}
+      onToggleLive={() => {
+        if (simulation) {
+          if (!canReplaceInput()) return
+          setSimulation(false)
+          setLive(true)
+          setAdvanceAfterParse(false)
+          setStage('input')
+        } else setLive(!live)
+      }}
       currentStage={stage}
       currentView={view}
       onView={changeView}
@@ -64,11 +111,16 @@ export default function App({
       fileBar={
         <FileInfoBar
           selection={selection}
+          liveAssetName={live ? liveWorkflow.asset?.filename : undefined}
           liveStatus={
             live && liveWorkflow.asset
               ? liveWorkflow.parsed?.status === 'parsed'
-                ? 'Core 已解析'
-                : 'Core 已上传'
+                ? simulation
+                  ? '模拟已解析'
+                  : 'Core 已解析'
+                : simulation
+                  ? '模拟已上传'
+                  : 'Core 已上传'
               : undefined
           }
           onReplace={openFilePicker}
@@ -97,7 +149,18 @@ export default function App({
         />
         {stage === 'input' && (
           <ModelInputPage
-            live={live ? liveWorkflow : undefined}
+            live={
+              live
+                ? {
+                    ...liveWorkflow,
+                    parse: () => {
+                      setAdvanceAfterParse(true)
+                      setStage('planning')
+                      liveWorkflow.parse()
+                    },
+                  }
+                : undefined
+            }
             onPlan={() => {
               liveWorkflow.createPlan()
               setStage('planning')
@@ -108,6 +171,11 @@ export default function App({
             onFiles={chooseFiles}
             onDemo={() => {
               if (!canReplaceInput()) return
+              if (simulation) {
+                selectFiles([simulationSample()])
+                setNotice('')
+                return
+              }
               setLive(false)
               selectDemo()
               setStage('planning')

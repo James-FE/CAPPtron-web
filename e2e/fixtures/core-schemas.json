@@ -3232,5 +3232,444 @@
     ],
     "title": "CadParseCommand",
     "type": "object"
+  },
+  "CamRunList": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "runs"
+    ],
+    "properties": {
+      "runs": {
+        "type": "array",
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "engineering_status": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "validated"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Engineering Status"
+            },
+            "cam_run_id": {
+              "minLength": 1,
+              "title": "Cam Run Id",
+              "type": "string"
+            },
+            "root_run_id": {
+              "minLength": 1,
+              "title": "Root Run Id",
+              "type": "string"
+            },
+            "plan_ref": {
+              "$ref": "#/$defs/ApprovedPlanRef"
+            },
+            "kind": {
+              "enum": [
+                "generate",
+                "revise"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "accepted",
+                "running",
+                "awaiting_confirmation",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "phase": {
+              "enum": [
+                "prepare",
+                "feedback",
+                "edit_nc",
+                "generate_code",
+                "build",
+                "execute",
+                "collect"
+              ],
+              "title": "Phase",
+              "type": "string"
+            },
+            "state_version": {
+              "exclusiveMinimum": 0,
+              "title": "State Version",
+              "type": "integer"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "candidate",
+                    "needs_plan_change"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Outcome"
+            },
+            "current_candidate": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NcVersionRef"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ErrorDetail"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "reset_required": {
+              "title": "Reset Required",
+              "type": "boolean"
+            },
+            "explanation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Explanation"
+            },
+            "observation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HealthSummary"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "control": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ControlSummary"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "closeout": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CloseoutSummary"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "allowed_actions": {
+              "items": {
+                "enum": [
+                  "reconcile",
+                  "observe",
+                  "cancel",
+                  "closeout",
+                  "reset",
+                  "save",
+                  "review",
+                  "revise",
+                  "download"
+                ],
+                "type": "string"
+              },
+              "title": "Allowed Actions",
+              "type": "array"
+            },
+            "trace_id": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Trace Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "cam_run_id",
+            "root_run_id",
+            "plan_ref",
+            "kind",
+            "status",
+            "phase",
+            "state_version",
+            "reset_required",
+            "allowed_actions",
+            "trace_id"
+          ],
+          "title": "CamRunView",
+          "type": "object"
+        }
+      }
+    },
+    "$defs": {
+      "ApprovedPlanRef": {
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "result_id": {
+            "minLength": 1,
+            "title": "Result Id",
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "archive_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Archive Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "result_id",
+          "revision",
+          "archive_digest"
+        ],
+        "title": "ApprovedPlanRef",
+        "type": "object"
+      },
+      "CloseoutSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence_action": {
+            "enum": [
+              "cancel",
+              "reset"
+            ],
+            "title": "Evidence Action",
+            "type": "string"
+          },
+          "evidence_command_id": {
+            "minLength": 1,
+            "title": "Evidence Command Id",
+            "type": "string"
+          },
+          "operator_id": {
+            "minLength": 1,
+            "title": "Operator Id",
+            "type": "string"
+          },
+          "identity_source": {
+            "const": "declared",
+            "default": "declared",
+            "title": "Identity Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "evidence_action",
+          "evidence_command_id",
+          "operator_id"
+        ],
+        "title": "CloseoutSummary",
+        "type": "object"
+      },
+      "ControlSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "cancel",
+              "reset"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "submitted",
+              "unknown",
+              "confirmed",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "status",
+          "observed_at"
+        ],
+        "title": "ControlSummary",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "description": "Serializable error with a strict nonnegative integer code.",
+        "properties": {
+          "code": {
+            "minimum": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "HealthSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "observed",
+              "unavailable"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "idle",
+                  "busy",
+                  "reset_required",
+                  "offline"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          },
+          "executor_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Executor Id"
+          },
+          "active_run_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Active Run Id"
+          }
+        },
+        "required": [
+          "availability",
+          "observed_at"
+        ],
+        "title": "HealthSummary",
+        "type": "object"
+      },
+      "NcVersionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "cam_run_id": {
+            "minLength": 1,
+            "title": "Cam Run Id",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "content_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cam_run_id",
+          "version",
+          "content_digest"
+        ],
+        "title": "NcVersionRef",
+        "type": "object"
+      }
+    }
   }
 }

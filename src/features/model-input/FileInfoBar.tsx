@@ -3,13 +3,20 @@ import type { ModelSelection } from './modelInput'
 
 type FileInfoBarProps = {
   liveStatus?: string
+  liveAssetName?: string
   selection: ModelSelection
   onReplace: () => void
   onUnavailable: (message: string) => void
 }
 
-export function FileInfoBar({ selection, onReplace, onUnavailable, liveStatus }: FileInfoBarProps) {
-  const name = selectionName(selection)
+export function FileInfoBar({
+  selection,
+  onReplace,
+  onUnavailable,
+  liveStatus,
+  liveAssetName,
+}: FileInfoBarProps) {
+  const name = liveAssetName ?? selectionName(selection)
   return (
     <section className="file-info-bar" aria-label="当前模型文件">
       <div className="file-summary" aria-live="polite" aria-atomic="true">
@@ -23,7 +30,9 @@ export function FileInfoBar({ selection, onReplace, onUnavailable, liveStatus }:
                 ? `${selection.extension} · ${formatFileSize(selection.file.size)} · ${liveStatus ?? '本地选择'}`
                 : selection.kind === 'demo'
                   ? selection.model.source
-                  : ''}
+                  : liveAssetName
+                    ? `Core 已有资产 · ${liveStatus ?? '状态待查询'}`
+                    : ''}
             </span>
           </>
         ) : (

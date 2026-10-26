@@ -1,6 +1,7 @@
 import type { PlanRef, NcRef } from './client'
 
 export type PlanningRun = {
+  basis_feedback_version?: number
   task_id: string
   run_id: string
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -52,12 +53,16 @@ export type LivePlan = {
       steps: { id: string; sequence: number; content: string; attributes?: Attributes }[]
     }[]
     extensions: {
+      verified_part?: { outer_diameter_mm: number; inner_diameter_mm: number; thickness_mm: number }
       template: { id: string; version: string; digest: string }
       plan_digest: string
       execution_profile_digest?: string
       reference_only: boolean
       execution_ready: boolean
+      matching_evidence?: { step_sha256: string; report_sha256: string; mcam_sha256: string }
+      source_unbound?: boolean
       parameter_rules?: {
+        path?: string
         operation_id: string
         parameter_id: string
         unit: string

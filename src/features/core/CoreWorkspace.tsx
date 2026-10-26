@@ -485,7 +485,7 @@ export function CoreWorkspace() {
               disabled={!nc.allowed_actions.includes('download')}
               onClick={() =>
                 void act(async () => {
-                  const url = URL.createObjectURL(await api.download(nc.ref))
+                  const url = URL.createObjectURL((await api.download(nc.ref)).blob)
                   const a = document.createElement('a')
                   a.href = url
                   a.download = `NC-${nc.ref.cam_run_id}-v${nc.ref.version}.zip`

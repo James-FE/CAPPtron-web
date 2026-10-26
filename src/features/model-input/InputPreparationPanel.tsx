@@ -150,12 +150,6 @@ export function InputPreparationPanel({
             创建任务并规划
           </button>
 
-          {live.recovered && live.parsed && (
-            <p className="muted-text">
-              复用已验证解析 · {live.parsed.command_id} · 报告 SHA-256{' '}
-              {live.parsed.report_sha256 ?? '未提供'}（运输摘要）
-            </p>
-          )}
           {!restoreOpen && <LiveFeedback live={live} />}
         </>
       ) : (

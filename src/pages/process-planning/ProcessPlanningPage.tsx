@@ -5,7 +5,7 @@ import { TaskMeasurements } from '../../features/process-planning/TaskMeasuremen
 import { DemoPlanningProgress } from '../../features/process-planning/DemoPlanningProgress'
 import type { WorkflowSession } from '../../features/process-planning/useWorkflowSession'
 import type { LiveWorkflow } from '../../features/core/useLiveWorkflow'
-import { LiveFeedback, LiveProgress } from '../../features/core/LiveProgress'
+import { LiveProgress } from '../../features/core/LiveProgress'
 
 export function ProcessPlanningPage({
   active,
@@ -44,8 +44,6 @@ export function ProcessPlanningPage({
   const supplementDirty = draftKeys.some((key) => supplementalKeys.has(key))
   const parameterDirty = draftKeys.some((key) => !supplementalKeys.has(key))
   const missing = readiness?.missing ?? []
-  const missingTask = missing.filter((item) => item.section === 'task')
-  const missingOperations = missing.filter((item) => item.section !== 'task')
   const submitHint = live?.busy
     ? '正在处理请求，请等待完成。'
     : live?.canRetry
@@ -57,13 +55,54 @@ export function ProcessPlanningPage({
           : !supplementDirty
             ? '没有待提交的补充信息修改。'
             : '补充信息已填齐，请点击“提交补充信息”保存并回读。'
+  const taskInformation = session && (
+    <div className={live ? 'live-task-entry' : 'task-information-entry'}>
+      <button
+        className="button task-information-button"
+        aria-pressed={session.view === 'task'}
+        onClick={() => updateSession((current) => ({ ...current, view: 'task' }))}
+      >
+        <span>任务共用信息</span>
+        <span
+          className={`input-badge ${taskMissing || (live && !session.plan.taskMeasurements?.length) ? '' : 'draft-complete'}`}
+        >
+          {live && !session.plan.taskMeasurements?.length
+            ? '待接入'
+            : taskMissing
+              ? `待填 ${taskMissing}`
+              : '已补齐'}
+        </span>
+      </button>
+      {!live && <p className="muted-text">所有工序共享 · 集中填写一次</p>}
+    </div>
+  )
+  const statusText = live?.error
+    ? live.error
+    : live?.admission
+      ? '暂不可批准或执行 · 查看原因'
+      : live?.canRetry
+        ? '请求结果待确认'
+        : live?.busy
+          ? '正在处理请求…'
+          : live?.dirty
+            ? '有未提交修改'
+            : live?.supplementStatus
+              ? '现场信息已回读 · 未应用到 CAM'
+              : missing.length
+                ? `待补充 ${missing.length} 项`
+                : '请核对参数与资源'
   return (
-    <section className="process-planning-page" hidden={!active} aria-labelledby="planning-title">
+    <section
+      className={`process-planning-page${live ? ' live-planning-page' : ''}`}
+      hidden={!active}
+      aria-labelledby="planning-title"
+    >
       <header className="planning-heading">
         <div>
           <h2 id="planning-title">工艺决策</h2>
           <p className="page-subtitle">工艺规划 · 参数推荐 · 生产资源匹配</p>
         </div>
+        {live && session?.resultViewed && taskInformation}
         {!live && (
           <PlanningSourceSelector
             active={active}
@@ -84,41 +123,6 @@ export function ProcessPlanningPage({
                 : 'Core 真实模式 · 请从模型输入完成上传与解析。'
             : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
-      {live && session?.resultViewed && (
-        <p className="warning-text" role="status" id="supplement-submit-hint">
-          {live.supplementStatus && !live.dirty
-            ? live.supplementStatus
-            : readiness?.missing.length
-              ? `下一步：补充 ${readiness.missing.length} 项待填信息，点击“提交补充信息”保存并回读；加工参数修改另行提交修订。`
-              : supplementDirty
-                ? '补充信息已填齐，尚未提交。'
-                : '下一步：核对各工序的参数与资源。'}
-          <br />
-          {submitHint}
-          {!!missingTask.length && (
-            <>
-              <br />
-              请点左侧“任务共用信息 · 待填 {missingTask.length}”：
-              {missingTask.map((item) => item.parameter.name).join('、')}。
-            </>
-          )}
-          {!!missingOperations.length && (
-            <>
-              <br />
-              请点左侧“待填 {missingOperations.length} 项”定位：
-              {missingOperations
-                .map(
-                  (item) =>
-                    `${session.plan.operations.find((op) => op.id === item.operationId)?.name ?? '工序'} / ${item.parameter.name}`,
-                )
-                .join('、')}
-              。
-            </>
-          )}
-          {!session.plan.taskMeasurements?.length &&
-            ' 现场补充字段尚未由 Core 提供，请查看左侧“任务共用信息”。'}
-        </p>
-      )}
       {live && (!session || !session.resultViewed) ? (
         <LiveProgress live={live} />
       ) : caseLoad.state !== 'idle' ? (
@@ -153,27 +157,7 @@ export function ProcessPlanningPage({
       ) : session ? (
         <div className="decision-columns">
           <aside className="planning-sidebar" aria-label="任务信息与工序">
-            {(!!session.plan.taskMeasurements?.length || !!live) && (
-              <div className="task-information-entry">
-                <button
-                  className="button task-information-button"
-                  aria-pressed={session.view === 'task'}
-                  onClick={() => updateSession((current) => ({ ...current, view: 'task' }))}
-                >
-                  <span>任务共用信息</span>
-                  <span
-                    className={`input-badge ${taskMissing || (live && !session.plan.taskMeasurements?.length) ? '' : 'draft-complete'}`}
-                  >
-                    {live && !session.plan.taskMeasurements?.length
-                      ? '待接入'
-                      : taskMissing
-                        ? `待填 ${taskMissing}`
-                        : '已补齐'}
-                  </span>
-                </button>
-                <p className="muted-text">所有工序共享 · 集中填写一次</p>
-              </div>
-            )}
+            {!live && !!session.plan.taskMeasurements?.length && taskInformation}
             <div className="operation-sidebar-list">
               <div className="operation-list-heading">
                 <p className="list-heading">工序 · {session.plan.operations.length}</p>
@@ -251,37 +235,56 @@ export function ProcessPlanningPage({
         </div>
       )}
       {live && session?.resultViewed ? (
-        <footer className="planning-actions">
-          <div>
+        <footer className="planning-actions live-planning-actions">
+          <div className="live-planning-status">
             <p className="muted-text">
-              {live.dirty
-                ? [
-                    supplementDirty ? '补充信息草稿未提交' : '',
-                    parameterDirty ? '加工参数草稿未提交' : '',
-                  ]
-                    .filter(Boolean)
-                    .join('；')
-                : `当前 revision ${live.task?.current_revision} · ${live.executable ? 'Core 已返回执行资格' : '尚无匹配当前修订的执行资格'}`}
+              revision {live.task?.current_revision} ·{' '}
+              {live.executable ? '已获执行资格' : '待核对与审批'}
             </p>
-            <LiveFeedback live={live} />
+            <div className="live-status-row">
+              <details className="live-status-details">
+                <summary aria-label="查看任务状态详情" title={statusText}>
+                  <span role={live.error ? 'alert' : 'status'}>{statusText}</span>
+                </summary>
+                <div
+                  className="live-status-popover"
+                  role="region"
+                  aria-label="任务状态详情"
+                  id="supplement-submit-hint"
+                >
+                  <p>{submitHint}</p>
+                  {live.supplementStatus && <p>{live.supplementStatus}</p>}
+                  {live.admission && <p className="warning-text">{live.admission}</p>}
+                  {live.error && <p className="warning-text">{live.error}</p>}
+                  {!!missing.length && <p>通过“任务共用信息”和工序的“待填”标记定位字段。</p>}
+                </div>
+              </details>
+              {live.canRetry && (
+                <button className="button" onClick={live.retry}>
+                  重试 / 继续查询
+                </button>
+              )}
+            </div>
           </div>
-          <div>
-            <button
-              className="button"
-              disabled={
-                live.busy ||
-                live.canRetry ||
-                live.activeCam ||
-                !supplementDirty ||
-                !!readiness?.missing.length
-              }
-              aria-describedby="supplement-submit-hint"
-              title={submitHint}
-              onClick={live.submitSupplement}
-            >
-              提交补充信息
-            </button>
-            {live.supplementStatus && (
+          <div className="live-planning-controls">
+            {(!live.supplementStatus || live.dirty) && (
+              <button
+                className="button"
+                disabled={
+                  live.busy ||
+                  live.canRetry ||
+                  live.activeCam ||
+                  !supplementDirty ||
+                  !!readiness?.missing.length
+                }
+                aria-describedby="supplement-submit-hint"
+                title={submitHint}
+                onClick={live.submitSupplement}
+              >
+                提交补充信息
+              </button>
+            )}
+            {live.supplementStatus && !live.dirty && (
               <button
                 className="button"
                 disabled={live.dirty || live.busy || live.canRetry || live.activeCam}
@@ -290,8 +293,8 @@ export function ProcessPlanningPage({
                 根据补充信息重新规划
               </button>
             )}
-            <label>
-              审核人 ID（声明）
+            <label className="live-reviewer-field">
+              <span>审核人 ID（声明）</span>
               <input
                 aria-label="审核人 ID"
                 value={live.reviewer}

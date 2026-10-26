@@ -26,18 +26,15 @@ export function TaskMeasurements({
         </p>
       </header>
       <div className="detail-scroll" tabIndex={0} role="region" aria-label="任务共用现场信息">
-        <section>
-          <p className="warning-text">
-            {plan.origin === 'live'
-              ? '现场信息草稿；填写后点击“提交补充信息”。保存回读不代表已应用到 CAM 或完成制造校核。'
-              : '本地演示草稿，未提交服务器，未完成制造校核。'}
-          </p>
-          <p className="muted-text">
-            {plan.origin === 'live'
-              ? '沿用 Golden-B7 原型的现场采集清单。工序专用要求请通过左侧“待填”标记定位；请依据实际测量或图纸填写。'
-              : '以下必填项为 Demo 填写门槛，尚未定义正式制造必填清单。工序专用信息请查看左侧“待填”标记。'}
-          </p>
-        </section>
+        {plan.origin !== 'live' && (
+          <section>
+            <p className="warning-text">本地演示草稿，未提交服务器，未完成制造校核。</p>
+            <p className="muted-text">
+              以下必填项为 Demo
+              填写门槛，尚未定义正式制造必填清单。工序专用信息请查看左侧“待填”标记。
+            </p>
+          </section>
+        )}
         <ParameterFields
           operationId={plan.id}
           section="task"

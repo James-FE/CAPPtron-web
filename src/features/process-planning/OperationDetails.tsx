@@ -162,7 +162,9 @@ export function OperationDetails({
               </p>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
-                  共用字段已集中到左侧“任务共用信息”，本页只展示当前工序专用信息。
+                  {plan.origin === 'live'
+                    ? '共用字段请在右上角“任务共用信息”填写，本页只展示当前工序专用信息。'
+                    : '共用字段已集中到左侧“任务共用信息”，本页只展示当前工序专用信息。'}
                 </p>
               )}
             </section>

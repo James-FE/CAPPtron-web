@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ModelSelection } from './modelInput'
 import type { LiveWorkflow } from '../core/useLiveWorkflow'
 import { LiveFeedback } from '../core/LiveProgress'
@@ -11,6 +12,7 @@ export function InputPreparationPanel({
   live?: LiveWorkflow
   onPlan?: () => void
 }) {
+  const [restoreOpen, setRestoreOpen] = useState(false)
   const modelStatus =
     selection.kind === 'local'
       ? '本地已选择，尚未上传或解析'
@@ -19,7 +21,84 @@ export function InputPreparationPanel({
         : '待选择'
   return (
     <section className="input-preparation" aria-labelledby="preparation-title">
-      <h3 id="preparation-title">输入准备</h3>
+      <div className="input-preparation-heading">
+        <h3 id="preparation-title">输入准备</h3>
+        {live && (
+          <details
+            className="input-restore"
+            open={restoreOpen}
+            onToggle={(event) => setRestoreOpen(event.currentTarget.open)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setRestoreOpen(false)
+                event.currentTarget.querySelector('summary')?.focus()
+              }
+            }}
+          >
+            <summary>恢复已有输入 / 任务</summary>
+            <div className="input-restore-panel" role="region" aria-label="恢复已有输入或任务">
+              <fieldset>
+                <legend>复用已解析的模型</legend>
+                <label>
+                  资产 ID
+                  <input
+                    aria-label="恢复资产 ID"
+                    value={live.restoreAssetId}
+                    onChange={(event) => live.setRestoreAssetId(event.target.value)}
+                  />
+                </label>
+                <label>
+                  解析命令 ID
+                  <input
+                    aria-label="恢复解析命令 ID"
+                    value={live.restoreParseId}
+                    onChange={(event) => live.setRestoreParseId(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="button"
+                  disabled={
+                    live.busy ||
+                    live.canRetry ||
+                    live.dirty ||
+                    live.activeCam ||
+                    !live.restoreAssetId.trim() ||
+                    !live.restoreParseId.trim()
+                  }
+                  onClick={live.restoreParsedInput}
+                >
+                  复用已验证解析
+                </button>
+              </fieldset>
+              <fieldset>
+                <legend>恢复已有任务</legend>
+                <label>
+                  任务 ID
+                  <input
+                    aria-label="恢复任务 ID"
+                    value={live.restoreTaskId}
+                    onChange={(event) => live.setRestoreTaskId(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="button"
+                  disabled={
+                    live.busy ||
+                    live.canRetry ||
+                    live.dirty ||
+                    live.activeCam ||
+                    !live.restoreTaskId.trim()
+                  }
+                  onClick={live.restoreKnownTask}
+                >
+                  查询已有任务与 CAM
+                </button>
+              </fieldset>
+              {restoreOpen && <LiveFeedback live={live} />}
+            </div>
+          </details>
+        )}
+      </div>
       <dl className="preparation-items">
         <div>
           <dt>模型 / 图纸</dt>
@@ -42,7 +121,7 @@ export function InputPreparationPanel({
       </dl>
       {live ? (
         <>
-          <p className="preparation-note">Core 真实模式 · 上传、解析、规划分别确认</p>
+          <p className="preparation-note">Core 真实模式 · 解析完成后进入工艺规划</p>
           <button
             className="button"
             disabled={selection.kind !== 'local' || live.busy || live.canRetry || !!live.asset}
@@ -66,67 +145,14 @@ export function InputPreparationPanel({
           >
             创建任务并规划
           </button>
-          <details>
-            <summary>恢复已有输入 / 任务</summary>
-            <label>
-              资产 ID
-              <input
-                aria-label="恢复资产 ID"
-                value={live.restoreAssetId}
-                onChange={(event) => live.setRestoreAssetId(event.target.value)}
-              />
-            </label>
-            <label>
-              解析命令 ID
-              <input
-                aria-label="恢复解析命令 ID"
-                value={live.restoreParseId}
-                onChange={(event) => live.setRestoreParseId(event.target.value)}
-              />
-            </label>
-            <button
-              className="button"
-              disabled={
-                live.busy ||
-                live.canRetry ||
-                live.dirty ||
-                live.activeCam ||
-                !live.restoreAssetId.trim() ||
-                !live.restoreParseId.trim()
-              }
-              onClick={live.restoreParsedInput}
-            >
-              复用已验证解析
-            </button>
-            <label>
-              任务 ID
-              <input
-                aria-label="恢复任务 ID"
-                value={live.restoreTaskId}
-                onChange={(event) => live.setRestoreTaskId(event.target.value)}
-              />
-            </label>
-            <button
-              className="button"
-              disabled={
-                live.busy ||
-                live.canRetry ||
-                live.dirty ||
-                live.activeCam ||
-                !live.restoreTaskId.trim()
-              }
-              onClick={live.restoreKnownTask}
-            >
-              查询已有任务与 CAM
-            </button>
-          </details>
+
           {live.recovered && live.parsed && (
             <p className="muted-text">
               复用已验证解析 · {live.parsed.command_id} · 报告 SHA-256{' '}
               {live.parsed.report_sha256 ?? '未提供'}（运输摘要）
             </p>
           )}
-          <LiveFeedback live={live} />
+          {!restoreOpen && <LiveFeedback live={live} />}
         </>
       ) : (
         <p className="preparation-note">

@@ -154,6 +154,7 @@ test('reference_only 缺匹配证据仍可读工序，批准和执行均阻断',
   await startPlanning(page)
   await openPlan(page)
   await page.getByLabel('审核人 ID', { exact: true }).fill('test-reviewer')
+  await page.getByLabel('查看任务状态详情').click()
   await expect(page.getByText(/方案仅供参考/)).toBeVisible()
   await expect(page.getByRole('button', { name: '批准当前工艺卡' })).toBeDisabled()
   await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
@@ -208,10 +209,12 @@ test('解析后进入02；补充字段可填、待填定位、提交回读', asy
   await expect(page.getByRole('region', { name: '输入处理进度' })).toHaveCount(0)
   await expect(page.getByRole('region', { name: '工艺规划真实进度' })).toBeVisible()
   await openPlan(page)
-  await expect(page.getByText('下一步：补充 6 项待填信息', { exact: false })).toBeVisible()
+  await expect(page.getByText('待补充 6 项', { exact: true })).toBeVisible()
+  await page.getByLabel('查看任务状态详情').click()
   await expect(
     page.getByText('提交补充信息暂不可用：还有 6 项未填或格式无效。', { exact: false }),
   ).toBeVisible()
+  await page.getByLabel('查看任务状态详情').click()
   await expect(page.getByRole('button', { name: '提交参数修订', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: '任务共用信息 待填 5' }).click()
   await expect(page.getByRole('region', { name: '任务共用信息详情' })).toBeVisible()
@@ -229,9 +232,11 @@ test('解析后进入02；补充字段可填、待填定位、提交回读', asy
   await page.getByRole('textbox', { name: '内孔表面粗糙度要求 Ra', exact: true }).fill('1.6')
   await page.getByRole('button', { name: '提交补充信息', exact: true }).click()
   await page.getByRole('button', { name: '重试 / 继续查询', exact: true }).click()
-  await expect(
-    page.getByText('现场信息已提交并回读；未应用到 CAM，需重新核对工艺与审批。'),
-  ).toBeVisible()
+  await expect(page.getByText('现场信息已回读 · 未应用到 CAM', { exact: true })).toBeVisible()
+  const actions = await page.locator('.live-planning-actions').boundingBox()
+  expect(actions!.height).toBeLessThanOrEqual(56)
+  await expect(page.getByRole('button', { name: '提交补充信息', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '根据补充信息重新规划' })).toBeEnabled()
   await page.reload()
   await page.getByRole('button', { name: '切换真实联调' }).click()
   await page.getByRole('button', { name: '02 工艺决策' }).click()

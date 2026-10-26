@@ -697,8 +697,23 @@ export function useLiveWorkflow(file?: File) {
         cam.plan_ref?.revision !== state.task?.current_revision
       )
         throw new Error('CAM 运行与当前任务修订不匹配')
-      if (cam.allowed_actions.includes('observe') && ['accepted', 'running'].includes(cam.status))
-        cam = await api.observe<CamRun>(id)
+      if (cam.allowed_actions.includes('observe') && ['accepted', 'running'].includes(cam.status)) {
+        try {
+          cam = await api.observe<CamRun>(id)
+        } catch (error) {
+          if (!(error instanceof CoreHttpError) || error.status !== 409 || error.code !== 8302)
+            throw error
+          // observe 前运行可能已完成；只读原身份确认终态，不能重发 CAM。
+          const latest = await api.get<CamRun>(`/cam/runs/${encodeURIComponent(id)}`)
+          if (
+            latest.cam_run_id !== id ||
+            !samePlanRef(latest.plan_ref, cam.plan_ref) ||
+            !['succeeded', 'failed', 'cancelled'].includes(latest.status)
+          )
+            throw error
+          cam = latest
+        }
+      }
       update({ cam, status: `CAM · ${cam.status} / ${cam.phase}` })
       if (!['accepted', 'running'].includes(cam.status)) {
         if (cam.status === 'succeeded') await readNc(context, cam)

@@ -213,3 +213,93 @@ describe('刷新后恢复原写意图', () => {
     expect(fetcher).not.toHaveBeenCalled()
   })
 })
+
+describe('CAM observe 与终态完成的竞态', () => {
+  async function pollingCase(code: number, status: string, wrongIdentity = false) {
+    const config = {
+      schema_version: 'frontend-integration.v1',
+      templates: [
+        {
+          template: fixture.deployment.template,
+          execution_profile_id: fixture.approved.execution_profile_id,
+          matching_evidence: fixture.plan.payload.extensions.matching_evidence,
+          operations: fixture.plan.payload.operations.map((op) => ({
+            ...op,
+            parameter_metadata:
+              'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
+          })),
+          parameter_rules: fixture.plan.payload.extensions.parameter_rules,
+        },
+      ],
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(config))
+    const digest = Array.from(
+      new Uint8Array(await webcrypto.subtle.digest('SHA-256', bytes)),
+      (value) => value.toString(16).padStart(2, '0'),
+    ).join('')
+    vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '/config')
+    vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', digest)
+    localStorage.setItem(
+      'capptron.core.workflow.v1.' + encodeURIComponent('|' + digest),
+      JSON.stringify({ task_id: fixture.task.task_id, cam_run_id: fixture.cam.cam_run_id }),
+    )
+    let camGets = 0
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/config') return new Response(bytes)
+      if (url.endsWith('/observe'))
+        return new Response(
+          JSON.stringify({
+            error: { code, message: 'workflow conflict' },
+            request_id: 'race-request',
+          }),
+          { status: 409 },
+        )
+      let value: unknown
+      if (url.endsWith('/cam/runs/cam-1')) {
+        camGets++
+        value =
+          camGets <= 2
+            ? { ...fixture.cam, status: 'running', allowed_actions: ['observe'] }
+            : { ...fixture.cam, status, cam_run_id: wrongIdentity ? 'other-run' : 'cam-1' }
+      } else if (url.endsWith('/nc/versions/1')) value = fixture.nc
+      else if (url.includes('/file?'))
+        value = fixture.files.find(
+          (file) => file.file_id === new URL(url, 'http://core').searchParams.get('file_id'),
+        )
+      else if (url.endsWith('/feedback')) value = { feedback_version: 0, items: [] }
+      else if (url.includes('/cam/tasks/')) value = fixture.approved
+      else if (url.includes('/process-cards/')) value = fixture.card
+      else if (url.includes('/results/')) value = fixture.plan
+      else if (url.includes('/runs/')) value = fixture.run
+      else value = fixture.task
+      void init
+      return new Response(JSON.stringify(value))
+    })
+    vi.stubGlobal('fetch', fetcher)
+    const hook = renderHook(() => useLiveWorkflow())
+    await waitFor(() => expect(hook.result.current.plan?.revision).toBe(1))
+    await waitFor(() => expect(hook.result.current.busy).toBe(false))
+    act(() => hook.result.current.refreshCam())
+    await waitFor(() => expect(hook.result.current.busy).toBe(false))
+    return { ...hook, fetcher, camGets: () => camGets }
+  }
+  it('409/8302后只回读同run终态并展示原NC，不重新启动CAM', async () => {
+    const { result, fetcher, camGets } = await pollingCase(8302, 'succeeded')
+    expect(result.current.error).toBe('')
+    expect(result.current.nc?.ref).toEqual(fixture.nc.ref)
+    expect(result.current.files?.[0]?.text).toEqual(fixture.files[0]?.text)
+    expect(camGets()).toBe(3)
+    const writes = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(writes.map(([url]) => url)).toEqual(['/cam/runs/cam-1/observe'])
+  })
+  it.each([
+    [8302, 'running', false],
+    [8301, 'succeeded', false],
+    [8302, 'succeeded', true],
+  ])('冲突%s但状态%s或身份变化%s仍报错', async (code, status, wrongIdentity) => {
+    const { result, camGets } = await pollingCase(code, status, wrongIdentity)
+    expect(result.current.error).toContain(`409 · ${code}`)
+    expect(result.current.nc).toBeUndefined()
+    expect(camGets()).toBe(code === 8302 ? 3 : 2)
+  })
+})

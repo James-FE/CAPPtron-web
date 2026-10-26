@@ -131,6 +131,7 @@ export const cardPath = (task: string, revision: number) => {
 }
 export class CoreHttpError extends Error {
   readonly confirmed: boolean
+  readonly code?: number
   constructor(
     readonly status: number,
     detail: string,
@@ -138,18 +139,21 @@ export class CoreHttpError extends Error {
   ) {
     let message = `Core HTTP ${status}`
     let confirmed = false
+    let code: number | undefined
     try {
       const data = JSON.parse(detail)
       confirmed =
         typeof data.error?.code === 'number' &&
         typeof data.error?.message === 'string' &&
         !!data.request_id
+      if (confirmed) code = data.error.code
       message += ` · ${data.error?.code ?? 'request_failed'} · ${data.error?.message ?? '请求失败'} · request ${data.request_id ?? '未知'}`
     } catch {
       message += ' · 无有效 Core 错误回执，操作结果待查询'
     }
     super(message)
     this.confirmed = confirmed
+    this.code = code
   }
 }
 export class CoreClient {

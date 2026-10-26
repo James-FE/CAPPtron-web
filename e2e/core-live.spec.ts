@@ -80,7 +80,7 @@ test('completed 但交付 pending 不解锁', async ({ page }) => {
   await expect(page.getByRole('button', { name: '查看工艺规划结果' })).toBeEnabled()
 })
 
-test('规划失败不解锁且终止轮询', async ({ page }) => {
+test('规划失败不解锁且终止轮询', async ({ page }, info) => {
   const core = await coreFixture(page, { failed: true })
   await startPlanning(page)
   await expect(page.getByRole('heading', { name: '规划失败' })).toBeVisible()

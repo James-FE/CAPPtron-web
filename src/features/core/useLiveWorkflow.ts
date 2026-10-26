@@ -454,14 +454,19 @@ export function useLiveWorkflow(file?: File) {
           card,
           approved,
           status: '工艺方案已就绪',
-          supplementStatus: recorded
-            ? '现场信息已从服务端回读；未应用到 CAM，仍需工程核对。'
-            : undefined,
+          supplementStatus:
+            plan.payload.extensions.onsite_input_application?.status === 'applied_to_plan'
+              ? '补充信息已应用到当前工艺修订并回读；CAM 映射尚未完成。'
+              : recorded
+                ? '现场信息已从服务端回读；未应用到 CAM，仍需工程核对。'
+                : undefined,
           admission: current.needs_replan
             ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
-            : blocked
-              ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
-              : undefined,
+            : plan.payload.extensions.onsite_input_application?.reason
+              ? plan.payload.extensions.onsite_input_application.reason
+              : blocked
+                ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+                : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,
@@ -525,21 +530,62 @@ export function useLiveWorkflow(file?: File) {
       setState((s) => ({ ...s, error: String(error) }))
       return
     }
+    const deployment = state.deployment
+    if (!deployment) return
+    const supplementKeys = new Set(supplementFields(session.plan).map(({ key }) => key))
+    const retainedDrafts = Object.fromEntries(
+      Object.entries(session.drafts).filter(([key]) => !supplementKeys.has(key)),
+    )
     const feedbackId = uuid()
+    const command = uuid()
+    let run: PlanningRun | undefined
+    let saved = false
     const body = {
       feedback_id: feedbackId,
       expected_feedback_version: task.feedback_version,
       base_revision: task.current_revision,
       kind: 'onsite_record',
-      supplement_schema_version: supplementSchema,
+      supplement_schema_version: session.plan.supplementSchema ?? supplementSchema,
       supplement: { values },
       text: '人工现场信息记录，未自动应用到 CAM；需独立工程核对。',
     }
-    void act(async ({ api, update }) => {
-      await api.post(`${path(task)}/feedback`, body)
+    void act(async (context) => {
+      const { api, update } = context
+      if (!saved) {
+        await api.post(`${path(task)}/feedback`, body)
+        saved = true
+      }
       const list = await api.get<SupplementList>(`${path(task)}/feedback`)
       if (!list.items.some((x) => x.feedback_id === feedbackId && x.status === 'active'))
         throw new Error('现场信息回读未确认，请继续查询')
+      if (body.supplement_schema_version === 'template-onsite-input-v2') {
+        update({
+          approved: undefined,
+          card: undefined,
+          cam: undefined,
+          nc: undefined,
+          files: undefined,
+          task: { ...task, feedback_version: list.feedback_version },
+          supplementStatus: '输入已保存，正在生成工艺修订；尚未应用到 CAM。',
+        })
+        run ??= await api.post<PlanningRun>(`${path(task)}/replan`, {
+          command_id: command,
+          base_revision: task.current_revision,
+          expected_feedback_version: list.feedback_version,
+        })
+        await readPlan(context, task, run, deployment)
+        context.signal.throwIfAborted()
+        journal.current!.update({ drafts: retainedDrafts })
+        setState((s) =>
+          s.task?.task_id === task.task_id && s.session
+            ? {
+                ...s,
+                session: { ...s.session, drafts: { ...s.session.drafts, ...retainedDrafts } },
+              }
+            : s,
+        )
+        return
+      }
       const plan = structuredClone(session.plan)
       applySupplement(plan, list)
       const drafts = { ...session.drafts }

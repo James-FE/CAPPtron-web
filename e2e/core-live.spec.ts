@@ -293,3 +293,46 @@ test('已交付但needs_replan的工艺可查看，不能批准或执行且不�
   await page.waitForTimeout(1000)
   expect(core.counts().runGets).toBe(count)
 })
+
+test('模板默认值到补充信息修订，原入口保存后自动回读新版本', async ({ page }, info) => {
+  const core = await coreFixture(page, { onsiteV2: true, lostSupplementReceipt: true })
+  await startPlanning(page)
+  await openPlan(page)
+  await page
+    .getByRole('navigation', { name: '工序列表' })
+    .getByRole('button')
+    .filter({ hasText: '外圆粗车' })
+    .click()
+  await page.getByRole('button', { name: '参数与资源', exact: true }).click()
+  await page.getByLabel('粗车参数 rough_step').selectOption('0.4')
+  await page.getByRole('button', { name: /任务共用信息 待填/ }).click()
+  await expect(page.getByRole('textbox', { name: '现场毛坯外径', exact: true })).toHaveValue('150')
+  await page.getByRole('textbox', { name: '现场毛坯外径', exact: true }).fill('160')
+  await page
+    .getByRole('textbox', { name: '工件零点 / 偏置核对', exact: true })
+    .fill('G55，端面零点')
+  await page
+    .getByRole('textbox', { name: '装夹方式与夹具核对', exact: true })
+    .fill('三爪，伸出30mm')
+  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await page.getByRole('textbox', { name: '内孔表面粗糙度要求 Ra', exact: true }).fill('1.6')
+  await page.getByRole('button', { name: '提交补充信息', exact: true }).click()
+  await page.getByRole('button', { name: '重试 / 继续查询', exact: true }).click()
+  await openPlan(page)
+  await expect(page.getByText('工艺输入已修订，CAM 映射待验证。')).toBeVisible()
+  const replans = core.commands.filter((c) => c.path.endsWith('/replan'))
+  expect(replans).toHaveLength(2)
+  expect(replans[1]?.body.parameter_patch).toBeUndefined()
+  await page.getByRole('button', { name: '任务共用信息 已补齐' }).click()
+  await expect(page.getByRole('textbox', { name: '现场毛坯外径', exact: true })).toHaveValue('160')
+  const journal = await page.evaluate(() =>
+    Object.values(localStorage).map((value) => JSON.parse(value)),
+  )
+  expect(
+    journal.some(
+      (entry) =>
+        entry.drafts?.[JSON.stringify(['ring-op-2', 'parameters', 'rough_step'])] === '0.4',
+    ),
+  ).toBe(true)
+  await shot(page, info, 'onsite-v2-revision')
+})

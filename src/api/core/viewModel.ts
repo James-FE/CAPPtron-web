@@ -91,7 +91,7 @@ export function toProcessPlan(plan: LivePlan, deployment: Deployment): ProcessPl
       })),
     })),
   }
-  attachSupplementFields(model, ext.template.id)
+  attachSupplementFields(model, ext.template.id, ext.supplement_contract)
   return model
 }
 export function parameterChanges(plan: ProcessPlan, drafts: Drafts) {

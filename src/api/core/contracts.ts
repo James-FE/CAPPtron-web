@@ -1,4 +1,5 @@
 import type { PlanRef, NcRef } from './client'
+import type { SupplementContract } from './supplement'
 
 export type PlanningRun = {
   task_id: string
@@ -52,6 +53,8 @@ export type LivePlan = {
       steps: { id: string; sequence: number; content: string; attributes?: Attributes }[]
     }[]
     extensions: {
+      supplement_contract?: SupplementContract
+      onsite_input_application?: { status: string; reason: string; cam_applied: boolean }
       verified_part?: { outer_diameter_mm: number; inner_diameter_mm: number; thickness_mm: number }
       template: { id: string; version: string; digest: string }
       plan_digest: string

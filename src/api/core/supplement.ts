@@ -15,7 +15,42 @@ const field = (id: string, name: string, unit?: string): Parameter => ({
   inputKind: unit ? 'number' : 'text',
   description: '人工现场记录；提交后保存到任务反馈，不自动应用到 CAM。',
 })
-export function attachSupplementFields(plan: ProcessPlan, templateId: string) {
+export type SupplementContract = {
+  schema_version: 'template-onsite-input-v2'
+  task_fields: {
+    id: string
+    name: string
+    value: number | string | null
+    unit?: string | null
+    inputKind: 'number' | 'text'
+    description?: string
+  }[]
+  operation_fields: Record<string, SupplementContract['task_fields']>
+}
+export function attachSupplementFields(
+  plan: ProcessPlan,
+  templateId: string,
+  contract?: SupplementContract,
+) {
+  if (contract) {
+    if (contract.schema_version !== 'template-onsite-input-v2')
+      throw new Error('不支持的补充信息协议')
+    const map = (p: SupplementContract['task_fields'][number]): Parameter => ({
+      ...p,
+      unit: p.unit ?? undefined,
+      editable: true,
+      required: true,
+      source: p.value == null ? 'unknown' : 'upstream',
+      status: p.value == null ? 'missing' : 'pending',
+      description: `${p.value == null ? '待填写' : '模板预设，提交时确认'} · ${p.description ?? ''}`,
+    })
+    plan.supplementSchema = contract.schema_version
+    plan.taskMeasurements = contract.task_fields.map(map)
+    for (const op of plan.operations)
+      op.onsiteMeasurements = (contract.operation_fields[op.id] ?? []).map(map)
+    return
+  }
+  plan.supplementSchema = supplementSchema
   if (templateId !== 'golden-b7') return
   plan.taskMeasurements = [
     field('stock-od', '现场毛坯外径', 'mm'),
@@ -74,7 +109,11 @@ export type SupplementList = {
 }
 export function applySupplement(plan: ProcessPlan, list: SupplementList) {
   const latest = list.items
-    .filter((x) => x.status === 'active' && x.supplement_schema_version === supplementSchema)
+    .filter(
+      (x) =>
+        x.status === 'active' &&
+        x.supplement_schema_version === (plan.supplementSchema ?? supplementSchema),
+    )
     .sort((a, b) => b.expected_feedback_version - a.expected_feedback_version)[0]
   if (!latest) return false
   for (const { key, p } of supplementFields(plan)) {

@@ -39,6 +39,7 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    onsiteV2?: boolean
     needsReplan?: boolean
     lostSupplementReceipt?: boolean
     parseDelay?: number
@@ -219,6 +220,54 @@ export async function coreFixture(
         plan.payload.extensions.reference_only = true
         plan.payload.extensions.execution_ready = false
         delete (plan.payload.extensions as { matching_evidence?: unknown }).matching_evidence
+      }
+      if (options.onsiteV2) {
+        Object.assign(plan.payload.extensions, {
+          supplement_contract: {
+            schema_version: 'template-onsite-input-v2',
+            task_fields: [
+              { id: 'stock-od', name: '现场毛坯外径', value: 150, unit: 'mm', inputKind: 'number' },
+              {
+                id: 'stock-id',
+                name: '现场毛坯预孔直径',
+                value: 0,
+                unit: 'mm',
+                inputKind: 'number',
+              },
+              {
+                id: 'stock-length',
+                name: '现场毛坯长度',
+                value: 150,
+                unit: 'mm',
+                inputKind: 'number',
+              },
+              { id: 'work-offset', name: '工件零点 / 偏置核对', value: null, inputKind: 'text' },
+              { id: 'fixture', name: '装夹方式与夹具核对', value: null, inputKind: 'text' },
+            ],
+            operation_fields: {
+              'ring-op-5': [
+                {
+                  id: 'bore-surface-ra',
+                  name: '内孔表面粗糙度要求 Ra',
+                  value: null,
+                  unit: 'μm',
+                  inputKind: 'number',
+                },
+              ],
+            },
+          },
+          ...(revision > 1
+            ? {
+                reference_only: true,
+                execution_ready: false,
+                onsite_input_application: {
+                  status: 'applied_to_plan',
+                  cam_applied: false,
+                  reason: '工艺输入已修订，CAM 映射待验证。',
+                },
+              }
+            : {}),
+        })
       }
       plan.revision = revision
       plan.run_id = `planning-${revision}`

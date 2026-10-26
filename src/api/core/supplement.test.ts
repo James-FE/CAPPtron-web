@@ -56,3 +56,27 @@ it('Golden字段缺失、非法数值不能提交；服务端记录回读不改C
   expect(plan.taskMeasurements?.[0]?.source).toBe('human')
   expect(plan.operations[0]?.onsiteMeasurements[0]?.value).toBe('1.6')
 })
+it('服务端模板默认值预填但仍保留未知Ra和来源', () => {
+  const plan = model()
+  attachSupplementFields(plan, 'golden-b7', {
+    schema_version: 'template-onsite-input-v2',
+    task_fields: [
+      {
+        id: 'stock-od',
+        name: '毛坯外径',
+        value: 150,
+        unit: 'mm',
+        inputKind: 'number',
+        description: '模板回读',
+      },
+    ],
+    operation_fields: {
+      'ring-op-5': [
+        { id: 'bore-surface-ra', name: 'Ra', value: null, unit: 'μm', inputKind: 'number' },
+      ],
+    },
+  })
+  expect(plan.taskMeasurements?.[0]?.value).toBe(150)
+  expect(plan.taskMeasurements?.[0]?.source).toBe('upstream')
+  expect(plan.operations[0]?.onsiteMeasurements[0]?.value).toBeNull()
+})

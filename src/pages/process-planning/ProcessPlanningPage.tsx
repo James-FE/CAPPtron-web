@@ -1,3 +1,4 @@
+import { draftKey, validateDraft } from '../../features/process-planning/processPlan'
 import { supplementFields } from '../../api/core/supplement'
 import { PlanningSourceSelector } from '../../features/process-planning/PlanningSourceSelector'
 import { OperationDetails } from '../../features/process-planning/OperationDetails'
@@ -23,8 +24,7 @@ export function ProcessPlanningPage({
     operation,
     readiness,
     taskMissing,
-    operationMissing,
-    operationPending,
+    operationMissing: requiredOperationMissing,
     fieldView,
     selectedButtonRef,
     updateSession,
@@ -37,6 +37,50 @@ export function ProcessPlanningPage({
     setCaseLoad,
     setCaseRequest,
   } = workflow
+  const parameterAttention = (session?.plan.operations ?? []).flatMap((item) =>
+    [
+      { section: 'parameters', parameters: item.parameters },
+      ...item.steps.map((step) => ({ section: `step-${step.id}`, parameters: step.parameters })),
+    ].flatMap(({ section, parameters }) =>
+      parameters
+        .filter((parameter) => parameter.editable)
+        .flatMap((parameter) => {
+          const draft = session?.drafts[draftKey(item.id, section, parameter.id)]
+          const value = draft ?? String(parameter.value ?? '')
+          const status = !value.trim()
+            ? '待填'
+            : validateDraft(parameter, value)
+              ? '待修正'
+              : draft !== undefined
+                ? '待提交'
+                : parameter.source !== 'human'
+                  ? '待核对'
+                  : null
+          return status ? [{ operationId: item.id, section, parameter, status }] : []
+        }),
+    ),
+  )
+  const operationMissing = [
+    ...requiredOperationMissing,
+    ...parameterAttention.filter(
+      (item) =>
+        (item.status === '待填' || item.status === '待修正') &&
+        !requiredOperationMissing.some(
+          (required) =>
+            required.operationId === item.operationId &&
+            required.section === item.section &&
+            required.parameter.id === item.parameter.id,
+        ),
+    ),
+  ]
+  function operationBadge(id: string) {
+    const missing = operationMissing.filter((item) => item.operationId === id)
+    if (missing.length) return `待填 ${missing.length}`
+    const attention = parameterAttention.filter((item) => item.operationId === id)
+    const status = attention.some((item) => item.status === '待提交') ? '待提交' : '待核对'
+    const count = attention.filter((item) => item.status === status).length
+    return count ? `${status} ${count}` : null
+  }
   const supplementalKeys = new Set(
     session ? supplementFields(session.plan).map(({ key }) => key) : [],
   )
@@ -54,8 +98,9 @@ export function ProcessPlanningPage({
           : !live?.dirty
             ? '修改加工参数或现场信息后，提交修改并重新规划。'
             : '提交修改并重新规划；现场信息将先保存并回读。'
+  const totalMissing = taskMissing + operationMissing.length
   const taskInformation = session && (
-    <div className={live ? 'live-task-entry' : 'task-information-entry'}>
+    <>
       <button
         className="button task-information-button"
         aria-pressed={session.view === 'task'}
@@ -72,8 +117,7 @@ export function ProcessPlanningPage({
               : '已补齐'}
         </span>
       </button>
-      {!live && <p className="muted-text">所有工序共享 · 集中填写一次</p>}
-    </div>
+    </>
   )
   const statusText = live?.error
     ? live.error
@@ -94,23 +138,18 @@ export function ProcessPlanningPage({
     <section
       className={`process-planning-page${live ? ' live-planning-page' : ''}`}
       hidden={!active}
-      aria-labelledby="planning-title"
+      aria-label="工艺决策"
     >
-      <header className="planning-heading">
-        <div>
-          <h2 id="planning-title">工艺决策</h2>
-          <p className="page-subtitle">工艺规划 · 参数推荐 · 生产资源匹配</p>
-        </div>
-        {live && session?.resultViewed && taskInformation}
-        {!live && (
+      {!live && (
+        <header className="planning-heading">
           <PlanningSourceSelector
             active={active}
             choice={demoChoice}
             onChoice={setDemoChoice}
             onLoad={loadDemo}
           />
-        )}
-      </header>
+        </header>
+      )}
       <p className="plan-source">
         {session
           ? `${session.plan.partName} · ${session.plan.sourceDescription}`
@@ -160,15 +199,18 @@ export function ProcessPlanningPage({
       ) : session ? (
         <div className="decision-columns">
           <aside className="planning-sidebar" aria-label="任务信息与工序">
-            {!live && !!session.plan.taskMeasurements?.length && taskInformation}
             <div className="operation-sidebar-list">
               <div className="operation-list-heading">
                 <p className="list-heading">工序 · {session.plan.operations.length}</p>
-                {!!operationMissing.length && (
+                {!!totalMissing && (
                   <button
                     className="button pending-operation-jump"
-                    aria-label={`定位待填工序，${operationMissing.length} 项`}
+                    aria-label={`定位待填信息，${totalMissing} 项`}
                     onClick={() => {
+                      if (taskMissing) {
+                        updateSession((current) => ({ ...current, view: 'task' }))
+                        return
+                      }
                       const next = operationMissing[0]!
                       updateSession((current) => ({
                         ...current,
@@ -177,11 +219,12 @@ export function ProcessPlanningPage({
                       }))
                     }}
                   >
-                    待填 {operationMissing.length} 项 ↓
+                    待填 {totalMissing} 项 ↓
                   </button>
                 )}
               </div>
               <nav className="operation-list" aria-label="工序列表">
+                {(live || !!session.plan.taskMeasurements?.length) && taskInformation}
                 {!session.plan.operations.length && <p className="muted-text">当前方案没有工序</p>}
                 {session.plan.operations.map((item) => (
                   <button
@@ -192,15 +235,13 @@ export function ProcessPlanningPage({
                     aria-pressed={session.view !== 'task' && operation?.id === item.id}
                     onClick={() => selectOperation(item.id)}
                     title={
-                      operationPending(item.id).length
-                        ? `有 ${operationPending(item.id).length} 项工序专用必填信息需要补充或修正`
-                        : undefined
+                      operationBadge(item.id) ? `当前工序${operationBadge(item.id)}` : undefined
                     }
                   >
                     <span>{String(item.sequence).padStart(2, '0')}</span>
                     <span>{item.name}</span>
-                    {!!operationPending(item.id).length && (
-                      <span className="input-badge">待填 {operationPending(item.id).length}</span>
+                    {operationBadge(item.id) && (
+                      <span className="input-badge">{operationBadge(item.id)}</span>
                     )}
                   </button>
                 ))}

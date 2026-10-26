@@ -85,7 +85,7 @@ export function OperationDetails({
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
                   另有 {plan.taskMeasurements.length} 项任务共用现场信息，请从
-                  {plan.origin === 'live' ? '右上角' : '左侧'}“任务共用信息”集中填写。
+                  左侧“任务共用信息”集中填写。
                 </p>
               )}
               <p className="warning-text">
@@ -173,7 +173,7 @@ export function OperationDetails({
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
                   {plan.origin === 'live'
-                    ? '共用字段请在右上角“任务共用信息”填写，本页只展示当前工序专用信息。'
+                    ? '共用字段请在左侧“任务共用信息”填写，本页只展示当前工序专用信息。'
                     : '共用字段已集中到左侧“任务共用信息”，本页只展示当前工序专用信息。'}
                 </p>
               )}

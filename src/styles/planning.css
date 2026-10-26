@@ -220,8 +220,12 @@
   margin-top: 8px;
   font-size: 12px;
 }
-.task-information-button {
+.button.task-information-button {
   width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  min-height: 40px;
+  line-height: 20px;
   justify-content: space-between;
   gap: 8px;
 }
@@ -692,14 +696,6 @@
   .agent-drawer {
     padding: 20px;
   }
-}
-/* Live 增量入口复用标题与底栏，不占用工序正文高度。 */
-.live-task-entry {
-  flex-shrink: 0;
-}
-.live-task-entry .task-information-button {
-  width: auto;
-  gap: 16px;
 }
 .live-planning-page .operation-list-heading {
   padding-block: 8px;

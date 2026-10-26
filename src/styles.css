@@ -222,7 +222,7 @@ button:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
   gap: 48px;
-  margin-top: 40px;
+  margin-top: 0;
   flex: 1;
   max-height: 520px;
 }
@@ -385,7 +385,7 @@ button:focus-visible {
   .model-input-columns {
     grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr);
     gap: 36px;
-    margin-top: 32px;
+    margin-top: 0;
   }
   .file-summary {
     flex-wrap: wrap;
@@ -517,13 +517,11 @@ button:focus-visible {
   gap: 16px;
 }
 .simulation-scenario {
-  position: absolute;
-  top: 0;
-  right: 0;
+  align-self: flex-end;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0;
+  margin: 0 0 16px;
   font-size: 14px;
 }
 .simulation-scenario select {

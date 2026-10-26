@@ -84,7 +84,7 @@ function LiveProgramReview({
   return (
     <section
       className={`program-review-page${expanded ? ' code-expanded' : ''}`}
-      aria-labelledby="review-title"
+      aria-label="程序审核"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !confirmation) {
           setExpanded(false)
@@ -92,33 +92,13 @@ function LiveProgramReview({
         }
       }}
     >
-      <header className="review-heading">
-        <div className="review-title">
-          <h2 id="review-title">程序审核</h2>
-          <span
-            className={nc?.review_status === 'approved' ? 'review-verified' : 'warning-text'}
-            role="status"
-          >
-            {nc ? `NC v${nc.ref.version} · ${reviewStatus}` : '尚无可审核正文'}
-          </span>
-        </div>
-        <button className="button" onClick={onBack}>
-          返回工艺决策
-        </button>
-      </header>
-      <div className="review-source">
-        <p>
-          {live.task?.task_id ?? '尚无任务'} · 工艺 revision {live.task?.current_revision ?? '—'} ·{' '}
-          {live.cam?.cam_run_id ?? 'CAM 尚未启动'}
-        </p>
-        <p className="muted-text">
-          {draft.changed
-            ? '本地草稿 · 未提交服务端 · 导出为 UTF-8 文本'
-            : live.simulation
-              ? '模拟 NC 正文 · 仅供界面验收 · 不可用于加工'
-              : '服务端原始正文 · 可直接编辑本地草稿'}
-        </p>
-      </div>
+      {!(nc && file) && (
+        <header className="review-heading">
+          <button className="button" onClick={onBack}>
+            返回工艺决策
+          </button>
+        </header>
+      )}
       {nc && file ? (
         <div className="program-panel">
           <div className="program-toolbar">
@@ -134,6 +114,15 @@ function LiveProgramReview({
               </p>
             </div>
             <div className="program-tools">
+              <button
+                className="button"
+                onClick={() => {
+                  setExpanded(false)
+                  onBack()
+                }}
+              >
+                返回工艺决策
+              </button>
               <button
                 className="button"
                 aria-pressed={diffOpen}
@@ -488,7 +477,7 @@ function DemoProgramReview({
   return (
     <section
       className={`program-review-page${expanded ? ' code-expanded' : ''}`}
-      aria-labelledby="review-title"
+      aria-label="程序审核"
       onKeyDown={(event) => {
         // 对话框优先处理 Escape，关闭对话框不会同时退出编辑视图。
         if (expanded && event.key === 'Escape' && !event.defaultPrevented && !confirmation) {
@@ -500,7 +489,6 @@ function DemoProgramReview({
     >
       <header className="review-heading">
         <div className="review-title">
-          <h2 id="review-title">程序审核</h2>
           <span className="warning-text" role="status">
             {document ? `修订 r${document.revision} · ${reviewStatus}` : '尚无可审核正文'}
           </span>

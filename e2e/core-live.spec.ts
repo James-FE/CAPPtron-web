@@ -44,7 +44,7 @@ test('短于四秒及时解锁；原面板、修订门禁、多文件审核及�
   await shot(page, info, 'live-nc')
   await page.getByRole('button', { name: '程序可用', exact: true }).click()
   await page.getByRole('button', { name: '确认可用' }).click()
-  await expect(page.locator('.review-title')).toContainText('程序可用 · 人工确认')
+  await expect(page.locator('.program-toolbar')).toContainText('程序可用 · 人工确认')
   await expect(page.getByRole('button', { name: '下载已确认版本' })).toBeEnabled()
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: '下载已确认版本' }).click()
@@ -229,7 +229,7 @@ test('解析后进入02；补充字段可填、待填定位、提交回读', asy
     await page.getByRole('textbox', { name, exact: true }).fill(value)
   }
   await expect(page.getByRole('button', { name: '任务共用信息 已补齐' })).toBeVisible()
-  await page.getByRole('button', { name: '定位待填工序，1 项' }).click()
+  await page.getByRole('button', { name: '定位待填信息，1 项' }).click()
   await page.getByRole('textbox', { name: '内孔表面粗糙度要求 Ra', exact: true }).fill('1.6')
   await page.getByRole('button', { name: '提交修改并重新规划', exact: true }).click()
   await page.getByRole('button', { name: '重试 / 继续查询', exact: true }).click()

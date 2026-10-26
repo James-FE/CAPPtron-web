@@ -121,7 +121,11 @@ export function InputPreparationPanel({
       </dl>
       {live ? (
         <>
-          <p className="preparation-note">Core 真实模式 · 解析完成后进入工艺规划</p>
+          <p className="preparation-note">
+            {live.simulation
+              ? '本地模拟 · 使用内置示例验收完整流程'
+              : 'Core 真实模式 · 解析完成后进入工艺规划'}
+          </p>
           <button
             className="button"
             disabled={selection.kind !== 'local' || live.busy || live.canRetry || !!live.asset}

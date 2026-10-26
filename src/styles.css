@@ -200,6 +200,7 @@ button:focus-visible {
   border-radius: var(--radius-panel);
 }
 .model-input-page {
+  position: relative;
   width: 100%;
   max-width: 1440px;
   margin-inline: auto;
@@ -514,6 +515,25 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+.simulation-scenario {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 14px;
+}
+.simulation-scenario select {
+  min-height: 36px;
+  padding: 6px 12px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  font: inherit;
 }
 .input-restore {
   position: relative;

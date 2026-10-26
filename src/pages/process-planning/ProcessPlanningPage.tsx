@@ -117,10 +117,14 @@ export function ProcessPlanningPage({
           ? `${session.plan.partName} · ${session.plan.sourceDescription}`
           : live
             ? live.task
-              ? 'Core 真实模式 · 当前任务状态见下方。'
+              ? live.simulation
+                ? '本地模拟 · 当前任务状态见下方。'
+                : 'Core 真实模式 · 当前任务状态见下方。'
               : live.busy
                 ? '正在处理当前模型，解析完成后将继续生成工艺方案。'
-                : 'Core 真实模式 · 请从模型输入完成上传与解析。'
+                : live.simulation
+                  ? '本地模拟 · 请从模型输入完成上传与解析。'
+                  : 'Core 真实模式 · 请从模型输入完成上传与解析。'
             : '本地模型选择不代表已生成工艺计划；Demo 方案需显式加载。'}
       </p>
       {live && (!session || !session.resultViewed) ? (
@@ -294,7 +298,7 @@ export function ProcessPlanningPage({
               </button>
             )}
             <label className="live-reviewer-field">
-              <span>审核人 ID（声明）</span>
+              <span>审核人 ID（{live.simulation ? '模拟' : '声明'}）</span>
               <input
                 aria-label="审核人 ID"
                 value={live.reviewer}

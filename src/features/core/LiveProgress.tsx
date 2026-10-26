@@ -27,8 +27,19 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
   return (
     <>
       <div className="planning-progress-columns">
-        <section className="planning-references" aria-label="Core 真实输入">
-          <h3>{cam ? 'Mastercam 执行' : 'Core 工艺规划'}</h3>
+        <section
+          className="planning-references"
+          aria-label={live.simulation ? '模拟输入' : 'Core 真实输入'}
+        >
+          <h3>
+            {live.simulation
+              ? cam
+                ? '模拟 CAM 执行'
+                : '模拟工艺规划'
+              : cam
+                ? 'Mastercam 执行'
+                : 'Core 工艺规划'}
+          </h3>
           <p>设计文件 / {live.asset?.filename ?? '未提供'}</p>
           <p>任务 / {live.task?.task_id ?? '尚未创建'}</p>
           <p>
@@ -41,7 +52,15 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
         </section>
         <section
           className="planning-progress-status"
-          aria-label={cam ? 'CAM 真实进度' : '工艺规划真实进度'}
+          aria-label={
+            live.simulation
+              ? cam
+                ? 'CAM 模拟进度'
+                : '工艺规划模拟进度'
+              : cam
+                ? 'CAM 真实进度'
+                : '工艺规划真实进度'
+          }
         >
           <h3 aria-live="polite">{live.status}</h3>
           <progress
@@ -53,7 +72,11 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
             {complete ? '100%' : live.busy ? '处理中…' : '等待继续'}
           </p>
           <p className="muted-text">
-            {complete ? '服务端已返回完成结果' : '以 Core 实际阶段为准 · 运行中不估算百分比'}
+            {live.simulation
+              ? '本地合成数据 · 未执行真实制造软件'
+              : complete
+                ? '服务端已返回完成结果'
+                : '以 Core 实际阶段为准 · 运行中不估算百分比'}
           </p>
           {cam && live.cam?.observation && (
             <p>执行器观测：{live.cam.observation.state ?? live.cam.observation.availability}</p>
@@ -72,7 +95,9 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
         </section>
       </div>
       <footer className="planning-actions">
-        <p className="muted-text">真实运行状态 · 工艺批准与 NC 审核分别进行</p>
+        <p className="muted-text">
+          {live.simulation ? '模拟运行状态' : '真实运行状态'} · 工艺批准与 NC 审核分别进行
+        </p>
         {cam ? (
           <button
             className="button"

@@ -20,6 +20,7 @@ export function journalFetcher(
   journal: CommandJournal,
   base: string,
   signal: AbortSignal,
+  fetcher: typeof fetch = fetch,
 ): typeof fetch {
   return async (input, init = {}) => {
     const url = String(input).slice(base.replace(/\/$/, '').length)
@@ -84,7 +85,7 @@ export function journalFetcher(
       }
     }
     signal.throwIfAborted()
-    const response = await fetch(input, { ...init, signal })
+    const response = await fetcher(input, { ...init, signal })
     signal.throwIfAborted()
     if (pending && response.ok) {
       const receipt = (await response.clone().json()) as Record<string, unknown>

@@ -79,14 +79,20 @@ const pause = (signal: AbortSignal) =>
   })
 type Context = { api: CoreClient; signal: AbortSignal; update: (patch: Partial<State>) => void }
 
-export function useLiveWorkflow(file?: File) {
+export type WorkflowRuntime = {
+  fetcher: typeof fetch
+  scope: string
+  config: () => Promise<IntegrationConfig>
+}
+
+export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
   const [state, setState] = useState<State>(initial)
   const [reviewer, setReviewer] = useState('')
   const [agentOpen, setAgentOpen] = useState(false)
   const integration = useRef<IntegrationConfig | null>(null)
   const journal = useRef<CommandJournal | null>(null)
   const storageBlocked = useRef(false)
-  const previousInput = useRef<{ file?: File } | null>(null)
+  const previousInput = useRef<{ file?: File; runtime?: WorkflowRuntime } | null>(null)
   const [restoreAssetId, setRestoreAssetId] = useState('')
   const [restoreParseId, setRestoreParseId] = useState('')
   const [restoreTaskId, setRestoreTaskId] = useState('')
@@ -97,15 +103,21 @@ export function useLiveWorkflow(file?: File) {
     controller.current?.abort()
     retry.current = null
     locked.current = false
+    storageBlocked.current = false
+    integration.current = null
     setState(initial)
     try {
       journal.current = new CommandJournal(
         localStorage,
-        `${import.meta.env.VITE_API_BASE_URL ?? ''}|${import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256 ?? ''}`,
+        runtime?.scope ??
+          `${import.meta.env.VITE_API_BASE_URL ?? ''}|${import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256 ?? ''}`,
       )
       const saved = journal.current.read()
-      const changed = previousInput.current !== null && previousInput.current.file !== file
-      previousInput.current = { file }
+      const changed =
+        previousInput.current !== null &&
+        previousInput.current.runtime === runtime &&
+        previousInput.current.file !== file
+      previousInput.current = { file, runtime }
       if (saved.pending) {
         retry.current = async (context) => resumePending(context)
         setState({
@@ -135,7 +147,34 @@ export function useLiveWorkflow(file?: File) {
     return () => controller.current?.abort()
     // 仅输入身份改变时重建会话；恢复函数使用本次输入闭包，不能随渲染重发恢复。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file])
+  }, [file, runtime])
+
+  useEffect(() => {
+    if (!runtime) {
+      setReviewer('')
+      return
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(`${runtime.scope}.reviewer`) ?? '{}')
+      setReviewer(typeof saved.reviewerId === 'string' ? saved.reviewerId : '')
+    } catch {
+      setReviewer('')
+    }
+  }, [runtime])
+
+  function changeReviewer(value: string) {
+    setReviewer(value)
+    if (runtime) {
+      try {
+        localStorage.setItem(
+          `${runtime.scope}.reviewer`,
+          JSON.stringify({ version: 1, reviewerId: value }),
+        )
+      } catch {
+        setState((s) => ({ ...s, error: '审核人未能保存到本地，请检查浏览器存储权限。' }))
+      }
+    }
+  }
 
   async function act(work: (context: Context) => Promise<void>) {
     if (locked.current || storageBlocked.current) return
@@ -144,8 +183,11 @@ export function useLiveWorkflow(file?: File) {
     controller.current?.abort()
     controller.current = abort
     const signal = abort.signal
-    const base = import.meta.env.VITE_API_BASE_URL ?? ''
-    const api = new CoreClient(base, journalFetcher(journal.current!, base, signal))
+    const base = runtime ? '' : (import.meta.env.VITE_API_BASE_URL ?? '')
+    const api = new CoreClient(
+      base,
+      journalFetcher(journal.current!, base, signal, runtime?.fetcher),
+    )
     const update = (patch: Partial<State>) => {
       if (!signal.aborted) {
         const saved: Parameters<CommandJournal['update']>[0] = {}
@@ -231,6 +273,16 @@ export function useLiveWorkflow(file?: File) {
       : undefined
 
   async function loadDeployment(signal: AbortSignal, stepSha?: string) {
+    if (runtime) {
+      const config = await runtime.config()
+      signal.throwIfAborted()
+      integration.current = config
+      const entry = config.templates.find(
+        (entry) => !stepSha || entry.matching_evidence.step_sha256 === stepSha,
+      )
+      if (!entry) throw new Error('模拟流程仅接受内置示例，请使用示例模型。')
+      return deploymentFromTemplate(entry, '模拟 JSON · 不代表真实制造结果')
+    }
     const url = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL
     const digest = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256
     if (!url || !digest) throw new Error('未发布受控 frontend-integration.v1 配置 URL 与 SHA-256')
@@ -432,6 +484,11 @@ export function useLiveWorkflow(file?: File) {
           !plan.payload.extensions.matching_evidence
         if (integration.current && !blocked) matchIntegrationTemplate(integration.current, plan)
         const model = toProcessPlan(plan, deployment)
+        if (runtime) {
+          model.sourceDescription = '本地 JSON 模拟数据 · 未执行 NX / Mastercam'
+          for (const operation of model.operations)
+            operation.source = `本地模拟 · ${plan.result_id} / r${plan.revision}`
+        }
         if (blocked)
           for (const operation of model.operations)
             for (const parameter of operation.parameters) parameter.editable = false
@@ -609,6 +666,13 @@ export function useLiveWorkflow(file?: File) {
     })
   }
   function approvePlan() {
+    if (/[^\x20-\x7e]/.test(reviewer)) {
+      setState((s) => ({
+        ...s,
+        error: '审核人 ID 请使用英文字母、数字或英文符号，例如 reviewer-01。',
+      }))
+      return
+    }
     if (
       !state.task ||
       !state.card ||
@@ -751,6 +815,13 @@ export function useLiveWorkflow(file?: File) {
     void act((context) => watchCam(context, runId))
   }
   function approveNc() {
+    if (/[^\x20-\x7e]/.test(reviewer)) {
+      setState((s) => ({
+        ...s,
+        error: '审核人 ID 请使用英文字母、数字或英文符号，例如 reviewer-01。',
+      }))
+      return
+    }
     if (
       !state.nc ||
       !state.files ||
@@ -803,6 +874,7 @@ export function useLiveWorkflow(file?: File) {
   }
   return {
     ...state,
+    simulation: !!runtime,
     restoreAssetId,
     setRestoreAssetId,
     restoreParseId,
@@ -812,7 +884,7 @@ export function useLiveWorkflow(file?: File) {
     setRestoreTaskId,
     restoreKnownTask,
     reviewer,
-    setReviewer,
+    setReviewer: changeReviewer,
     dirty,
     activeCam,
     executable,

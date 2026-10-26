@@ -78,7 +78,11 @@ function LiveProgramReview({
           {live.task?.task_id ?? '尚无任务'} · 工艺 revision {live.task?.current_revision ?? '—'} ·{' '}
           {live.cam?.cam_run_id ?? 'CAM 尚未启动'}
         </p>
-        <p className="muted-text">Core 原始正文 · 当前版本人工审核 · 只读服务器版本</p>
+        <p className="muted-text">
+          {live.simulation
+            ? '模拟 NC 正文 · 仅供界面验收 · 不可用于加工'
+            : 'Core 原始正文 · 当前版本人工审核 · 只读服务器版本'}
+        </p>
       </div>
       {nc && file ? (
         <div className="program-panel">
@@ -135,7 +139,7 @@ function LiveProgramReview({
             </div>
             <div className="program-tools">
               <label>
-                审核人 ID（声明）
+                审核人 ID（{live.simulation ? '模拟' : '声明'}）
                 <input
                   aria-label="审核人 ID"
                   disabled={live.busy || live.canRetry}

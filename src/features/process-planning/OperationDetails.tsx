@@ -84,8 +84,8 @@ export function OperationDetails({
               <h4>补充信息与说明</h4>
               {!!plan.taskMeasurements?.length && (
                 <p className="muted-text">
-                  另有 {plan.taskMeasurements.length}{' '}
-                  项任务共用现场信息，请从左侧“任务共用信息”集中填写。
+                  另有 {plan.taskMeasurements.length} 项任务共用现场信息，请从
+                  {plan.origin === 'live' ? '右上角' : '左侧'}“任务共用信息”集中填写。
                 </p>
               )}
               <p className="warning-text">
@@ -100,7 +100,14 @@ export function OperationDetails({
         {view === 'resources' && (
           <>
             <section>
-              <h4>工艺参数 · {plan.origin === 'live' ? 'Core 实际结果' : 'Mock 演示'}</h4>
+              <h4>
+                工艺参数 ·{' '}
+                {plan.simulation
+                  ? '本地模拟'
+                  : plan.origin === 'live'
+                    ? 'Core 实际结果'
+                    : 'Mock 演示'}
+              </h4>
               <p className="muted-text">
                 {plan.origin === 'live'
                   ? '当前 revision 参数，来源与单位见字段；草稿提交后才产生新修订。'
@@ -121,7 +128,10 @@ export function OperationDetails({
               </div>
             </section>
             <section>
-              <h4>生产资源 · {plan.origin === 'live' ? 'Core' : 'Mock 演示'}</h4>
+              <h4>
+                生产资源 ·{' '}
+                {plan.simulation ? '本地模拟' : plan.origin === 'live' ? 'Core' : 'Mock 演示'}
+              </h4>
               {!operation.resources.length && (
                 <p className="muted-text">
                   {plan.origin === 'live' ? '未提供' : '暂无生产资源信息'}

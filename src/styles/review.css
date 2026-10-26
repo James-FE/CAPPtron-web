@@ -243,3 +243,34 @@
     padding: 12px 16px;
   }
 }
+
+.nc-draft-menu {
+  position: relative;
+}
+.nc-draft-menu > summary {
+  cursor: pointer;
+}
+.nc-draft-menu > div {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: 170px;
+  padding: 12px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.nc-draft-history {
+  max-height: 160px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 20px;
+}
+.nc-draft-history summary {
+  cursor: pointer;
+  color: var(--accent-primary);
+}

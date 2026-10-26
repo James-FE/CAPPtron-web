@@ -374,7 +374,8 @@
 .parameter-field > * {
   min-width: 0;
 }
-.parameter-field p {
+.parameter-field p,
+.parameter-help {
   font-size: 12px;
   line-height: 20px;
 }
@@ -643,7 +644,7 @@
   .parameter-field {
     grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr);
   }
-  .parameter-field > p {
+  .parameter-field > .parameter-help {
     grid-column: 1 / -1;
   }
 }
@@ -796,4 +797,13 @@
   .live-planning-actions > .live-planning-status {
     flex-basis: 100%;
   }
+}
+
+.parameter-source-details summary {
+  cursor: pointer;
+  color: var(--accent-primary);
+}
+.parameter-source-details p {
+  overflow-wrap: anywhere;
+  margin-top: 6px;
 }

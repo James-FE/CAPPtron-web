@@ -13,7 +13,9 @@ export function AgentDrawer({
   onInput,
   onSend,
   programContext,
+  unavailableReason,
 }: {
+  unavailableReason?: string
   programContext?: string
   open: boolean
   onClose: () => void
@@ -85,7 +87,11 @@ export function AgentDrawer({
           </button>
         </header>
         <section className="agent-context" aria-label="Agent 当前上下文">
-          <p>{plan ? `${plan.partName} · ${plan.name} · Demo` : '未加载工艺方案'}</p>
+          <p>
+            {plan
+              ? `${plan.partName} · ${plan.name}${unavailableReason ? '' : ' · Demo'}`
+              : '未加载工艺方案'}
+          </p>
           <div className="agent-operation-picker">
             <label htmlFor="agent-operation">当前工序</label>
             <select
@@ -120,8 +126,10 @@ export function AgentDrawer({
             positions.current[taskKey] = event.currentTarget.scrollTop
           }}
         >
-          <p className="warning-text">预设对话演示 · 非真实 Agent</p>
-          <p>可记录工艺、刀具或参数方面的问题。尚未连接真实 Agent，发送后仅展示固定说明。</p>
+          <p className="warning-text">{unavailableReason ?? '预设对话演示 · 非真实 Agent'}</p>
+          {!unavailableReason && (
+            <p>可记录工艺、刀具或参数方面的问题。尚未连接真实 Agent，发送后仅展示固定说明。</p>
+          )}
           {messages.map((message) => (
             <article key={message.id} className={`agent-message message-${message.role}`}>
               <p className="muted-text">
@@ -135,18 +143,24 @@ export function AgentDrawer({
           className="agent-composer"
           onSubmit={(event) => {
             event.preventDefault()
-            onSend()
+            if (!unavailableReason) onSend()
           }}
         >
-          <p className="muted-text">演示记录不会修改工艺、调用 CAM 或保存至服务器。</p>
+          <p className="muted-text">
+            {unavailableReason
+              ? '可查看当前任务与工序上下文。'
+              : '演示记录不会修改工艺、调用 CAM 或保存至服务器。'}
+          </p>
           <label htmlFor="agent-message">消息</label>
           <textarea
             id="agent-message"
             value={input}
             onChange={(event) => onInput(event.target.value)}
-            disabled={!plan}
+            disabled={!plan || !!unavailableReason}
             maxLength={2000}
-            placeholder={plan ? '输入消息，体验 Demo 对话' : '请先显式加载演示方案'}
+            placeholder={
+              unavailableReason ?? (plan ? '输入消息，体验 Demo 对话' : '请先显式加载演示方案')
+            }
             rows={3}
           />
           <div className="agent-send">
@@ -154,9 +168,9 @@ export function AgentDrawer({
             <button
               className="button primary-button"
               type="submit"
-              disabled={!plan || !input.trim()}
+              disabled={!plan || !input.trim() || !!unavailableReason}
             >
-              发送演示消息
+              {unavailableReason ? '发送消息' : '发送演示消息'}
             </button>
           </div>
         </form>

@@ -97,29 +97,26 @@ export function WorkflowWorkspace({
         </Suspense>
       )}
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
-      {live ? (
-        visible &&
-        live.agentOpen && (
-          <div className="availability-notice" role="status">
-            Live Agent 尚未接入；请通过参数提交与审核按钮操作。
-            <button className="button" onClick={() => live.setAgentOpen(false)}>
-              关闭
-            </button>
-          </div>
-        )
-      ) : (
+      {
         <AgentDrawer
+          unavailableReason={live ? 'Agent 服务尚未接入，暂不能发送消息。' : undefined}
           open={visible && stage !== 'input' && agentOpen}
           onClose={() => setAgentOpen(false)}
           plan={session?.plan ?? null}
-          programContext={stage === 'review' ? programContext : undefined}
+          programContext={
+            stage === 'review'
+              ? live
+                ? `${live.task?.task_id ?? '无任务'} · NC v${live.nc?.ref.version ?? '—'} · ${live.simulation ? '模拟' : '服务端'}正文`
+                : programContext
+              : undefined
+          }
           operationId={session?.view === 'task' ? null : (operation?.id ?? null)}
           onOperation={selectOperation}
           messages={session?.messages ?? []}
           input={session?.input ?? ''}
           onInput={(input) => updateSession((current) => ({ ...current, input }))}
           onSend={() => {
-            if (!session?.input.trim()) return
+            if (live || !session?.input.trim()) return
             const messageOperation = session.view === 'task' ? null : operation
             const context =
               stage === 'review'
@@ -139,7 +136,7 @@ export function WorkflowWorkspace({
             }))
           }}
         />
-      )}
+      }
     </>
   )
 }

@@ -13,6 +13,7 @@ import {
 import type { ProgramDocument } from '../../features/program-review/programDocument'
 import { ProgramEditor } from '../../features/program-review/ProgramEditor'
 import { ProgramDiff } from '../../features/program-review/ProgramDiff'
+import { useNcDraft } from '../../features/program-review/useNcDraft'
 import type { LiveWorkflow } from '../../features/core/useLiveWorkflow'
 import { LiveFeedback, LiveProgress } from '../../features/core/LiveProgress'
 
@@ -26,7 +27,18 @@ type Props = {
 }
 export function ProgramReviewPage(props: Props) {
   return props.live ? (
-    <LiveProgramReview live={props.live} onBack={props.onBack} active={props.active} />
+    <LiveProgramReview
+      key={JSON.stringify([
+        props.live.simulation,
+        props.live.task?.task_id,
+        props.live.nc?.ref,
+        props.live.selectedFile,
+      ])}
+      live={props.live}
+      onBack={props.onBack}
+      active={props.active}
+      onOpenAgent={props.onOpenAgent}
+    />
   ) : (
     <DemoProgramReview {...props} />
   )
@@ -35,17 +47,26 @@ function LiveProgramReview({
   live,
   onBack,
   active = true,
+  onOpenAgent,
 }: {
   live: LiveWorkflow
   onBack: () => void
   active?: boolean
+  onOpenAgent?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [diffOpen, setDiffOpen] = useState(false)
+  const expandButton = useRef<HTMLButtonElement>(null)
   const [confirmation, setConfirmation] = useState<string | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const file = live.files?.find((f) => f.file_id === live.selectedFile)
   const nc = live.nc
   const identity = nc ? JSON.stringify(nc.ref) : ''
+  const draft = useNcDraft(
+    JSON.stringify([live.simulation, live.task?.task_id, identity, file?.file_id, file?.sha256]),
+    (file?.text ?? '').replace(/\r\n|\r/g, '\n'),
+    JSON.stringify([live.simulation, live.task?.task_id, identity]),
+  )
   useEffect(() => {
     if (confirmation && active) dialog.current?.showModal()
     else dialog.current?.close()
@@ -59,7 +80,10 @@ function LiveProgramReview({
       className={`program-review-page${expanded ? ' code-expanded' : ''}`}
       aria-labelledby="review-title"
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && !confirmation) setExpanded(false)
+        if (event.key === 'Escape' && !confirmation) {
+          setExpanded(false)
+          expandButton.current?.focus()
+        }
       }}
     >
       <header className="review-heading">
@@ -79,9 +103,11 @@ function LiveProgramReview({
           {live.cam?.cam_run_id ?? 'CAM 尚未启动'}
         </p>
         <p className="muted-text">
-          {live.simulation
-            ? '模拟 NC 正文 · 仅供界面验收 · 不可用于加工'
-            : 'Core 原始正文 · 当前版本人工审核 · 只读服务器版本'}
+          {draft.editing || draft.changed
+            ? '本地草稿 · 未提交服务端 · 导出为 UTF-8 文本'
+            : live.simulation
+              ? '模拟 NC 正文 · 仅供界面验收 · 不可用于加工'
+              : 'Core 原始正文 · 当前版本人工审核 · 只读服务器版本'}
         </p>
       </div>
       {nc && file ? (
@@ -94,10 +120,80 @@ function LiveProgramReview({
                 </h3>
               </div>
               <p className="muted-text">
-                {nc.origin} · {file.encoding} / {file.newline} · {nc.review_status}
+                {nc.origin} · {file.encoding} / {file.newline} ·{' '}
+                {draft.changed ? '本地草稿 · 未提交服务端' : nc.review_status}
               </p>
             </div>
             <div className="program-tools">
+              <button
+                className="button"
+                aria-pressed={diffOpen}
+                onClick={() => setDiffOpen(!diffOpen)}
+              >
+                查看差异
+              </button>
+              <button
+                className="button"
+                aria-pressed={draft.editing}
+                onClick={() => draft.setEditing(!draft.editing)}
+              >
+                {draft.editing ? '退出草稿编辑' : '编辑本地草稿'}
+              </button>
+              <details
+                className="nc-draft-menu"
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest('button'))
+                    event.currentTarget.open = false
+                }}
+              >
+                <summary className="button">草稿操作</summary>
+                <div>
+                  <button
+                    className="button"
+                    disabled={!draft.changed}
+                    onClick={() =>
+                      draft.update(file.text.replace(/\r\n|\r/g, '\n'), draft.saved, '恢复原文')
+                    }
+                  >
+                    恢复原文
+                  </button>
+                  <button
+                    className="button"
+                    disabled={draft.text === draft.saved}
+                    onClick={() => draft.update(draft.saved, draft.saved, '恢复暂存')}
+                  >
+                    恢复暂存
+                  </button>
+
+                  <button
+                    className="button"
+                    disabled={draft.text === draft.saved}
+                    onClick={draft.save}
+                  >
+                    保存本地草稿
+                  </button>
+                  <button
+                    className="button"
+                    onClick={() => draft.exportDraft(file.filename, file.newline)}
+                  >
+                    导出本地草稿
+                  </button>
+                  <details className="nc-draft-history">
+                    <summary>本地修订记录 · r{draft.revision}</summary>
+                    <p className="muted-text">最近 20 次操作 · 非服务端审批记录</p>
+                    {draft.history.length ? (
+                      draft.history.map((item) => (
+                        <p key={item.revision}>
+                          r{item.revision} · {item.reason} ·{' '}
+                          {new Date(item.at).toLocaleTimeString()}
+                        </p>
+                      ))
+                    ) : (
+                      <p>暂无本地修改</p>
+                    )}
+                  </details>
+                </div>
+              </details>
               <select
                 aria-label="NC 文件"
                 value={file.file_id}
@@ -111,30 +207,45 @@ function LiveProgramReview({
               </select>
               <button
                 className="button"
+                ref={expandButton}
+                aria-expanded={expanded}
                 aria-pressed={expanded}
                 onClick={() => setExpanded(!expanded)}
               >
                 {expanded ? '退出专注编辑' : '展开代码'}
               </button>
+              {expanded && onOpenAgent && (
+                <button className="button" onClick={onOpenAgent}>
+                  Agent 协同
+                </button>
+              )}
             </div>
           </div>
-          <div className="program-content">
+          <div className={`program-content${diffOpen ? ' with-diff' : ''}`}>
             <ProgramEditor
-              readOnly
+              readOnly={!draft.editing}
               document={{
                 id: `${identity}/${file.file_id}`,
-                revision: nc.ref.version,
-                draftText: file.text,
+                revision: draft.revision,
+                draftText: draft.text,
               }}
-              onChange={() => {}}
+              onChange={(text) => draft.update(text)}
             />
+            {diffOpen && (
+              <ProgramDiff original={file.text.replace(/\r\n|\r/g, '\n')} draft={draft.text} />
+            )}
           </div>
           <footer className="program-actions">
             <div>
               <p className="warning-text">
                 精确版本人工审核 ·{' '}
-                {live.dirty ? '工艺有未提交草稿，禁止审核和下载' : '未替代制造安全验证'}
+                {draft.groupChanged
+                  ? '有本地草稿修改；恢复各文件原文后可审核服务端版本'
+                  : live.dirty
+                    ? '工艺有未提交草稿，禁止审核和下载'
+                    : '未替代制造安全验证'}
               </p>
+              {draft.error && <p role="alert">{draft.error}</p>}
               <LiveFeedback live={live} />
             </div>
             <div className="program-tools">
@@ -153,6 +264,7 @@ function LiveProgramReview({
                   live.busy ||
                   live.canRetry ||
                   live.dirty ||
+                  draft.groupChanged ||
                   !live.reviewer.trim() ||
                   !nc.allowed_actions.includes('review')
                 }
@@ -166,6 +278,7 @@ function LiveProgramReview({
                   live.busy ||
                   live.canRetry ||
                   live.dirty ||
+                  draft.groupChanged ||
                   nc.review_status !== 'approved' ||
                   !nc.allowed_actions.includes('download')
                 }
@@ -190,9 +303,11 @@ function LiveProgramReview({
         </button>
         <button
           className="button primary-button"
-          disabled={!nc || confirmation !== identity || live.dirty || live.busy}
+          disabled={
+            !nc || confirmation !== identity || live.dirty || live.busy || draft.groupChanged
+          }
           onClick={() => {
-            if (confirmation === identity) live.approveNc()
+            if (confirmation === identity && !draft.groupChanged) live.approveNc()
             setConfirmation(null)
           }}
         >

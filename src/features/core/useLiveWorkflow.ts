@@ -55,6 +55,7 @@ type State = {
   supplementStatus?: string
   busy: boolean
   error: string
+  draftError?: boolean
   status: string
   admission?: string
   pendingUpload?: boolean
@@ -207,7 +208,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       }
     }
     retry.current = work
-    update({ busy: true, error: '' })
+    update({ busy: true, error: '', draftError: false })
     try {
       await work({ api, signal, update })
       if (!signal.aborted) retry.current = null
@@ -248,10 +249,20 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       if (!s.session) return s
       const session = update(s.session)
       journal.current!.update({ drafts: session.drafts })
-      return { ...s, session }
+      return {
+        ...s,
+        session,
+        ...(s.draftError && session.drafts !== s.session.drafts
+          ? { error: '', draftError: false }
+          : {}),
+      }
     })
   }
   const dirty = Object.keys(state.session?.drafts ?? {}).length > 0
+  const hasUnplannedSupplement =
+    !!state.supplementStatus &&
+    (state.planning?.basis_feedback_version === undefined ||
+      state.planning.basis_feedback_version < (state.task?.feedback_version ?? 0))
   const activeCam =
     !!state.cam && ['accepted', 'running', 'awaiting_confirmation'].includes(state.cam.status)
   const executable =
@@ -485,6 +496,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         if (integration.current && !blocked) matchIntegrationTemplate(integration.current, plan)
         const model = toProcessPlan(plan, deployment)
         if (runtime) {
+          model.simulation = true
           model.sourceDescription = '本地 JSON 模拟数据 · 未执行 NX / Mastercam'
           for (const operation of model.operations)
             operation.source = `本地模拟 · ${plan.result_id} / r${plan.revision}`
@@ -567,6 +579,95 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         command_id: planCommand,
         base_revision: task.current_revision,
         expected_feedback_version: task.feedback_version,
+      })
+      await readPlan(context, task, run, deployment)
+    })
+  }
+  function submitChanges() {
+    if (
+      !state.task ||
+      !state.plan ||
+      !state.session ||
+      !state.deployment ||
+      state.busy ||
+      retry.current ||
+      activeCam
+    )
+      return
+    const task = { ...state.task },
+      plan = state.plan,
+      session = state.session,
+      deployment = state.deployment
+    const fields = supplementFields(session.plan)
+    const changedSupplement = fields.some(
+      ({ key, p }) =>
+        session.drafts[key] !== undefined && session.drafts[key] !== String(p.value ?? ''),
+    )
+    let changes: ReturnType<typeof parameterChanges>, values: Record<string, string> | undefined
+    try {
+      changes = parameterChanges(session.plan, session.drafts)
+      if (changedSupplement) values = supplementValues(session.plan, session.drafts)
+    } catch (error) {
+      setState((s) => ({ ...s, error: String(error), draftError: true }))
+      return
+    }
+    if (!changedSupplement && !changes.length && !hasUnplannedSupplement) return
+    const feedbackId = uuid(),
+      command = uuid()
+    let nextSession = session
+    let feedbackDone = false,
+      run: PlanningRun | undefined
+    void act(async (context) => {
+      const { api, update } = context
+      if (values && !feedbackDone) {
+        await api.post(`${path(task)}/feedback`, {
+          feedback_id: feedbackId,
+          expected_feedback_version: task.feedback_version,
+          base_revision: task.current_revision,
+          kind: 'onsite_record',
+          supplement_schema_version: supplementSchema,
+          supplement: { values },
+          text: '人工现场信息记录，未自动应用到 CAM；需独立工程核对。',
+        })
+        const list = await api.get<SupplementList>(`${path(task)}/feedback`)
+        if (!list.items.some((item) => item.feedback_id === feedbackId && item.status === 'active'))
+          throw new Error('现场信息回读未确认，请继续查询')
+        task.feedback_version = list.feedback_version
+        feedbackDone = true
+        const recordedPlan = structuredClone(session.plan)
+        applySupplement(recordedPlan, list)
+        nextSession = { ...session, plan: recordedPlan }
+        update({
+          task,
+          session: nextSession,
+          approved: undefined,
+          card: undefined,
+          supplementStatus: '现场信息已提交并回读；未应用到 CAM，需重新核对工艺与审批。',
+        })
+      }
+      // 草稿直到完整规划结果回读成功才清除；重试沿用原命令及反馈版本。
+      update({
+        approved: undefined,
+        card: undefined,
+        cam: undefined,
+        nc: undefined,
+        files: undefined,
+        status: '等待规划',
+        session: { ...nextSession, resultViewed: false },
+      })
+      run ??= await api.post<PlanningRun>(`${path(task)}/replan`, {
+        command_id: command,
+        base_revision: task.current_revision,
+        expected_feedback_version: task.feedback_version,
+        ...(changes.length
+          ? {
+              parameter_patch: {
+                template_digest: plan.payload.extensions.template.digest,
+                base_plan_digest: plan.payload.extensions.plan_digest,
+                changes,
+              },
+            }
+          : {}),
       })
       await readPlan(context, task, run, deployment)
     })
@@ -886,6 +987,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     reviewer,
     setReviewer: changeReviewer,
     dirty,
+    hasUnplannedSupplement,
     activeCam,
     executable,
     agentOpen,
@@ -905,6 +1007,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       createPlan()
     },
     submitParameters,
+    submitChanges,
     submitSupplement,
     approvePlan,
     startCam,

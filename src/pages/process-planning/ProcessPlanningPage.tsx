@@ -42,7 +42,6 @@ export function ProcessPlanningPage({
   )
   const draftKeys = Object.keys(session?.drafts ?? {})
   const supplementDirty = draftKeys.some((key) => supplementalKeys.has(key))
-  const parameterDirty = draftKeys.some((key) => !supplementalKeys.has(key))
   const missing = readiness?.missing ?? []
   const submitHint = live?.busy
     ? '正在处理请求，请等待完成。'
@@ -50,11 +49,11 @@ export function ProcessPlanningPage({
       ? '上一条请求结果待确认，请先点击“重试 / 继续查询”。'
       : live?.activeCam
         ? 'CAM 正在运行，暂不能提交补充信息。'
-        : missing.length
-          ? `提交补充信息暂不可用：还有 ${missing.length} 项未填或格式无效。`
-          : !supplementDirty
-            ? '没有待提交的补充信息修改。'
-            : '补充信息已填齐，请点击“提交补充信息”保存并回读。'
+        : supplementDirty && missing.length
+          ? `提交修改暂不可用：还有 ${missing.length} 项未填或格式无效。`
+          : !live?.dirty
+            ? '修改加工参数或现场信息后，提交修改并重新规划。'
+            : '提交修改并重新规划；现场信息将先保存并回读。'
   const taskInformation = session && (
     <div className={live ? 'live-task-entry' : 'task-information-entry'}>
       <button
@@ -271,32 +270,21 @@ export function ProcessPlanningPage({
             </div>
           </div>
           <div className="live-planning-controls">
-            {(!live.supplementStatus || live.dirty) && (
-              <button
-                className="button"
-                disabled={
-                  live.busy ||
-                  live.canRetry ||
-                  live.activeCam ||
-                  !supplementDirty ||
-                  !!readiness?.missing.length
-                }
-                aria-describedby="supplement-submit-hint"
-                title={submitHint}
-                onClick={live.submitSupplement}
-              >
-                提交补充信息
-              </button>
-            )}
-            {live.supplementStatus && !live.dirty && (
-              <button
-                className="button"
-                disabled={live.dirty || live.busy || live.canRetry || live.activeCam}
-                onClick={live.replanSupplement}
-              >
-                根据补充信息重新规划
-              </button>
-            )}
+            <button
+              className="button"
+              disabled={
+                live.busy ||
+                live.canRetry ||
+                live.activeCam ||
+                (!live.dirty && !live.hasUnplannedSupplement) ||
+                (supplementDirty && !!missing.length)
+              }
+              aria-describedby="supplement-submit-hint"
+              title={submitHint}
+              onClick={live.submitChanges}
+            >
+              提交修改并重新规划
+            </button>
             <label className="live-reviewer-field">
               <span>审核人 ID（{live.simulation ? '模拟' : '声明'}）</span>
               <input
@@ -306,15 +294,6 @@ export function ProcessPlanningPage({
                 onChange={(e) => live.setReviewer(e.target.value)}
               />
             </label>
-            <button
-              className="button"
-              disabled={
-                !parameterDirty || supplementDirty || live.busy || live.canRetry || live.activeCam
-              }
-              onClick={live.submitParameters}
-            >
-              提交参数修订
-            </button>
             <button
               className="button"
               disabled={

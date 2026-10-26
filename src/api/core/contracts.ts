@@ -1,6 +1,7 @@
 import type { PlanRef, NcRef } from './client'
 
 export type PlanningRun = {
+  basis_feedback_version?: number
   task_id: string
   run_id: string
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'

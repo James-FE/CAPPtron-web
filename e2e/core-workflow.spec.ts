@@ -72,16 +72,16 @@ test('明确422拒绝保留草稿并允许修正后提交；不继承旧批准',
     .filter({ hasText: '外圆粗车' })
     .click()
   await page.getByRole('button', { name: '参数与资源', exact: true }).click()
-  await page.getByLabel('粗车参数 rough_step').selectOption('0.4')
+  await page.getByLabel('粗车参数 rough_step').fill('0.4')
   await page.route('**/replan', (route) => route.fulfill({ status: 422, json: fixture.error }), {
     times: 1,
   })
-  await page.getByRole('button', { name: '提交参数修订' }).click()
+  await page.getByRole('button', { name: '提交修改并重新规划' }).click()
   await expect(page.getByRole('alert')).toContainText('422')
   await expect(page.getByLabel('粗车参数 rough_step')).toHaveValue('0.4')
   await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '提交参数修订' })).toBeEnabled()
-  await page.getByRole('button', { name: '提交参数修订' }).click()
+  await expect(page.getByRole('button', { name: '提交修改并重新规划' })).toBeEnabled()
+  await page.getByRole('button', { name: '提交修改并重新规划' }).click()
   await openPlan(page)
   await expect(page.getByRole('button', { name: '运行 Mastercam' })).toBeDisabled()
 })
@@ -96,7 +96,7 @@ test('未提交草稿的换文件提示与Live/Demo往返保留', async ({ page 
     .filter({ hasText: '外圆粗车' })
     .click()
   await page.getByRole('button', { name: '参数与资源', exact: true }).click()
-  await page.getByLabel('粗车参数 rough_step').selectOption('0.4')
+  await page.getByLabel('粗车参数 rough_step').fill('0.4')
   page.once('dialog', (dialog) => dialog.dismiss())
   await page.getByLabel('选择 STEP 模型文件').setInputFiles({
     name: 'new.step',

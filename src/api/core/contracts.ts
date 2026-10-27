@@ -73,7 +73,15 @@ export type LivePlan = {
     }
   }
 }
+export type ExecutionPreflight = {
+  status: 'ready' | 'blocked'
+  code: string
+  message: string
+  next_action: string
+  execution_profile_id: string | null
+}
 export type Card = {
+  execution_preflight?: ExecutionPreflight
   task_id: string
   result_id: string
   revision: number

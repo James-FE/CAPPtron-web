@@ -1,3 +1,4 @@
+import { planningActions } from '../../features/core/planningActions'
 import { draftKey, validateDraft } from '../../features/process-planning/processPlan'
 import { supplementFields } from '../../api/core/supplement'
 import { PlanningSourceSelector } from '../../features/process-planning/PlanningSourceSelector'
@@ -119,6 +120,7 @@ export function ProcessPlanningPage({
       </button>
     </>
   )
+  const actions = live ? planningActions(live) : undefined
   const statusText = live?.error
     ? live.error
     : live?.admission
@@ -282,8 +284,7 @@ export function ProcessPlanningPage({
         <footer className="planning-actions live-planning-actions">
           <div className="live-planning-status">
             <p className="muted-text">
-              revision {live.task?.current_revision} ·{' '}
-              {live.executable ? '已获执行资格' : '待核对与审批'}
+              revision {live.task?.current_revision} · {actions?.status}
             </p>
             <div className="live-status-row">
               <details className="live-status-details">
@@ -297,10 +298,20 @@ export function ProcessPlanningPage({
                   id="supplement-submit-hint"
                 >
                   <p>{submitHint}</p>
+                  <p id="planning-next-action">{actions?.nextAction}</p>
                   {live.supplementStatus && <p>{live.supplementStatus}</p>}
-                  {live.admission && <p className="warning-text">{live.admission}</p>}
+                  {live.admission && live.admission !== actions?.nextAction && (
+                    <p className="warning-text">{live.admission}</p>
+                  )}
                   {live.error && <p className="warning-text">{live.error}</p>}
                   {!!missing.length && <p>通过“任务共用信息”和工序的“待填”标记定位字段。</p>}
+                  <button
+                    className="button"
+                    disabled={live.busy || live.canRetry}
+                    onClick={live.refreshReadiness}
+                  >
+                    重新检查执行条件
+                  </button>
                 </div>
               </details>
               {live.canRetry && (
@@ -337,21 +348,18 @@ export function ProcessPlanningPage({
             </label>
             <button
               className="button"
-              disabled={
-                live.dirty ||
-                live.busy ||
-                live.canRetry ||
-                !live.reviewer.trim() ||
-                !!live.admission ||
-                live.card?.status !== 'ready'
-              }
+              disabled={!!actions?.approveReason}
+              title={actions?.approveReason || '批准当前工艺卡'}
+              aria-describedby="planning-next-action"
               onClick={live.approvePlan}
             >
               批准当前工艺卡
             </button>
             <button
               className="button primary-button"
-              disabled={!live.executable || !!live.cam || live.canRetry}
+              disabled={!!actions?.runReason}
+              title={actions?.runReason || '运行 Mastercam'}
+              aria-describedby="planning-next-action"
               onClick={() => {
                 live.startCam()
                 onReview()

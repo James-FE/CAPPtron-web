@@ -1,3 +1,4 @@
+import type { ExecutionPreflight } from './contracts'
 import type { NcFile } from './contracts'
 export type Task = { task_id: string; current_revision: number; feedback_version: number }
 export type NcRef = { cam_run_id: string; version: number; content_digest: string }
@@ -26,7 +27,7 @@ export type NcVersion = {
 export type ApprovedPlans = {
   execution_configured: boolean
   execution_profile_id: string | null
-  plans: { plan_ref: PlanRef; profile_matches: boolean }[]
+  plans: { plan_ref: PlanRef; profile_matches: boolean; preflight?: ExecutionPreflight }[]
 }
 export type Plan = {
   payload: {

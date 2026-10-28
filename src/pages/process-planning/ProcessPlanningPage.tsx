@@ -123,19 +123,24 @@ export function ProcessPlanningPage({
   const actions = live ? planningActions(live) : undefined
   const statusText = live?.error
     ? live.error
-    : live?.admission
-      ? '暂不可批准或执行 · 查看原因'
-      : live?.canRetry
-        ? '请求结果待确认'
-        : live?.busy
-          ? '正在处理请求…'
-          : live?.dirty
-            ? '有未提交修改'
-            : live?.supplementStatus
-              ? '现场信息已回读 · 未应用到 CAM'
-              : missing.length
-                ? `待补充 ${missing.length} 项`
-                : '请核对参数与资源'
+    : session?.plan.onsiteAssessment?.input_status === 'valid' &&
+        session.plan.onsiteAssessment.execution_status === 'blocked'
+      ? '现场输入有效 · CAM 暂不可执行 · 查看原因'
+      : session?.plan.onsiteAssessment?.input_status === 'invalid'
+        ? '现场输入需修正 · 查看字段原因'
+        : live?.admission
+          ? '暂不可批准或执行 · 查看原因'
+          : live?.canRetry
+            ? '请求结果待确认'
+            : live?.busy
+              ? '正在处理请求…'
+              : live?.dirty
+                ? '有未提交修改'
+                : live?.supplementStatus
+                  ? '现场信息已回读 · 未应用到 CAM'
+                  : missing.length
+                    ? `待补充 ${missing.length} 项`
+                    : '请核对参数与资源'
   return (
     <section
       className={`process-planning-page${live ? ' live-planning-page' : ''}`}

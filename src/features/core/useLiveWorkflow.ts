@@ -793,6 +793,29 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       await readPlan(context, task, run, deployment)
     })
   }
+  function refreshReadiness() {
+    if (!state.task || state.busy || retry.current) return
+    const task = state.task
+    void act(async ({ api, update }) => {
+      const current = await api.get<Task>(path(task))
+      if (
+        current.current_revision !== task.current_revision ||
+        current.feedback_version !== task.feedback_version
+      )
+        throw new UnrecoverableTaskError('任务版本已变化，请恢复当前任务后重新核对；草稿已保留。')
+      const card = await api.get<Card>(cardPath(task.task_id, task.current_revision))
+      if (
+        card.task_id !== task.task_id ||
+        card.revision !== task.current_revision ||
+        card.result_id !== state.plan?.result_id
+      )
+        throw new UnrecoverableTaskError('工艺卡身份不匹配，请重新查询；草稿已保留。')
+      const approved = await api.get<ApprovedPlans>(
+        `/cam/tasks/${encodeURIComponent(task.task_id)}/approved-plans`,
+      )
+      update({ card, approved })
+    })
+  }
   function approvePlan() {
     if (/[^\x20-\x7e]/.test(reviewer)) {
       setState((s) => ({
@@ -805,6 +828,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       !state.task ||
       !state.card ||
       state.admission ||
+      state.card?.execution_preflight?.status === 'blocked' ||
       dirty ||
       !reviewer.trim() ||
       state.busy ||
@@ -1037,6 +1061,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     submitChanges,
     submitSupplement,
     approvePlan,
+    refreshReadiness,
     startCam,
     refreshCam,
     approveNc,

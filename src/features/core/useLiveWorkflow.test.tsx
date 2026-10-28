@@ -190,6 +190,25 @@ describe('刷新后恢复原写意图', () => {
     expect(result.current.session?.plan.operations).toHaveLength(7)
     await waitFor(() => expect(result.current.session?.drafts).toEqual(saved.drafts))
     expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+    const approvedBefore = result.current.approved
+    const callsBefore = fetcher.mock.calls.length
+    act(() => result.current.refreshReadiness())
+    await waitFor(() => expect(fetcher.mock.calls.length).toBe(callsBefore + 3))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+    expect(result.current.session?.drafts).toEqual(saved.drafts)
+    expect(result.current.approved).toEqual(approvedBefore)
+    fetcher.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ...fixture.task, current_revision: 2 })),
+    )
+    act(() => result.current.refreshReadiness())
+    await waitFor(() => expect(result.current.error).toContain('任务版本已变化'))
+    expect(result.current.canRetry).toBe(false)
+    expect(result.current.session?.drafts).toEqual(saved.drafts)
+    act(() => result.current.refreshReadiness())
+    await waitFor(() => expect(result.current.error).toBe(''))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
     first.unmount()
     const second = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
     await waitFor(() => expect(second.result.current.session?.drafts).toEqual(saved.drafts))

@@ -109,6 +109,27 @@ export function parseIntegrationConfig(value: unknown): IntegrationConfig {
   return root as IntegrationConfig
 }
 
+// 演示包由 Core 同源提供配置与摘要旁路文件（frontend-integration.v1.json.sha256）。
+// 未设置构建参数时使用这两个地址，部署无需在构建时写入摘要；摘要校验与 STEP 唯一匹配照旧。
+export const DEFAULT_INTEGRATION_CONFIG_URL = '/integration-config.json'
+
+export async function resolveIntegrationSource(
+  configuredUrl: string | undefined,
+  configuredSha256: string | undefined,
+  fetcher: typeof fetch = fetch,
+) {
+  const url = configuredUrl || DEFAULT_INTEGRATION_CONFIG_URL
+  if (configuredSha256) return { url, sha256: configuredSha256 }
+  // 只给了配置地址却没给摘要，通常是构建遗漏；仍按同源旁路文件读取，并在报错中写明地址。
+  const sidecar = `${url}.sha256`
+  const response = await fetcher(sidecar, { cache: 'no-store' })
+  if (!response.ok)
+    throw new Error(`未找到受控配置摘要 ${sidecar}（HTTP ${response.status}），请核对部署包`)
+  const sha256 = (await response.text()).trim().split(/\s+/)[0] ?? ''
+  if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error(`受控配置摘要格式无效：${sidecar}`)
+  return { url, sha256 }
+}
+
 // 校验部署文件的原始字节，不重新序列化 JSON，避免跨语言数字和空白差异。
 export async function loadIntegrationConfig(
   url: string,

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deploymentFromTemplate,
   loadIntegrationConfig,
+  resolveIntegrationSource,
+  DEFAULT_INTEGRATION_CONFIG_URL,
   matchIntegrationTemplate,
   parseIntegrationConfig,
 } from './integrationConfig'
@@ -110,6 +112,51 @@ describe('versioned deployment configuration', () => {
         vi.fn().mockResolvedValue(new Response('', { status: 404 })),
       ),
     ).rejects.toThrow('404')
+  })
+  it('defaults to the same-origin config and its digest sidecar when no build values are set', async () => {
+    const bytes = new TextEncoder().encode(JSON.stringify(document()))
+    const expected = await rawDigest(bytes)
+    const fetcher = vi.fn<typeof fetch>(async (input) =>
+      String(input).endsWith('.sha256') ? new Response(`${expected}\n`) : new Response(bytes),
+    )
+    const source = await resolveIntegrationSource(undefined, '', fetcher)
+    expect(source).toEqual({ url: DEFAULT_INTEGRATION_CONFIG_URL, sha256: expected })
+    expect(fetcher).toHaveBeenCalledWith('/integration-config.json.sha256', { cache: 'no-store' })
+    // The sidecar only supplies the expected value; the bytes are still verified.
+    const loaded = await loadIntegrationConfig(source.url, source.sha256, fetcher)
+    expect(loaded.sha256).toBe(expected)
+  })
+  it('keeps explicit build values and reports a missing or malformed sidecar', async () => {
+    const unused = vi.fn<typeof fetch>()
+    await expect(resolveIntegrationSource('/config', digest, unused)).resolves.toEqual({
+      url: '/config',
+      sha256: digest,
+    })
+    expect(unused).not.toHaveBeenCalled()
+    await expect(
+      resolveIntegrationSource(
+        '',
+        '',
+        vi.fn().mockResolvedValue(new Response('', { status: 404 })),
+      ),
+    ).rejects.toThrow('/integration-config.json.sha256（HTTP 404）')
+    await expect(
+      resolveIntegrationSource(
+        '/config',
+        '',
+        vi.fn().mockResolvedValue(new Response('not-a-hash')),
+      ),
+    ).rejects.toThrow('摘要格式无效：/config.sha256')
+  })
+  it('a sidecar that disagrees with the served bytes is still rejected', async () => {
+    const bytes = new TextEncoder().encode(JSON.stringify(document()))
+    const fetcher = vi.fn<typeof fetch>(async (input) =>
+      String(input).endsWith('.sha256') ? new Response('b'.repeat(64)) : new Response(bytes),
+    )
+    const source = await resolveIntegrationSource(undefined, undefined, fetcher)
+    await expect(loadIntegrationConfig(source.url, source.sha256, fetcher)).rejects.toThrow(
+      'digest',
+    )
   })
   it('requires a pinned SHA and known configuration version', async () => {
     const fetcher = vi.fn<typeof fetch>()

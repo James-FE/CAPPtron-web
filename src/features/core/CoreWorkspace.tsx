@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { randomId } from '../../api/browserCrypto'
 import { CoreClient, CoreHttpError, ncPath } from '../../api/core/client'
 import type {
   ApprovedPlans,
@@ -11,7 +12,7 @@ import type {
 } from '../../api/core/client'
 
 const api = new CoreClient(import.meta.env.VITE_API_BASE_URL ?? '')
-const id = () => crypto.randomUUID()
+const id = () => randomId()
 const path = (task: Task) => `/planning/tasks/${encodeURIComponent(task.task_id)}`
 export function CoreWorkspace() {
   const [asset, setAsset] = useState<Asset>()

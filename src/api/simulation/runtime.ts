@@ -1,4 +1,5 @@
 import fixture from './golden.json'
+import { randomId } from '../browserCrypto'
 import { cardPath, sameNcRef, samePlanRef } from '../core/client'
 import type { Asset, ParseResult } from '../core/client'
 import type { LivePlan } from '../core/contracts'
@@ -52,7 +53,7 @@ function read(): Database {
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 const error = (message: string, status = 409) =>
-  json({ error: { code: status, message }, request_id: `sim-${crypto.randomUUID()}` }, status)
+  json({ error: { code: status, message }, request_id: `sim-${randomId()}` }, status)
 const clone = <T>(value: T): T => structuredClone(value)
 const planRef = (task: SimTask) => ({
   ...fixture.approved.plans[0]!.plan_ref,
@@ -121,7 +122,7 @@ const fetcher: typeof fetch = async (input, init = {}) => {
       )
     const asset = {
       ...fixture.asset,
-      asset_id: `sim-asset-${crypto.randomUUID()}`,
+      asset_id: `sim-asset-${randomId()}`,
       filename: file.name,
       sha256: await fileDigest(file),
       command_id: command,
@@ -163,7 +164,7 @@ const fetcher: typeof fetch = async (input, init = {}) => {
       db.parses[`${asset.asset_id}/${source.parse_command_id}`]?.status !== 'parsed'
     )
       return error('模拟输入尚未解析', 422)
-    const id = `sim-task-${crypto.randomUUID()}`
+    const id = `sim-task-${randomId()}`
     const task: SimTask = {
       scenario: simulationScenario(),
       id,
@@ -224,7 +225,7 @@ const fetcher: typeof fetch = async (input, init = {}) => {
       task.camId = undefined
       task.camStarted = undefined
       task.ncReviewer = undefined
-      const id = `sim-planning-${crypto.randomUUID()}`
+      const id = `sim-planning-${randomId()}`
       Object.assign(plan, { task_id: task.id, revision: task.revision, run_id: id })
       plan.payload.extensions.matching_evidence!.step_sha256 = db.assets[task.assetId]!.sha256
       task.plans[String(task.revision)] = plan
@@ -298,7 +299,7 @@ const fetcher: typeof fetch = async (input, init = {}) => {
       )
         return error('当前修订尚未审批')
       if (task.camId) return error('当前修订已有模拟 CAM 记录')
-      task.camId = `sim-cam-${crypto.randomUUID()}`
+      task.camId = `sim-cam-${randomId()}`
       task.camStarted = Date.now()
       return save({
         ...fixture.camReceipt,

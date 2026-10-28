@@ -1,3 +1,4 @@
+import { sha256Hex } from '../browserCrypto'
 import type { ExecutionPreflight } from './contracts'
 import type { NcFile } from './contracts'
 export type Task = { task_id: string; current_revision: number; feedback_version: number }
@@ -74,10 +75,7 @@ export type NcDownload = {
   sourceUrl: string
   digestVerified: boolean
 }
-const sha256 = async (bytes: ArrayBuffer) =>
-  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (n) =>
-    n.toString(16).padStart(2, '0'),
-  ).join('')
+const sha256 = (bytes: ArrayBuffer) => sha256Hex(bytes)
 export function assertNcFiles(files: Omit<NcFile, 'text' | 'newline'>[]) {
   if (
     !files.length ||

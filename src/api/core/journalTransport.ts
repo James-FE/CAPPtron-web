@@ -1,3 +1,4 @@
+import { sha256Hex } from '../browserCrypto'
 import { CommandJournal } from './commandJournal'
 import type { CommandDomain, PendingCommand } from './commandJournal'
 
@@ -11,8 +12,7 @@ export async function fileDigest(file: File) {
           reader.onerror = () => reject(reader.error)
           reader.readAsArrayBuffer(file)
         })
-  const hash = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(hash), (x) => x.toString(16).padStart(2, '0')).join('')
+  return sha256Hex(bytes)
 }
 
 // 先确认原请求持久化，再发送。未收到可确认回执时不丢弃写意图。

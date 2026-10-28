@@ -4,6 +4,7 @@ import {
   supplementSchema,
   supplementValues,
 } from '../../api/core/supplement'
+import { randomId } from '../../api/browserCrypto'
 import type { SupplementList } from '../../api/core/supplement'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -64,7 +65,7 @@ type State = {
 }
 const initial: State = { busy: false, error: '', status: '请选择并上传 STEP' }
 const path = (task: Task) => `/planning/tasks/${encodeURIComponent(task.task_id)}`
-const uuid = () => crypto.randomUUID()
+const uuid = () => randomId()
 const pause = (signal: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     signal.throwIfAborted()

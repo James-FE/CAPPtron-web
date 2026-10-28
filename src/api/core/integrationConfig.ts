@@ -1,3 +1,4 @@
+import { sha256Hex } from '../browserCrypto'
 import type { LivePlan, Deployment, Metadata } from './contracts'
 type PlanProducedDto = Pick<LivePlan, 'payload'>
 
@@ -118,10 +119,7 @@ export async function loadIntegrationConfig(
   const response = await fetcher(url, { cache: 'no-store' })
   if (!response.ok) throw new Error(`Configuration HTTP ${response.status}`)
   const bytes = await response.arrayBuffer()
-  const hash = await crypto.subtle.digest('SHA-256', bytes)
-  const actual = Array.from(new Uint8Array(hash), (byte) =>
-    byte.toString(16).padStart(2, '0'),
-  ).join('')
+  const actual = await sha256Hex(bytes)
   if (actual !== expectedSha256) throw new Error('Configuration digest mismatch')
   const config = parseIntegrationConfig(
     JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)),

@@ -7,6 +7,10 @@ import { useLiveWorkflow } from './useLiveWorkflow'
 import fixture from '../../../e2e/fixtures/core-golden.json'
 
 beforeEach(() => {
+  // 会话键由部署配置决定；单测固定来源，避免本机 .env.local 污染恢复用例。
+  vi.stubEnv('VITE_API_BASE_URL', '')
+  vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '')
+  vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', '')
   const values = new Map<string, string>()
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => values.get(key) ?? null,

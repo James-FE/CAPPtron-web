@@ -565,11 +565,13 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
                 ? `现场输入需要修正：${model.onsiteAssessment.issues.map((x) => x.message).join('；')}`
                 : plan.payload.extensions.onsite_diagnostics?.length
                   ? plan.payload.extensions.onsite_diagnostics.map((x) => x.message).join('；')
-                  : current.needs_replan
-                    ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
-                    : blocked
-                      ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
-                      : undefined,
+                  : plan.payload.extensions.preparation?.issues.length
+                    ? plan.payload.extensions.preparation.issues.map((x) => x.detail).join('；')
+                    : current.needs_replan
+                      ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
+                      : blocked
+                        ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+                        : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,

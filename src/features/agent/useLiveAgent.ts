@@ -49,6 +49,7 @@ function saveConversation(scope: string, taskId: string, id: string) {
   }
 }
 
+const lostNotice = 'Core 中的原对话已不存在（服务可能已重启），之前的问答已丢失，已新建对话。'
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 export function useLiveAgent({
@@ -90,9 +91,24 @@ export function useLiveAgent({
 
   const startConversation = useCallback(
     async (task: string, current: number, fresh = false) => {
-      const id = (!fresh && savedConversation(base, task)) || randomId()
-      await createConversation(api.current, id, task)
-      const view = await getConversation(api.current, id)
+      const saved = fresh ? null : savedConversation(base, task)
+      if (saved) {
+        // 先读取已保存的对话；只有 Core 确认不存在（8401）时才新建并提示历史已丢失，
+        // 避免用旧 ID 静默重建出一个空对话。
+        try {
+          const view = await getConversation(api.current, saved)
+          if (generation.current !== current) return
+          conversation.current = saved
+          setTurns(view.turns)
+          return
+        } catch (reason) {
+          if (!isConversationMissing(reason)) throw reason
+          if (generation.current !== current) return
+          setNotice(lostNotice)
+        }
+      }
+      const id = randomId()
+      const view = await createConversation(api.current, id, task)
       if (generation.current !== current) return
       conversation.current = id
       saveConversation(base, task, id)
@@ -155,7 +171,7 @@ export function useLiveAgent({
         if (generation.current !== current) return false
         if (isConversationMissing(reason) && taskId) {
           // Core 重启后对话丢失：新建空对话，不自动重发问题。
-          setNotice('Core 中的原对话已不存在（服务可能已重启），已新建对话，请重新发送。')
+          setNotice(`${lostNotice}请重新发送问题。`)
           try {
             await startConversation(taskId, current, true)
           } catch (again) {

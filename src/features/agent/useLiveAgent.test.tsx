@@ -150,9 +150,42 @@ describe('useLiveAgent', () => {
       await first.result.current.send('第一问', context)
     })
     first.unmount()
+    const creates = core.calls.filter(
+      (c) => c.method === 'POST' && c.path === '/agent/conversations',
+    )
     const second = render(core.fetcher)
     await waitFor(() => expect(second.result.current.turns.map((t) => t.text)).toEqual(['第一问']))
     expect(core.conversations.size).toBe(1)
+    // 恢复只读取保存的对话，不再调用创建接口。
+    expect(
+      core.calls.filter((c) => c.method === 'POST' && c.path === '/agent/conversations'),
+    ).toHaveLength(creates.length)
+    expect(second.result.current.notice).toBe('')
+  })
+
+  it('Core 重启后刷新：提示原历史已丢失，并用新 ID 新建对话', async () => {
+    const core = fakeCore()
+    const first = render(core.fetcher)
+    await waitFor(() => expect(core.conversations.size).toBe(1))
+    await act(async () => {
+      await first.result.current.send('重启前的问题', context)
+    })
+    const oldId = [...core.conversations.keys()][0]!
+    first.unmount()
+    core.conversations.clear() // 模拟 Core 重启，内存中的对话全部丢失
+    const second = render(core.fetcher)
+    await waitFor(() => expect(second.result.current.notice).toContain('之前的问答已丢失'))
+    await waitFor(() => expect(core.conversations.size).toBe(1))
+    expect(second.result.current.turns).toEqual([])
+    expect(core.conversations.has(oldId)).toBe(false)
+    // 旧 ID 只在最初创建过一次，没有被静默重建为空对话。
+    const recreated = core.calls.filter(
+      (c) =>
+        c.method === 'POST' &&
+        c.path === '/agent/conversations' &&
+        c.body?.conversation_id === oldId,
+    )
+    expect(recreated).toHaveLength(1)
   })
 
   it('换任务丢弃旧对话', async () => {

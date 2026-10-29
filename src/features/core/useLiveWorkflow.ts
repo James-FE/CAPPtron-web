@@ -35,6 +35,7 @@ import {
   loadIntegrationConfig,
   deploymentFromTemplate,
   matchIntegrationTemplate,
+  resolveIntegrationSource,
 } from '../../api/core/integrationConfig'
 import type { IntegrationConfig } from '../../api/core/integrationConfig'
 import { parameterChanges, toProcessPlan } from '../../api/core/viewModel'
@@ -296,12 +297,13 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       if (!entry) throw new Error('模拟流程仅接受内置示例，请使用示例模型。')
       return deploymentFromTemplate(entry, '模拟 JSON · 不代表真实制造结果')
     }
-    const url = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL
-    const digest = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256
-    if (!url || !digest) throw new Error('未发布受控 frontend-integration.v1 配置 URL 与 SHA-256')
-    const loaded = await loadIntegrationConfig(url, digest, (input, init) =>
-      fetch(input, { ...init, signal }),
+    const fetcher: typeof fetch = (input, init) => fetch(input, { ...init, signal })
+    const { url, sha256: digest } = await resolveIntegrationSource(
+      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL,
+      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256,
+      fetcher,
     )
+    const loaded = await loadIntegrationConfig(url, digest, fetcher)
     integration.current = loaded.config
     const entries = loaded.config.templates.filter(
       (entry) => !stepSha || entry.matching_evidence.step_sha256 === stepSha,

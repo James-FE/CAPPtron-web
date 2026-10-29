@@ -4,7 +4,7 @@
 
 ## 部署配置
 
-构建前配置 `VITE_API_BASE_URL`、`VITE_CORE_INTEGRATION_CONFIG_URL` 与 `VITE_CORE_INTEGRATION_CONFIG_SHA256`。配置 URL 提供与当前 Core 运行包同批导出的 `frontend-integration.v1.json`；摘要是该文件原始 UTF-8 字节的 SHA-256，不能重新排版后沿用旧值。三项均为浏览器公开配置，不可写入凭据。
+构建前可配置 `VITE_API_BASE_URL`、`VITE_CORE_INTEGRATION_CONFIG_URL` 与 `VITE_CORE_INTEGRATION_CONFIG_SHA256`。两项配置变量都不设置时，页面读取同源 `/integration-config.json`，并从同源 `/integration-config.json.sha256` 取得期望摘要（Windows 演示包由 Core 提供这两个地址），部署无需在构建时写入摘要；只设置 URL 时摘要读取 `<URL>.sha256`。摘要来源改变后，原始字节校验和 STEP 唯一匹配不变。配置 URL 提供与当前 Core 运行包同批导出的 `frontend-integration.v1.json`；摘要是该文件原始 UTF-8 字节的 SHA-256，不能重新排版后沿用旧值。三项均为浏览器公开配置，不可写入凭据。
 
 页面不再请求旧 `core-deployment.json`。描述符包含模板集合、来源绑定、工序、参数 metadata 和规则；Hook 从唯一匹配条目投影所需展示字段。缺失、损坏、混用模板、证据或参数 metadata 均阻断。运输摘要与 canonical 工程摘要分别保留，不互相比较。
 

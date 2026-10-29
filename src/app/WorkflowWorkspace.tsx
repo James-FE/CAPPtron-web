@@ -108,6 +108,7 @@ export function WorkflowWorkspace({
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
       {
         <AgentDrawer
+          unavailableReason={live ? 'Agent 服务尚未接入，暂不能发送消息。' : undefined}
           liveAgent={live ? liveAgent : undefined}
           open={drawerOpen}
           onClose={() => setAgentOpen(false)}

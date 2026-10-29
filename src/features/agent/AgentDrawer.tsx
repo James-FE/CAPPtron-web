@@ -18,7 +18,10 @@ export function AgentDrawer({
   unavailableReason,
   liveAgent,
 }: {
-  /** 真实联调模式下的 Agent；缺省时为 Demo 固定回复。 */
+  /**
+   * 真实联调模式下的 Agent。只有 Core 确认 Agent 可用时才切换为对话界面；
+   * 未开启、模拟、无任务或连接中时保持已确认基线的不可用抽屉（unavailableReason）。
+   */
   liveAgent?: LiveAgent
   unavailableReason?: string
   programContext?: string
@@ -37,11 +40,10 @@ export function AgentDrawer({
   const positions = useRef<Record<string, number>>({})
   const previousCount = useRef(0)
   const taskKey = plan?.id ?? 'unassigned'
-  const liveReady = liveAgent?.availability === 'available' && !liveAgent.pending
-  const blocked = liveAgent ? !liveReady : !!unavailableReason
-  const itemCount = liveAgent
-    ? liveAgent.turns.length + (liveAgent.pending ? 1 : 0)
-    : messages.length
+  const active = liveAgent?.availability === 'available' ? liveAgent : undefined
+  const liveReady = !!active && !active.pending
+  const blocked = active ? !liveReady : !!unavailableReason
+  const itemCount = active ? active.turns.length + (active.pending ? 1 : 0) : messages.length
   useEffect(() => {
     const element = dialog.current
     if (!element) return
@@ -99,7 +101,7 @@ export function AgentDrawer({
         <section className="agent-context" aria-label="Agent 当前上下文">
           <p>
             {plan
-              ? `${plan.partName} · ${plan.name}${liveAgent || unavailableReason ? '' : ' · Demo'}`
+              ? `${plan.partName} · ${plan.name}${active || unavailableReason ? '' : ' · Demo'}`
               : '未加载工艺方案'}
           </p>
           <div className="agent-operation-picker">
@@ -124,7 +126,7 @@ export function AgentDrawer({
           </div>
           {programContext && <p className="warning-text">{programContext}</p>}
           <p className="muted-text">
-            {liveAgent?.availability === 'available'
+            {active
               ? '当前任务与工序随消息发送；Agent 以服务端记录为准。'
               : '仅同步 UI 上下文，未交给真实 Agent 读取。'}
           </p>
@@ -140,17 +142,25 @@ export function AgentDrawer({
             positions.current[taskKey] = event.currentTarget.scrollTop
           }}
         >
-          {liveAgent ? (
-            <LiveAgentLog agent={liveAgent} plan={plan} />
+          {active ? (
+            <LiveAgentLog agent={active} plan={plan} />
           ) : (
             <>
               <p className="warning-text">{unavailableReason ?? '预设对话演示 · 非真实 Agent'}</p>
               {!unavailableReason && (
                 <p>可记录工艺、刀具或参数方面的问题。尚未连接真实 Agent，发送后仅展示固定说明。</p>
               )}
+              {liveAgent?.availability === 'error' && (
+                <>
+                  <p className="muted-text">Agent 连接失败：{liveAgent.error}</p>
+                  <button className="button" type="button" onClick={liveAgent.retry}>
+                    重新连接
+                  </button>
+                </>
+              )}
             </>
           )}
-          {!liveAgent &&
+          {!active &&
             messages.map((message) => (
               <article key={message.id} className={`agent-message message-${message.role}`}>
                 <p className="muted-text">
@@ -169,7 +179,7 @@ export function AgentDrawer({
           }}
         >
           <p className="muted-text">
-            {liveAgent
+            {active
               ? 'Agent 只读：不修改工艺或 NC，不批准、审核或启动 CAM。'
               : unavailableReason
                 ? '可查看当前任务与工序上下文。'
@@ -183,10 +193,8 @@ export function AgentDrawer({
             disabled={!plan || blocked}
             maxLength={2000}
             placeholder={
-              liveAgent
-                ? liveReady
-                  ? '输入问题，例如：粗车步距现在是多少，从哪里来？'
-                  : 'Agent 暂不可用'
+              active
+                ? '输入问题，例如：粗车步距现在是多少，从哪里来？'
                 : (unavailableReason ??
                   (plan ? '输入消息，体验 Demo 对话' : '请先显式加载演示方案'))
             }
@@ -195,14 +203,14 @@ export function AgentDrawer({
           <div className="agent-send">
             <span className="muted-text">
               {input.length} / 2000 ·{' '}
-              {liveAgent ? '对话保存在 Core 内存，重启后丢失' : '仅本次页面会话'}
+              {active ? '对话保存在 Core 内存，重启后丢失' : '仅本次页面会话'}
             </span>
             <button
               className="button primary-button"
               type="submit"
               disabled={!plan || !input.trim() || blocked}
             >
-              {liveAgent || unavailableReason ? '发送消息' : '发送演示消息'}
+              {active || unavailableReason ? '发送消息' : '发送演示消息'}
             </button>
           </div>
         </form>

@@ -19,14 +19,13 @@ async function openAgent(page: Page) {
   return dialog
 }
 
-test('Core 未开启 Agent 时说明原因且不可发送', async ({ page }, info) => {
+test('Core 未开启 Agent 时保持基线不可用抽屉且不可发送', async ({ page }, info) => {
   const core = await coreFixture(page)
   await startPlanning(page)
   await openPlan(page)
   const dialog = await openAgent(page)
-  await expect(
-    dialog.getByText('Core 未开启 Agent（CAPPTRON_AGENT_ENABLED），暂不能发送消息。'),
-  ).toBeVisible()
+  // Core 未开启 Agent 时，抽屉保持已确认基线的不可用说明。
+  await expect(dialog.getByText('Agent 服务尚未接入，暂不能发送消息。')).toBeVisible()
   await expect(dialog.getByLabel('消息', { exact: true })).toBeDisabled()
   await expect(dialog.getByRole('button', { name: '发送消息' })).toBeDisabled()
   await expect(dialog).not.toContainText('Demo')

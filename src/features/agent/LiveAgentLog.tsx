@@ -1,5 +1,5 @@
 // 真实 Agent 的对话记录：问题、查询卡片、回答与经 Core 核对的依据。
-// 这里只展示服务端返回的事件，不补造回答或依据。
+// 只在 Core 确认 Agent 可用时使用；这里只展示服务端返回的事件，不补造回答或依据。
 import { summarizeTurn } from '../../api/core/agent'
 import type { AgentContextHint, ToolCard } from '../../api/core/agent'
 import type { ProcessPlan } from '../process-planning/processPlan'
@@ -20,33 +20,11 @@ function contextLabel(context: AgentContextHint, plan: ProcessPlan | null) {
   return context.operation_id ? `${page} · ${context.operation_id}` : `${page} · 任务级`
 }
 
-function availabilityText(agent: LiveAgent) {
-  switch (agent.availability) {
-    case 'waiting':
-      return '规划任务就绪后可向 Agent 提问。'
-    case 'checking':
-      return '正在连接 Core Agent…'
-    case 'disabled':
-      return 'Core 未开启 Agent（CAPPTRON_AGENT_ENABLED），暂不能发送消息。'
-    case 'simulation':
-      return '本地模拟模式不连接 Agent，暂不能发送消息。'
-    case 'error':
-      return `Agent 连接失败：${agent.error}`
-    default:
-      return '只读 Agent · 回答依据 Core 记录'
-  }
-}
-
 export function LiveAgentLog({ agent, plan }: { agent: LiveAgent; plan: ProcessPlan | null }) {
   return (
     <>
-      <p className="warning-text">{availabilityText(agent)}</p>
-      {agent.availability === 'error' && (
-        <button className="button" type="button" onClick={agent.retry}>
-          重新连接
-        </button>
-      )}
-      {agent.availability === 'available' && !agent.turns.length && !agent.pending && (
+      <p className="warning-text">只读 Agent · 回答依据 Core 记录</p>
+      {!agent.turns.length && !agent.pending && (
         <p>可询问参数、工序、修订或 NC 的来源与含义。Agent 只查询服务端记录，不修改工艺。</p>
       )}
       {agent.turns.map((turn) => {
@@ -125,7 +103,7 @@ export function LiveAgentLog({ agent, plan }: { agent: LiveAgent; plan: ProcessP
         </section>
       )}
       {agent.notice && <p className="warning-text">{agent.notice}</p>}
-      {agent.error && agent.availability === 'available' && (
+      {agent.error && (
         <p className="warning-text" role="alert">
           发送失败：{agent.error}
         </p>

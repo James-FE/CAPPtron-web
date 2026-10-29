@@ -602,7 +602,7 @@
 .agent-turn > * + * {
   margin-top: 12px;
 }
-.agent-message p:not(.muted-text) {
+.message-agent p:not(.muted-text) {
   white-space: pre-wrap;
 }
 .agent-tools {

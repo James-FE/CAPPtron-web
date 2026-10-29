@@ -100,10 +100,34 @@ const agent = (overrides: Partial<LiveAgent> = {}): LiveAgent => ({
   ...overrides,
 })
 
-function drawer(liveAgent: LiveAgent, input = '') {
+const BASELINE_REASON = 'Agent 服务尚未接入，暂不能发送消息。'
+
+/** 渲染后返回对话框 HTML，用于与 main 基线逐字比较。 */
+function renderDrawer(props: { unavailableReason?: string; liveAgent?: LiveAgent }) {
+  const { container, unmount } = render(
+    <AgentDrawer
+      {...props}
+      open
+      onClose={() => {}}
+      plan={plan}
+      operationId="ring-op-2"
+      onOperation={() => {}}
+      messages={[]}
+      input="问题"
+      onInput={() => {}}
+      onSend={() => {}}
+    />,
+  )
+  const html = container.innerHTML
+  unmount()
+  return html
+}
+
+function drawer(liveAgent: LiveAgent, input = '', unavailableReason?: string) {
   const onSend = vi.fn()
   render(
     <AgentDrawer
+      unavailableReason={unavailableReason}
       liveAgent={liveAgent}
       open
       onClose={() => {}}
@@ -151,19 +175,25 @@ describe('AgentDrawer 真实模式', () => {
     expect(screen.getByLabelText('消息')).toBeDisabled()
   })
 
-  it.each([
-    ['disabled', 'Core 未开启 Agent（CAPPTRON_AGENT_ENABLED），暂不能发送消息。'],
-    ['simulation', '本地模拟模式不连接 Agent，暂不能发送消息。'],
-    ['waiting', '规划任务就绪后可向 Agent 提问。'],
-  ] as const)('%s 时说明原因且不可发送', (availability, text) => {
-    drawer(agent({ availability }), '问题')
-    expect(screen.getByText(text)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled()
-  })
+  it.each(['checking', 'waiting', 'disabled', 'simulation'] as const)(
+    '%s 时与已确认基线的不可用抽屉完全一致',
+    (availability) => {
+      const baseline = renderDrawer({ unavailableReason: BASELINE_REASON })
+      const live = renderDrawer({
+        unavailableReason: BASELINE_REASON,
+        liveAgent: agent({ availability }),
+      })
+      expect(live).toBe(baseline)
+      expect(baseline).toContain(BASELINE_REASON)
+    },
+  )
 
-  it('连接失败可重新连接；轮次失败显示错误码', () => {
+  it('连接失败保留基线说明，另给出原因和重新连接', () => {
     const retry = vi.fn()
-    drawer(agent({ availability: 'error', error: 'Core HTTP 503', retry }))
+    drawer(agent({ availability: 'error', error: 'Core HTTP 503', retry }), '', BASELINE_REASON)
+    expect(screen.getByText(BASELINE_REASON)).toBeInTheDocument()
+    expect(screen.getByText('Agent 连接失败：Core HTTP 503')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '重新连接' }))
     expect(retry).toHaveBeenCalled()
   })

@@ -598,6 +598,55 @@
 .message-user {
   background: var(--surface-raised);
 }
+/* 真实 Agent：同一轮的问题与回答相邻，查询卡片与依据保持次要层级。 */
+.agent-turn > * + * {
+  margin-top: 12px;
+}
+.agent-message p:not(.muted-text) {
+  white-space: pre-wrap;
+}
+.agent-tools {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 20px;
+}
+.agent-tools li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+  border-radius: var(--radius-panel);
+  background: var(--surface-canvas);
+}
+.agent-tool-status {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.agent-tool-status.tool-no_record,
+.agent-tool-status.tool-rejected,
+.agent-tool-status.tool-failed {
+  color: var(--text-warning);
+}
+.agent-citations {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.agent-citations summary {
+  cursor: pointer;
+  color: var(--accent-primary);
+}
+.agent-citations ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+.agent-citations code {
+  font-size: 11px;
+}
 .agent-composer {
   display: grid;
   gap: 12px;

@@ -10,6 +10,7 @@ const ProgramReviewPage = lazy(() =>
 import { AgentBubble } from '../features/agent/AgentBubble'
 import { AgentDrawer } from '../features/agent/AgentDrawer'
 import { createDemoExchange } from '../features/agent/agentSession'
+import { useLiveAgent } from '../features/agent/useLiveAgent'
 import type { WorkflowStage } from './WorkflowNavigation'
 import type { LiveWorkflow } from '../features/core/useLiveWorkflow'
 import {
@@ -73,6 +74,14 @@ export function WorkflowWorkspace({
       }
     : demo
   const { session, operation, selectOperation, updateSession, agentOpen, setAgentOpen } = workflow
+  const drawerOpen = visible && stage !== 'input' && agentOpen
+  const liveAgent = useLiveAgent({
+    enabled: !!live,
+    simulation: !!live?.simulation,
+    base: import.meta.env.VITE_API_BASE_URL ?? '',
+    taskId: live?.task?.task_id ?? null,
+    open: drawerOpen,
+  })
   useEffect(() => {
     if (!visible) setAgentOpen(false)
   }, [visible, setAgentOpen])
@@ -99,8 +108,8 @@ export function WorkflowWorkspace({
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
       {
         <AgentDrawer
-          unavailableReason={live ? 'Agent 服务尚未接入，暂不能发送消息。' : undefined}
-          open={visible && stage !== 'input' && agentOpen}
+          liveAgent={live ? liveAgent : undefined}
+          open={drawerOpen}
           onClose={() => setAgentOpen(false)}
           plan={session?.plan ?? null}
           programContext={
@@ -116,6 +125,21 @@ export function WorkflowWorkspace({
           input={session?.input ?? ''}
           onInput={(input) => updateSession((current) => ({ ...current, input }))}
           onSend={() => {
+            if (live && live.task && session?.input.trim()) {
+              const text = session.input
+              const context = {
+                page: stage === 'review' ? ('review' as const) : ('planning' as const),
+                task_id: live.task.task_id,
+                revision: live.task.current_revision,
+                ...(session.view !== 'task' && operation ? { operation_id: operation.id } : {}),
+                ...(stage === 'review' && live.nc ? { nc_ref: live.nc.ref } : {}),
+              }
+              // 发送成功后才清空输入；失败时保留原文便于重试。
+              void liveAgent.send(text, context).then((sent) => {
+                if (sent) updateSession((current) => ({ ...current, input: '' }))
+              })
+              return
+            }
             if (live || !session?.input.trim()) return
             const messageOperation = session.view === 'task' ? null : operation
             const context =

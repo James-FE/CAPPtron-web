@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { AgentMessage } from './agentSession'
 import type { ProcessPlan } from '../process-planning/processPlan'
+import type { LiveAgent } from './useLiveAgent'
+import { LiveAgentLog } from './LiveAgentLog'
 
 export function AgentDrawer({
   open,
@@ -14,7 +16,10 @@ export function AgentDrawer({
   onSend,
   programContext,
   unavailableReason,
+  liveAgent,
 }: {
+  /** 真实联调模式下的 Agent；缺省时为 Demo 固定回复。 */
+  liveAgent?: LiveAgent
   unavailableReason?: string
   programContext?: string
   open: boolean
@@ -32,6 +37,11 @@ export function AgentDrawer({
   const positions = useRef<Record<string, number>>({})
   const previousCount = useRef(0)
   const taskKey = plan?.id ?? 'unassigned'
+  const liveReady = liveAgent?.availability === 'available' && !liveAgent.pending
+  const blocked = liveAgent ? !liveReady : !!unavailableReason
+  const itemCount = liveAgent
+    ? liveAgent.turns.length + (liveAgent.pending ? 1 : 0)
+    : messages.length
   useEffect(() => {
     const element = dialog.current
     if (!element) return
@@ -43,10 +53,10 @@ export function AgentDrawer({
     log.current.scrollTop = positions.current[taskKey] ?? 0
   }, [open, taskKey])
   useLayoutEffect(() => {
-    if (open && log.current && messages.length > previousCount.current)
+    if (open && log.current && itemCount > previousCount.current)
       log.current.scrollTop = log.current.scrollHeight
-    previousCount.current = messages.length
-  }, [messages.length, open])
+    previousCount.current = itemCount
+  }, [itemCount, open])
   return (
     <dialog
       ref={dialog}
@@ -89,7 +99,7 @@ export function AgentDrawer({
         <section className="agent-context" aria-label="Agent 当前上下文">
           <p>
             {plan
-              ? `${plan.partName} · ${plan.name}${unavailableReason ? '' : ' · Demo'}`
+              ? `${plan.partName} · ${plan.name}${liveAgent || unavailableReason ? '' : ' · Demo'}`
               : '未加载工艺方案'}
           </p>
           <div className="agent-operation-picker">
@@ -113,7 +123,11 @@ export function AgentDrawer({
             </select>
           </div>
           {programContext && <p className="warning-text">{programContext}</p>}
-          <p className="muted-text">仅同步 UI 上下文，未交给真实 Agent 读取。</p>
+          <p className="muted-text">
+            {liveAgent?.availability === 'available'
+              ? '当前任务与工序随消息发送；Agent 以服务端记录为准。'
+              : '仅同步 UI 上下文，未交给真实 Agent 读取。'}
+          </p>
         </section>
         <div
           className="agent-log"
@@ -126,51 +140,69 @@ export function AgentDrawer({
             positions.current[taskKey] = event.currentTarget.scrollTop
           }}
         >
-          <p className="warning-text">{unavailableReason ?? '预设对话演示 · 非真实 Agent'}</p>
-          {!unavailableReason && (
-            <p>可记录工艺、刀具或参数方面的问题。尚未连接真实 Agent，发送后仅展示固定说明。</p>
+          {liveAgent ? (
+            <LiveAgentLog agent={liveAgent} plan={plan} />
+          ) : (
+            <>
+              <p className="warning-text">{unavailableReason ?? '预设对话演示 · 非真实 Agent'}</p>
+              {!unavailableReason && (
+                <p>可记录工艺、刀具或参数方面的问题。尚未连接真实 Agent，发送后仅展示固定说明。</p>
+              )}
+            </>
           )}
-          {messages.map((message) => (
-            <article key={message.id} className={`agent-message message-${message.role}`}>
-              <p className="muted-text">
-                {message.role === 'user' ? '你' : 'Agent · Demo 固定回复'} · {message.contextLabel}
-              </p>
-              <p>{message.text}</p>
-            </article>
-          ))}
+          {!liveAgent &&
+            messages.map((message) => (
+              <article key={message.id} className={`agent-message message-${message.role}`}>
+                <p className="muted-text">
+                  {message.role === 'user' ? '你' : 'Agent · Demo 固定回复'} ·{' '}
+                  {message.contextLabel}
+                </p>
+                <p>{message.text}</p>
+              </article>
+            ))}
         </div>
         <form
           className="agent-composer"
           onSubmit={(event) => {
             event.preventDefault()
-            if (!unavailableReason) onSend()
+            if (!blocked) onSend()
           }}
         >
           <p className="muted-text">
-            {unavailableReason
-              ? '可查看当前任务与工序上下文。'
-              : '演示记录不会修改工艺、调用 CAM 或保存至服务器。'}
+            {liveAgent
+              ? 'Agent 只读：不修改工艺或 NC，不批准、审核或启动 CAM。'
+              : unavailableReason
+                ? '可查看当前任务与工序上下文。'
+                : '演示记录不会修改工艺、调用 CAM 或保存至服务器。'}
           </p>
           <label htmlFor="agent-message">消息</label>
           <textarea
             id="agent-message"
             value={input}
             onChange={(event) => onInput(event.target.value)}
-            disabled={!plan || !!unavailableReason}
+            disabled={!plan || blocked}
             maxLength={2000}
             placeholder={
-              unavailableReason ?? (plan ? '输入消息，体验 Demo 对话' : '请先显式加载演示方案')
+              liveAgent
+                ? liveReady
+                  ? '输入问题，例如：粗车步距现在是多少，从哪里来？'
+                  : 'Agent 暂不可用'
+                : (unavailableReason ??
+                  (plan ? '输入消息，体验 Demo 对话' : '请先显式加载演示方案'))
             }
             rows={3}
           />
           <div className="agent-send">
-            <span className="muted-text">{input.length} / 2000 · 仅本次页面会话</span>
+            <span className="muted-text">
+              {input.length} / 2000 ·{' '}
+              {liveAgent ? '对话保存在 Core 内存，重启后丢失' : '仅本次页面会话'}
+            </span>
             <button
               className="button primary-button"
               type="submit"
-              disabled={!plan || !input.trim() || !!unavailableReason}
+              disabled={!plan || !input.trim() || blocked}
             >
-              {unavailableReason ? '发送消息' : '发送演示消息'}
+              {liveAgent || unavailableReason ? '发送消息' : '发送演示消息'}
             </button>
           </div>
         </form>

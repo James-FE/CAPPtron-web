@@ -1,0 +1,29 @@
+# 真实模式 Agent 抽屉接入（2026-10-29）
+
+基于 main `0a1a305`，待 PR 审核。对应 CAPPtron-core 对话 Agent 阶段 1 任务 1.7（Core 计划 `docs/superpowers/plans/2026-10-29-chat-agent.md`，接口见 Core `docs/http.md` 的“对话 Agent”一节，Core 已合入 #191）。
+
+## 行为
+
+- 只在真实 Core 联调模式下连接 Core Agent。原型/历史案例仍是 Demo 固定回复；`/?mode=simulation` 不连接 Agent，抽屉说明“本地模拟模式不连接 Agent”。
+- 打开抽屉且已有规划任务时，先以只读 GET 探测：对话不存在（8401）表示 Core 已开启 Agent，路由不存在（3002）表示未开启（`CAPPTRON_AGENT_ENABLED`）。未开启时说明原因并禁用输入。没有任务时提示“规划任务就绪后可向 Agent 提问”，不发请求。
+- 对话按任务建立，浏览器只在 `localStorage`（`capptron.agent.conversations.v1`）保存对话 ID，刷新后按 ID 读取 Core 保存的历史；问答内容只在 Core 进程内存。Core 重启导致对话不存在时，新建空对话并提示，不自动重发问题。换任务时丢弃旧对话，迟到响应被忽略。
+- 每条消息附带页面上下文：`page`（工艺决策 `planning` / 程序审核 `review`）、`task_id`、当前修订、所选工序；程序审核页另带当前 NC 版本 `nc_ref`。上下文只是提示，Agent 以服务端记录为准。
+- 展示服务端返回的事件：问题与上下文、查询卡片（摘要、结果状态）、回答、经 Core 核对的依据（可展开，显示资源、指针与取值，以及未通过核对的条数）、失败轮次的公开错误码。不补造回答或依据。
+- 发送成功后清空输入；失败时保留原文并显示 Core 错误与 request ID。查询中禁止重复发送。
+- Agent 请求不进入命令日志，不触发任何规划、工艺卡或 CAM 请求。批准、审核、下载与启动 CAM 仍只能在页面原入口完成。
+
+## 布局
+
+沿用 UI 基线的抽屉、上下文区、对话记录区和输入区，没有改变抽屉尺寸、页面布局或其他页面。对话记录内新增查询卡片与依据折叠区样式（`planning.css`），只在真实模式出现。
+
+## 验证
+
+- `NODE_OPTIONS=--no-experimental-webstorage npm run quality`：通过（360 项单元测试、lint、格式、类型检查、构建）。本机 Node 25 默认启用实验性 WebStorage，会覆盖 jsdom 的存储；CI 使用 `.nvmrc` 的 Node 22 不受影响。
+- Playwright 1920×1080 与 1440×900 全部 112 项通过，其中新增 `e2e/agent-live.spec.ts` 4 项：Agent 未开启时不可发送；工艺决策页与程序审核页各提问一次，检查回答、查询卡片、依据、上下文字段（审核页带 `nc_ref`、工艺决策页不带）以及提问不产生业务命令。
+- e2e 的 Agent 响应来自 `e2e/coreFixture.ts` 中的合成替身，请求和响应按 Core main `412ab13` 的 Pydantic 模型生成的 JSON Schema（`ConversationView`、`TurnResponse`、`CreateConversationRequest`、`SendMessageRequest`，已加入 `e2e/fixtures/core-schemas.json`）校验。截图中的回答不是真实模型输出。
+- 未执行：连接真实 Core 与真实模型的浏览器联调；该项与 Core 侧 A01–A06 验收一起进行。
+
+| 视口      | Agent 未开启                                                      | 工艺决策页回答                                                           | 程序审核页回答                                                         |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| 1440×900  | [截图](agent-live-evidence/chromium-1440x900/agent-disabled.png)  | [截图](agent-live-evidence/chromium-1440x900/agent-planning-answer.png)  | [截图](agent-live-evidence/chromium-1440x900/agent-review-answer.png)  |
+| 1920×1080 | [截图](agent-live-evidence/chromium-1920x1080/agent-disabled.png) | [截图](agent-live-evidence/chromium-1920x1080/agent-planning-answer.png) | [截图](agent-live-evidence/chromium-1920x1080/agent-review-answer.png) |

@@ -3671,5 +3671,998 @@
         "type": "object"
       }
     }
+  },
+  "ConversationView": {
+    "$defs": {
+      "AgentContext": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "enum": [
+              "planning",
+              "review"
+            ],
+            "title": "Page",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revision"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Operation Id"
+          },
+          "nc_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NcVersionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "nc_lines": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NcLineRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "page",
+          "task_id"
+        ],
+        "title": "AgentContext",
+        "type": "object"
+      },
+      "AgentErrorEvent": {
+        "additionalProperties": false,
+        "description": "Public code and fixed message only; never model text or upstream bodies.",
+        "properties": {
+          "type": {
+            "const": "error",
+            "default": "error",
+            "title": "Type",
+            "type": "string"
+          },
+          "code": {
+            "exclusiveMinimum": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AgentErrorEvent",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "description": "Points at a value returned by a tool call; the server checks it exists.",
+        "properties": {
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "resource": {
+            "minLength": 1,
+            "title": "Resource",
+            "type": "string"
+          },
+          "pointer": {
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "title": "Pointer",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 500,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "resource",
+          "pointer",
+          "value"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "MessageCompleted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "message.completed",
+            "default": "message.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/$defs/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "dropped_citations": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Dropped Citations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "MessageCompleted",
+        "type": "object"
+      },
+      "NcLineRange": {
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "minLength": 1,
+            "title": "File Id",
+            "type": "string"
+          },
+          "start": {
+            "exclusiveMinimum": 0,
+            "title": "Start",
+            "type": "integer"
+          },
+          "end": {
+            "exclusiveMinimum": 0,
+            "title": "End",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_id",
+          "start",
+          "end"
+        ],
+        "title": "NcLineRange",
+        "type": "object"
+      },
+      "NcVersionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "cam_run_id": {
+            "minLength": 1,
+            "title": "Cam Run Id",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "content_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cam_run_id",
+          "version",
+          "content_digest"
+        ],
+        "title": "NcVersionRef",
+        "type": "object"
+      },
+      "ToolCompleted": {
+        "additionalProperties": false,
+        "description": "no_record: the resource is absent; rejected: arguments failed local checks.",
+        "properties": {
+          "type": {
+            "const": "tool.completed",
+            "default": "tool.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_record",
+              "rejected",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "status",
+          "summary",
+          "duration_ms"
+        ],
+        "title": "ToolCompleted",
+        "type": "object"
+      },
+      "ToolStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "tool.started",
+            "default": "tool.started",
+            "title": "Type",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "name",
+          "summary"
+        ],
+        "title": "ToolStarted",
+        "type": "object"
+      },
+      "TurnCompleted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "turn.completed",
+            "default": "turn.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "failed",
+              "interrupted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/$defs/TurnUsage"
+          }
+        },
+        "required": [
+          "turn_id",
+          "status",
+          "usage"
+        ],
+        "title": "TurnCompleted",
+        "type": "object"
+      },
+      "TurnStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "turn.started",
+            "default": "turn.started",
+            "title": "Type",
+            "type": "string"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "message_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "message_id"
+        ],
+        "title": "TurnStarted",
+        "type": "object"
+      },
+      "TurnUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "model_calls": {
+            "minimum": 0,
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "minimum": 0,
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_calls",
+          "tool_calls"
+        ],
+        "title": "TurnUsage",
+        "type": "object"
+      },
+      "TurnView": {
+        "additionalProperties": false,
+        "description": "A stored turn; an in-progress turn has no turn.completed yet.",
+        "properties": {
+          "turn_id": {
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "message_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/$defs/AgentContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "error": "#/$defs/AgentErrorEvent",
+                  "message.completed": "#/$defs/MessageCompleted",
+                  "tool.completed": "#/$defs/ToolCompleted",
+                  "tool.started": "#/$defs/ToolStarted",
+                  "turn.completed": "#/$defs/TurnCompleted",
+                  "turn.started": "#/$defs/TurnStarted"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/TurnStarted"
+                },
+                {
+                  "$ref": "#/$defs/ToolStarted"
+                },
+                {
+                  "$ref": "#/$defs/ToolCompleted"
+                },
+                {
+                  "$ref": "#/$defs/MessageCompleted"
+                },
+                {
+                  "$ref": "#/$defs/AgentErrorEvent"
+                },
+                {
+                  "$ref": "#/$defs/TurnCompleted"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "turn_id",
+          "message_id",
+          "text",
+          "context",
+          "created_at",
+          "events"
+        ],
+        "title": "TurnView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "conversation_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Conversation Id",
+        "type": "string"
+      },
+      "task_id": {
+        "minLength": 1,
+        "title": "Task Id",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "turns": {
+        "items": {
+          "$ref": "#/$defs/TurnView"
+        },
+        "title": "Turns",
+        "type": "array"
+      }
+    },
+    "required": [
+      "conversation_id",
+      "task_id",
+      "created_at"
+    ],
+    "title": "ConversationView",
+    "type": "object"
+  },
+  "TurnResponse": {
+    "$defs": {
+      "AgentErrorEvent": {
+        "additionalProperties": false,
+        "description": "Public code and fixed message only; never model text or upstream bodies.",
+        "properties": {
+          "type": {
+            "const": "error",
+            "default": "error",
+            "title": "Type",
+            "type": "string"
+          },
+          "code": {
+            "exclusiveMinimum": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AgentErrorEvent",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "description": "Points at a value returned by a tool call; the server checks it exists.",
+        "properties": {
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "resource": {
+            "minLength": 1,
+            "title": "Resource",
+            "type": "string"
+          },
+          "pointer": {
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "title": "Pointer",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 500,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "resource",
+          "pointer",
+          "value"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "MessageCompleted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "message.completed",
+            "default": "message.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/$defs/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "dropped_citations": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Dropped Citations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "MessageCompleted",
+        "type": "object"
+      },
+      "ToolCompleted": {
+        "additionalProperties": false,
+        "description": "no_record: the resource is absent; rejected: arguments failed local checks.",
+        "properties": {
+          "type": {
+            "const": "tool.completed",
+            "default": "tool.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_record",
+              "rejected",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "status",
+          "summary",
+          "duration_ms"
+        ],
+        "title": "ToolCompleted",
+        "type": "object"
+      },
+      "ToolStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "tool.started",
+            "default": "tool.started",
+            "title": "Type",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "name",
+          "summary"
+        ],
+        "title": "ToolStarted",
+        "type": "object"
+      },
+      "TurnCompleted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "turn.completed",
+            "default": "turn.completed",
+            "title": "Type",
+            "type": "string"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "failed",
+              "interrupted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/$defs/TurnUsage"
+          }
+        },
+        "required": [
+          "turn_id",
+          "status",
+          "usage"
+        ],
+        "title": "TurnCompleted",
+        "type": "object"
+      },
+      "TurnStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "turn.started",
+            "default": "turn.started",
+            "title": "Type",
+            "type": "string"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "message_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "message_id"
+        ],
+        "title": "TurnStarted",
+        "type": "object"
+      },
+      "TurnUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "model_calls": {
+            "minimum": 0,
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "minimum": 0,
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_calls",
+          "tool_calls"
+        ],
+        "title": "TurnUsage",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "conversation_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Conversation Id",
+        "type": "string"
+      },
+      "turn_id": {
+        "minLength": 1,
+        "title": "Turn Id",
+        "type": "string"
+      },
+      "events": {
+        "items": {
+          "discriminator": {
+            "mapping": {
+              "error": "#/$defs/AgentErrorEvent",
+              "message.completed": "#/$defs/MessageCompleted",
+              "tool.completed": "#/$defs/ToolCompleted",
+              "tool.started": "#/$defs/ToolStarted",
+              "turn.completed": "#/$defs/TurnCompleted",
+              "turn.started": "#/$defs/TurnStarted"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TurnStarted"
+            },
+            {
+              "$ref": "#/$defs/ToolStarted"
+            },
+            {
+              "$ref": "#/$defs/ToolCompleted"
+            },
+            {
+              "$ref": "#/$defs/MessageCompleted"
+            },
+            {
+              "$ref": "#/$defs/AgentErrorEvent"
+            },
+            {
+              "$ref": "#/$defs/TurnCompleted"
+            }
+          ]
+        },
+        "minItems": 2,
+        "title": "Events",
+        "type": "array"
+      }
+    },
+    "required": [
+      "conversation_id",
+      "turn_id",
+      "events"
+    ],
+    "title": "TurnResponse",
+    "type": "object"
+  },
+  "CreateConversationRequest": {
+    "additionalProperties": false,
+    "properties": {
+      "conversation_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Conversation Id",
+        "type": "string"
+      },
+      "task_id": {
+        "minLength": 1,
+        "title": "Task Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "conversation_id",
+      "task_id"
+    ],
+    "title": "CreateConversationRequest",
+    "type": "object"
+  },
+  "SendMessageRequest": {
+    "$defs": {
+      "AgentContext": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "enum": [
+              "planning",
+              "review"
+            ],
+            "title": "Page",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revision"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Operation Id"
+          },
+          "nc_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NcVersionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "nc_lines": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NcLineRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "page",
+          "task_id"
+        ],
+        "title": "AgentContext",
+        "type": "object"
+      },
+      "NcLineRange": {
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "minLength": 1,
+            "title": "File Id",
+            "type": "string"
+          },
+          "start": {
+            "exclusiveMinimum": 0,
+            "title": "Start",
+            "type": "integer"
+          },
+          "end": {
+            "exclusiveMinimum": 0,
+            "title": "End",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_id",
+          "start",
+          "end"
+        ],
+        "title": "NcLineRange",
+        "type": "object"
+      },
+      "NcVersionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "cam_run_id": {
+            "minLength": 1,
+            "title": "Cam Run Id",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "content_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cam_run_id",
+          "version",
+          "content_digest"
+        ],
+        "title": "NcVersionRef",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "message_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Message Id",
+        "type": "string"
+      },
+      "text": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Text",
+        "type": "string"
+      },
+      "context": {
+        "$ref": "#/$defs/AgentContext"
+      }
+    },
+    "required": [
+      "message_id",
+      "text",
+      "context"
+    ],
+    "title": "SendMessageRequest",
+    "type": "object"
   }
 }

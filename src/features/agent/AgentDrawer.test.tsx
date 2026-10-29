@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { AgentDrawer } from './AgentDrawer'
+import { AgentDrawer, LIVE_AGENT_UNAVAILABLE } from './AgentDrawer'
 import type { LiveAgent } from './useLiveAgent'
 import type { ProcessPlan } from '../process-planning/processPlan'
 import type { AgentTurn } from '../../api/core/agent'
@@ -100,10 +100,14 @@ const agent = (overrides: Partial<LiveAgent> = {}): LiveAgent => ({
   ...overrides,
 })
 
-const BASELINE_REASON = 'Agent 服务尚未接入，暂不能发送消息。'
+const BASELINE_REASON = LIVE_AGENT_UNAVAILABLE
 
 /** 渲染后返回对话框 HTML，用于与 main 基线逐字比较。 */
-function renderDrawer(props: { unavailableReason?: string; liveAgent?: LiveAgent }) {
+type Mode =
+  | { liveAgent?: undefined; unavailableReason?: string }
+  | { liveAgent: LiveAgent; unavailableReason: string }
+
+function renderDrawer(props: Mode) {
   const { container, unmount } = render(
     <AgentDrawer
       {...props}
@@ -123,7 +127,7 @@ function renderDrawer(props: { unavailableReason?: string; liveAgent?: LiveAgent
   return html
 }
 
-function drawer(liveAgent: LiveAgent, input = '', unavailableReason?: string) {
+function drawer(liveAgent: LiveAgent, input = '', unavailableReason = BASELINE_REASON) {
   const onSend = vi.fn()
   render(
     <AgentDrawer
@@ -221,5 +225,36 @@ describe('AgentDrawer 真实模式', () => {
     expect(screen.getByText('未完成：8404 · Agent turn budget exhausted')).toBeInTheDocument()
     expect(screen.getByText('Agent · 未完成')).toBeInTheDocument()
     expect(screen.queryByText(/^依据 \d+ 条/)).not.toBeInTheDocument()
+  })
+})
+
+describe('AgentDrawer 单独使用', () => {
+  it('只传不可用的 liveAgent 时仍按基线不可用抽屉处理，禁止发送且不显示 Demo', () => {
+    const onSend = vi.fn()
+    // 绕过类型约束，模拟调用方漏传说明的情况。
+    const props = { liveAgent: agent({ availability: 'disabled' }) } as unknown as {
+      liveAgent: LiveAgent
+      unavailableReason: string
+    }
+    render(
+      <AgentDrawer
+        {...props}
+        open
+        onClose={() => {}}
+        plan={plan}
+        operationId="ring-op-2"
+        onOperation={() => {}}
+        messages={[]}
+        input="问题"
+        onInput={() => {}}
+        onSend={onSend}
+      />,
+    )
+    expect(screen.getByText(BASELINE_REASON)).toBeInTheDocument()
+    expect(screen.getByLabelText('消息')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled()
+    fireEvent.submit(screen.getByLabelText('消息').closest('form')!)
+    expect(onSend).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Demo/)).not.toBeInTheDocument()
   })
 })

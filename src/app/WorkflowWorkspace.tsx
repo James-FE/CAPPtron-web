@@ -8,7 +8,7 @@ const ProgramReviewPage = lazy(() =>
   })),
 )
 import { AgentBubble } from '../features/agent/AgentBubble'
-import { AgentDrawer } from '../features/agent/AgentDrawer'
+import { AgentDrawer, LIVE_AGENT_UNAVAILABLE } from '../features/agent/AgentDrawer'
 import { createDemoExchange } from '../features/agent/agentSession'
 import { useLiveAgent } from '../features/agent/useLiveAgent'
 import type { WorkflowStage } from './WorkflowNavigation'
@@ -108,8 +108,9 @@ export function WorkflowWorkspace({
       {visible && stage !== 'input' && <AgentBubble onOpen={() => setAgentOpen(true)} />}
       {
         <AgentDrawer
-          unavailableReason={live ? 'Agent 服务尚未接入，暂不能发送消息。' : undefined}
-          liveAgent={live ? liveAgent : undefined}
+          {...(live
+            ? { liveAgent, unavailableReason: LIVE_AGENT_UNAVAILABLE }
+            : { liveAgent: undefined })}
           open={drawerOpen}
           onClose={() => setAgentOpen(false)}
           plan={session?.plan ?? null}

@@ -4,6 +4,17 @@ import type { ProcessPlan } from '../process-planning/processPlan'
 import type { LiveAgent } from './useLiveAgent'
 import { LiveAgentLog } from './LiveAgentLog'
 
+/** 已确认基线中真实模式 Agent 不可用时的说明。 */
+export const LIVE_AGENT_UNAVAILABLE = 'Agent 服务尚未接入，暂不能发送消息。'
+
+/**
+ * 真实联调模式传 liveAgent 时必须同时给出不可用说明：只有 Core 确认 Agent 可用时
+ * 才切换为对话界面，其余状态都显示基线的不可用抽屉，不能落回 Demo。
+ */
+type AgentMode =
+  | { liveAgent?: undefined; unavailableReason?: string }
+  | { liveAgent: LiveAgent; unavailableReason: string }
+
 export function AgentDrawer({
   open,
   onClose,
@@ -15,15 +26,9 @@ export function AgentDrawer({
   onInput,
   onSend,
   programContext,
-  unavailableReason,
+  unavailableReason: reasonProp,
   liveAgent,
-}: {
-  /**
-   * 真实联调模式下的 Agent。只有 Core 确认 Agent 可用时才切换为对话界面；
-   * 未开启、模拟、无任务或连接中时保持已确认基线的不可用抽屉（unavailableReason）。
-   */
-  liveAgent?: LiveAgent
-  unavailableReason?: string
+}: AgentMode & {
   programContext?: string
   open: boolean
   onClose: () => void
@@ -41,6 +46,10 @@ export function AgentDrawer({
   const previousCount = useRef(0)
   const taskKey = plan?.id ?? 'unassigned'
   const active = liveAgent?.availability === 'available' ? liveAgent : undefined
+  // 运行时同样兜底：有 liveAgent 但不可用时，按基线不可用抽屉处理并禁止发送。
+  const unavailableReason = active
+    ? undefined
+    : (reasonProp ?? (liveAgent ? LIVE_AGENT_UNAVAILABLE : undefined))
   const liveReady = !!active && !active.pending
   const blocked = active ? !liveReady : !!unavailableReason
   const itemCount = active ? active.turns.length + (active.pending ? 1 : 0) : messages.length

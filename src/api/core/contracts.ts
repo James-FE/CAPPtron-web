@@ -1,3 +1,4 @@
+import type { OnsiteContract, OnsiteAssessment } from '../../features/process-planning/processPlan'
 import type { PlanRef, NcRef } from './client'
 
 export type PlanningRun = {
@@ -53,6 +54,10 @@ export type LivePlan = {
       steps: { id: string; sequence: number; content: string; attributes?: Attributes }[]
     }[]
     extensions: {
+      onsite_contract?: OnsiteContract
+      onsite_record_attestation?: OnsiteAssessment
+      preparation?: { issues: { code: string; detail: string }[] }
+      onsite_diagnostics?: { code: string; message: string }[]
       verified_part?: { outer_diameter_mm: number; inner_diameter_mm: number; thickness_mm: number }
       template: { id: string; version: string; digest: string }
       plan_digest: string

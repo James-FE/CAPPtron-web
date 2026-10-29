@@ -1,7 +1,8 @@
 import {
   applySupplement,
   supplementFields,
-  supplementSchema,
+  supplementSchemaFor,
+  supplementPayload,
   supplementValues,
 } from '../../api/core/supplement'
 import { randomId } from '../../api/browserCrypto'
@@ -556,11 +557,19 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
           supplementStatus: recorded
             ? '现场信息已从服务端回读；未应用到 CAM，仍需工程核对。'
             : undefined,
-          admission: current.needs_replan
-            ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
-            : blocked
-              ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
-              : undefined,
+          admission:
+            model.onsiteAssessment?.input_status === 'valid' &&
+            model.onsiteAssessment.execution_status === 'blocked'
+              ? `现场输入有效，已纳入本版约束记录；CAM 暂不可执行：${model.onsiteAssessment.execution_blockers.map((x) => x.message).join('；')}`
+              : model.onsiteAssessment?.input_status === 'invalid'
+                ? `现场输入需要修正：${model.onsiteAssessment.issues.map((x) => x.message).join('；')}`
+                : plan.payload.extensions.onsite_diagnostics?.length
+                  ? plan.payload.extensions.onsite_diagnostics.map((x) => x.message).join('；')
+                  : current.needs_replan
+                    ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
+                    : blocked
+                      ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+                      : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,
@@ -655,8 +664,8 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
           expected_feedback_version: task.feedback_version,
           base_revision: task.current_revision,
           kind: 'onsite_record',
-          supplement_schema_version: supplementSchema,
-          supplement: { values },
+          supplement_schema_version: supplementSchemaFor(session.plan),
+          supplement: supplementPayload(session.plan, values),
           text: '人工现场信息记录，未自动应用到 CAM；需独立工程核对。',
         })
         const list = await api.get<SupplementList>(`${path(task)}/feedback`)
@@ -719,8 +728,8 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       expected_feedback_version: task.feedback_version,
       base_revision: task.current_revision,
       kind: 'onsite_record',
-      supplement_schema_version: supplementSchema,
-      supplement: { values },
+      supplement_schema_version: supplementSchemaFor(session.plan),
+      supplement: supplementPayload(session.plan, values),
       text: '人工现场信息记录，未自动应用到 CAM；需独立工程核对。',
     }
     void act(async ({ api, update }) => {

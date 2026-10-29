@@ -397,7 +397,8 @@
   font-size: 12px;
   color: var(--text-secondary);
 }
-.parameter-value input {
+.parameter-value input,
+.parameter-value select {
   width: 100%;
   flex: 1;
   min-width: 80px;

@@ -52,6 +52,8 @@ export async function coreFixture(
     missingConfig?: boolean
     lostReplanReceipt?: boolean
     referenceOnly?: boolean
+    /** 开启只读对话 Agent；缺省与 Core 默认一致，/agent 路由不存在。 */
+    agent?: boolean
   } = {},
 ) {
   const feedbackItems: Record<string, unknown>[] = []
@@ -67,6 +69,13 @@ export async function coreFixture(
   let camLost = !!options.lostCamReceipt,
     planLost = !!options.lostReplanReceipt
   const commands: { path: string; body: Record<string, unknown> }[] = []
+  const agentMessages: Record<string, unknown>[] = []
+  const conversations = new Map<string, { task_id: string; turns: Record<string, unknown>[] }>()
+  const roughIndex = fixture.plan.payload.operations.findIndex((op) => op.id === 'ring-op-2')
+  const roughStep = (
+    fixture.plan.payload.operations.find((op) => op.id === 'ring-op-2')?.attributes as
+      { parameters?: { rough_step?: number } } | undefined
+  )?.parameters?.rough_step
   const plannedCommands = new Map<string, number>()
   const planRef = () => ({ ...fixture.approved.plans[0]!.plan_ref, revision: approvedRevision })
   const run = () => {
@@ -112,6 +121,86 @@ export async function coreFixture(
       validate(model, body)
       commands.push({ path, body })
       return body
+    }
+    if (path.startsWith('/agent/')) {
+      const notFound = (code: number) =>
+        send(
+          'ApiErrorResponse',
+          {
+            error: { code, message: code === 3002 ? 'Not found' : 'Agent conversation not found' },
+            request_id: 'fixture-agent',
+            trace_id: 'fixture-agent',
+          },
+          404,
+        )
+      if (!options.agent) return notFound(3002)
+      const conversationView = (id: string) => ({
+        conversation_id: id,
+        task_id: conversations.get(id)!.task_id,
+        created_at: '2026-10-29T00:00:00Z',
+        turns: conversations.get(id)!.turns,
+      })
+      if (path === '/agent/conversations' && post) {
+        const body = req.postDataJSON() as { conversation_id: string; task_id: string }
+        validate('CreateConversationRequest', body)
+        if (!conversations.has(body.conversation_id))
+          conversations.set(body.conversation_id, { task_id: body.task_id, turns: [] })
+        return send('ConversationView', conversationView(body.conversation_id), 201)
+      }
+      const match = path.match(/^\/agent\/conversations\/([^/]+)(\/messages)?$/)
+      const id = match?.[1]
+      if (!id || !conversations.has(id)) return notFound(8401)
+      if (!match![2]) return send('ConversationView', conversationView(id))
+      const body = req.postDataJSON() as Record<string, unknown>
+      validate('SendMessageRequest', body)
+      agentMessages.push(body)
+      const conversation = conversations.get(id)!
+      const turnId = `fixture-turn-${conversation.turns.length + 1}`
+      // 合成的只读回答：引用 fixture 计划中 ring-op-2 的 rough_step，不代表真实模型输出。
+      const events = [
+        { type: 'turn.started', turn_id: turnId, message_id: body.message_id },
+        {
+          type: 'tool.started',
+          tool_call_id: 'fixture-call-1',
+          name: 'get_operation_detail',
+          summary: '读取工序 ring-op-2',
+        },
+        {
+          type: 'tool.completed',
+          tool_call_id: 'fixture-call-1',
+          status: 'ok',
+          summary: 'ring-op-2 外圆粗车',
+          duration_ms: 3.2,
+        },
+        {
+          type: 'message.completed',
+          text: `外圆粗车当前 rough_step 为 ${roughStep} mm，来自模板参数配置；工程状态仍待确认。`,
+          citations: [
+            {
+              tool_call_id: 'fixture-call-1',
+              resource: 'planning_result r1',
+              pointer: `/payload/operations/${roughIndex}/attributes/parameters/rough_step`,
+              value: String(roughStep),
+            },
+          ],
+          dropped_citations: 1,
+        },
+        {
+          type: 'turn.completed',
+          turn_id: turnId,
+          status: 'completed',
+          usage: { model_calls: 2, tool_calls: 1 },
+        },
+      ]
+      conversation.turns.push({
+        turn_id: turnId,
+        message_id: body.message_id,
+        text: body.text,
+        context: body.context,
+        created_at: '2026-10-29T00:00:00Z',
+        events,
+      })
+      return send('TurnResponse', { conversation_id: id, turn_id: turnId, events })
     }
     if (path === '/frontend-integration.v1.json')
       return options.missingConfig
@@ -301,7 +390,7 @@ export async function coreFixture(
       throw new Error(`未定义 Core fixture: ${path}`)
     return route.continue()
   })
-  return { commands, counts: () => ({ runGets, camGets, observe }), options }
+  return { commands, agentMessages, counts: () => ({ runGets, camGets, observe }), options }
 }
 export async function startPlanning(page: Page) {
   await page.goto('/')

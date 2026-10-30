@@ -4,7 +4,7 @@ CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React 
 
 当前稳定入口为 **main**。2026-10-27，维护者完成 PR #35 合入版本 `b0c4e349cfef1e85e9496941d4a0594abf7a6879` 的人工视觉确认，作为当前 UI 基线。后续接口接入与修复应保持该布局、字号、信息密度和局部滚动体验；界面变更需维护者明确授权并重新验收。
 
-当前支持三个入口：原型/历史案例、真实 Core 联调、`/?mode=simulation` 本地 JSON 模拟。真实与模拟复用三阶段页面；模拟可独立体验输入、规划、参数修订、审核人、CAM 状态及 NC 审核，不连接 NX 或 Mastercam。真实模式依赖受控部署配置和 Core 服务，不会自动回退模拟。模拟任务、恢复日志及 NC 本地草稿可持久保存；原型演示会话仍主要保存在内存中。Agent 真实服务、文件解读页面和数据底座真实 Reader 尚未接入。
+当前支持三个入口：原型/历史案例、真实 Core 联调、`/?mode=simulation` 本地 JSON 模拟。真实与模拟复用三阶段页面；模拟可独立体验输入、规划、参数修订、审核人、CAM 状态及 NC 审核，不连接 NX 或 Mastercam。真实模式依赖受控部署配置和 Core 服务，不会自动回退模拟。模拟任务、恢复日志及 NC 本地草稿可持久保存；原型演示会话仍主要保存在内存中。真实模式下 Agent 抽屉连接 Core 只读对话 Agent（Core 需开启 `CAPPTRON_AGENT_ENABLED`，见 [Agent 抽屉接入](docs/api/Agent-Drawer-Live.md)）；原型与模拟模式仍为固定说明。文件解读页面和数据底座真实 Reader 尚未接入。
 
 当前界面与证据入口见 [UI 基线](docs/workflows/UI-BASELINE.md)，真实接入见 [Golden 配置与恢复](docs/api/Golden-demo-integration-20261025.md)，模拟使用见 [模拟流程说明](docs/api/Simulation-Acceptance.md)。
 

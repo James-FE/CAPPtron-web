@@ -76,3 +76,49 @@ test('工艺决策与程序审核页提问：只读回答、查询卡片与核�
   expect(reviewMessage.context).toMatchObject({ page: 'review' })
   expect(reviewMessage.context.nc_ref).toMatchObject({ version: expect.any(Number) })
 })
+
+for (const entry of ['drawer', 'sidebar'] as const) {
+  test(`任务级上下文切换保持界面和发送内容一致：${entry}`, async ({ page }, info) => {
+    const core = await coreFixture(page, { agent: true })
+    await startPlanning(page)
+    await openPlan(page)
+    let dialog = await openAgent(page)
+    const picker = () => dialog.getByLabel('当前工序', { exact: true })
+    const send = async (operationId?: string) => {
+      const count = core.agentMessages.length
+      await dialog.getByLabel('消息', { exact: true }).fill(`上下文核对 ${count + 1}`)
+      await dialog.getByRole('button', { name: '发送消息' }).click()
+      await expect.poll(() => core.agentMessages.length).toBe(count + 1)
+      await expect(dialog.getByLabel('消息', { exact: true })).toHaveValue('')
+      const payload = core.agentMessages.at(-1) as { context: Record<string, unknown> }
+      expect(payload.context).toMatchObject({ page: 'planning', revision: 1 })
+      if (operationId) expect(payload.context.operation_id).toBe(operationId)
+      else expect(payload.context).not.toHaveProperty('operation_id')
+    }
+    // 保留首次打开默认首工序的行为。
+    await expect(picker()).toHaveValue('ring-op-1')
+    await send('ring-op-1')
+    for (const operationId of ['ring-op-2', 'ring-op-4', 'ring-op-2']) {
+      await picker().selectOption(operationId)
+      await expect(picker()).toHaveValue(operationId)
+      await send(operationId)
+      if (entry === 'drawer') {
+        await picker().selectOption('')
+      } else {
+        await dialog.getByRole('button', { name: '关闭 Agent 抽屉' }).click()
+        await page.getByRole('button', { name: /任务共用信息/ }).click()
+        dialog = await openAgent(page)
+      }
+      // 先检查请求以防 UI 的选项回退掩盖错误上下文。
+      await send()
+      await expect(picker()).toHaveValue('')
+      await dialog.getByRole('button', { name: '关闭 Agent 抽屉' }).click()
+      await expect(page.getByRole('button', { name: /任务共用信息/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      dialog = await openAgent(page)
+    }
+    await shot(page, info, `agent-task-context-${entry}`)
+  })
+}

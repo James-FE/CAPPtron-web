@@ -224,8 +224,8 @@ export async function coreFixture(
           },
         })
       const body = command('CreateTaskRequest')
+      expect(body.schema_version).toBe('template-request-v2')
       expect(body.payload).toEqual({
-        template: fixture.deployment.template,
         source: {
           asset_id: fixture.asset.asset_id,
           sha256: fixture.asset.sha256,

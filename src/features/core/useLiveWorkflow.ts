@@ -106,10 +106,9 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         runtime?.scope ?? `${import.meta.env.VITE_API_BASE_URL ?? ''}`,
       )
       if (!runtime) {
-        // 兼容窗口：发现旧配置摘要 scope 的命令日志并迁移到当前 scope。
-        const base = import.meta.env.VITE_API_BASE_URL ?? ''
-        const sha = import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256 ?? ''
-        migrateJournalScopes(localStorage, journal.current, [`${base}|${sha}`])
+        // 兼容窗口：从存储实际枚举旧 <base>|<configSha> 索引并一次性迁移，
+        // 不依赖当前是否仍设置集成配置变量。
+        migrateJournalScopes(localStorage, journal.current)
       }
       const saved = journal.current.read()
       const changed =

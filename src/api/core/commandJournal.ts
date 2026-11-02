@@ -58,43 +58,90 @@ function validNcRef(value: unknown) {
 }
 
 // 旧 scope 曾嵌入集成配置摘要（`<base>|<configSha256>`）。新 scope 为 Core
-// 基地址本身；迁移把可识别的旧位置并入当前 scope，保留原命令身份、请求
-// body 与任务身份，不删除旧索引（兼容窗口结束后再清理）。
+// 基地址本身。迁移按完整任务身份整条并入或整体跳过，不逐字段拼接不同
+// 任务的运行、CAM 身份或草稿；已消费 scope 打一次性标记，防止旧 pending
+// 在刷新后复活。旧索引本身不改写（兼容窗口内旧版本仍可读取恢复）。
+const migratedMarker = (scope: string) =>
+  `${CommandJournal.key}.migrated.${encodeURIComponent(scope)}`
+
+// 从存储实际枚举旧 `<base>|*` 索引；不依赖仍设置的环境变量，配置删除后
+// 旧任务与未决命令仍可被发现。
+export function legacyJournalScopes(
+  storage: Pick<Storage, 'length' | 'key'>,
+  base: string,
+): string[] {
+  const prefix = `${CommandJournal.key}.`
+  const scopes: string[] = []
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i)
+    if (!key?.startsWith(prefix) || key.startsWith(`${prefix}migrated.`)) continue
+    const scope = decodeURIComponent(key.slice(prefix.length))
+    if (scope.startsWith(`${base}|`)) scopes.push(scope)
+  }
+  return scopes.sort()
+}
+
+const taskKeys = [
+  'asset_id',
+  'parse_command_id',
+  'task_id',
+  'run_id',
+  'revision',
+  'cam_run_id',
+  'nc_ref',
+  'unrecoverable',
+  'drafts',
+] as const
+
 export function migrateJournalScopes(
-  storage: StoragePort,
+  storage: StoragePort & Pick<Storage, 'length' | 'key'>,
   journal: CommandJournal,
-  legacyScopes: string[],
 ) {
-  for (const scope of legacyScopes) {
-    if (scope === journal.scope) continue
+  for (const scope of legacyJournalScopes(storage, journal.scope)) {
+    const marker = migratedMarker(scope)
+    if (storage.getItem(marker) !== null) continue
     let saved: WorkflowLocation
     try {
       saved = new CommandJournal(storage, scope).read()
     } catch {
-      // 损坏的旧索引不阻断新会话；保留原条目交由后续清理。
+      // 损坏的旧索引不阻断新会话；不标记，交由旧版本或后续清理处理。
       continue
     }
     const current = journal.read()
-    const patch: Record<string, unknown> = {}
-    for (const key of [
-      'asset_id',
-      'parse_command_id',
-      'task_id',
-      'run_id',
-      'revision',
-      'cam_run_id',
-      'nc_ref',
-      'drafts',
-    ] as const) {
-      const value = saved[key]
-      if (value !== undefined && current[key] === undefined) patch[key] = value
+    const patch: WorkflowLocation = {}
+    if (Object.keys(current).length === 0) {
+      // 当前 scope 为空：整条任务身份原子迁移，pending 随原位置一起搬入。
+      for (const key of taskKeys) if (saved[key] !== undefined) patch[key] = saved[key] as never
+      if (saved.pending) patch.pending = saved.pending
+    } else if (saved.task_id !== undefined && saved.task_id === current.task_id) {
+      // 同一任务：只补缺省字段；pending 必须显式绑定该任务才可并入。
+      for (const key of taskKeys)
+        if (saved[key] !== undefined && current[key] === undefined) patch[key] = saved[key] as never
+      if (saved.pending && !current.pending && saved.pending.task_id === current.task_id)
+        patch.pending = saved.pending
+    } else if (saved.task_id === undefined && current.task_id === undefined) {
+      // 两侧均为任务创建前片段；资产冲突则整条跳过。
+      const clash =
+        saved.asset_id !== undefined &&
+        current.asset_id !== undefined &&
+        saved.asset_id !== current.asset_id
+      if (!clash) {
+        for (const key of ['asset_id', 'parse_command_id', 'drafts'] as const)
+          if (saved[key] !== undefined && current[key] === undefined)
+            patch[key] = saved[key] as never
+        if (
+          saved.pending &&
+          !current.pending &&
+          saved.pending.task_id === undefined &&
+          (saved.pending.asset_id === undefined || saved.pending.asset_id === current.asset_id)
+        )
+          patch.pending = saved.pending
+      }
     }
-    // pending 携带命令身份，只有与迁移后的 task_id 一致才可并入；
-    // 一次写入保持位置自洽（pending.task_id 校验依赖同位置的 task_id）。
-    const taskId = (patch.task_id ?? current.task_id) as string | undefined
-    if (saved.pending && !current.pending && saved.pending.task_id === taskId)
-      patch.pending = saved.pending
+    // 其余情形为不同任务身份：整条跳过，不逐字段补空。
     if (Object.keys(patch).length) journal.update(patch)
+    // 一次性标记：无论是否并入都不再重复导入。
+    storage.setItem(marker, journal.scope)
   }
 }
 

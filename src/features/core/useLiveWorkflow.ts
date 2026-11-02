@@ -180,7 +180,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     }
   }
 
-  async function act(work: (context: Context) => Promise<void>) {
+  async function act(work: (context: Context) => Promise<void>, preserveRetry = false) {
     if (locked.current || storageBlocked.current) return
     locked.current = true
     const abort = new AbortController()
@@ -210,11 +210,13 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         setState((s) => ({ ...s, ...patch }))
       }
     }
-    retry.current = work
+    const previousRetry = retry.current
+    if (!preserveRetry) retry.current = work
     update({ busy: true, error: '', draftError: false })
     try {
       await work({ api, signal, update })
-      if (!signal.aborted) retry.current = null
+      if (!signal.aborted)
+        retry.current = preserveRetry && journal.current!.read().pending ? previousRetry : null
     } catch (error) {
       if (
         !signal.aborted &&
@@ -245,6 +247,37 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         update({ busy: false })
       }
     }
+  }
+  function restartMissingTask() {
+    if (locked.current || state.busy || activeCam) return
+    void act(async ({ api }) => {
+      const saved = journal.current!.read()
+      const taskId = saved.task_id ?? saved.pending?.task_id
+      if (
+        !taskId ||
+        saved.cam_run_id ||
+        (saved.pending && !['feedback', 'replan'].includes(saved.pending.domain))
+      )
+        throw new Error('此记录不能按任务丢失恢复，请继续核对原命令。')
+      try {
+        await api.get<Task>('/planning/tasks/' + encodeURIComponent(taskId))
+        throw new Error('任务仍存在，请继续查询原任务。')
+      } catch (error) {
+        if (
+          !(error instanceof CoreHttpError) ||
+          !error.confirmed ||
+          error.status !== 404 ||
+          error.code !== 5001
+        )
+          throw error
+      }
+      if (!window.confirm('Core 已确认旧任务不存在。备份本地记录和草稿后开始新会话？')) return
+      journal.current!.archiveAndReset()
+      retry.current = null
+      integration.current = null
+      setAgentOpen(false)
+      setState({ ...initial, status: '旧任务已丢失，本地记录已备份；请选择并上传 STEP' })
+    }, true)
   }
   function updateSession(update: (session: PlanningSession) => PlanningSession) {
     if (locked.current || retry.current) return
@@ -1080,6 +1113,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     refreshCam,
     approveNc,
     download,
+    restartMissingTask,
     canRetry: !!retry.current && !state.busy,
     retry: () => {
       if (retry.current) void act(retry.current)

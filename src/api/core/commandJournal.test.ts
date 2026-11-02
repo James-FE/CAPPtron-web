@@ -15,6 +15,33 @@ function storage() {
 }
 
 describe('CommandJournal', () => {
+  it('备份完整会话后才清空，备份失败保留原记录', () => {
+    const disk = storage()
+    const journal = new CommandJournal(disk)
+    journal.update({ task_id: 'gone-task', drafts: { rough: '0.4' } })
+    const original = journal.read()
+    let archived = ''
+    const tracked = {
+      ...disk,
+      setItem: (key: string, value: string) => {
+        if (key.includes('.backup.')) archived = value
+        disk.setItem(key, value)
+      },
+    }
+    new CommandJournal(tracked).archiveAndReset()
+    expect(JSON.parse(archived)).toEqual(original)
+    expect(journal.read()).toEqual({})
+    journal.update(original)
+    const failing = {
+      ...disk,
+      setItem: () => {
+        throw new Error('quota')
+      },
+    }
+    expect(() => new CommandJournal(failing).archiveAndReset()).toThrow('quota')
+    expect(journal.read()).toEqual(original)
+  })
+
   it('persists the original request, command, expected version and location across reload', () => {
     const disk = storage()
     const first = new CommandJournal(disk)

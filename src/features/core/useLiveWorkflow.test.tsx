@@ -318,6 +318,50 @@ describe('刷新后恢复原写意图', () => {
     expect(result.current.canRetry).toBe(false)
     expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ task_id: 'gone-task' })
   })
+  it.each([5001, 9999, -1])('仅确认任务丢失后备份并释放旧命令：%s', async (code) => {
+    const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const saved = {
+      task_id: 'gone-task',
+      drafts: { rough: '0.4' },
+      pending: {
+        domain: 'replan',
+        command_id: 'original',
+        task_id: 'gone-task',
+        expected_version: 1,
+        request: { command_id: 'original', base_revision: 1, expected_feedback_version: 0 },
+        url: '/planning/tasks/gone-task/replan',
+      },
+    }
+    localStorage.setItem(key, JSON.stringify(saved))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetcher = vi.fn().mockImplementation(() =>
+      code === -1
+        ? Promise.reject(new TypeError('network lost'))
+        : Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: { code, message: 'Task missing' },
+                request_id: 'missing-request',
+              }),
+              { status: 404 },
+            ),
+          ),
+    )
+    vi.stubGlobal('fetch', fetcher)
+    const { result } = renderHook(() => useLiveWorkflow())
+    await waitFor(() => expect(result.current.canRetry).toBe(true))
+    act(() => result.current.restartMissingTask())
+    await waitFor(() => expect(result.current.busy).toBe(false))
+    if (code === 5001) {
+      expect(JSON.parse(localStorage.getItem(key)!)).toEqual({})
+      expect(result.current.canRetry).toBe(false)
+      expect(result.current.status).toContain('本地记录已备份')
+    } else expect(JSON.parse(localStorage.getItem(key)!)).toEqual(saved)
+    expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(
+      true,
+    )
+    vi.restoreAllMocks()
+  })
   it('损坏日志禁止新上传，不能静默覆盖', async () => {
     localStorage.setItem('capptron.core.workflow.v1.' + encodeURIComponent('|'), '{broken')
     const fetcher = vi.fn()

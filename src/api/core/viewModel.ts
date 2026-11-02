@@ -3,6 +3,31 @@ import type { Drafts, Parameter, ProcessPlan } from '../../features/process-plan
 import { draftKey, validateDraft } from '../../features/process-planning/processPlan'
 import type { Attributes, LivePlan, Deployment } from './contracts'
 
+// 部署快照由 Core 结果扩展提供：模板身份、执行配置摘要与匹配证据。
+// 浏览器不再读取离线 descriptor；缺失或不一致的字段只读或报错。
+export function deploymentFromPlan(plan: LivePlan): Deployment {
+  const ext = plan.payload.extensions
+  const template = ext?.template as Deployment['template'] | undefined
+  if (
+    !template ||
+    typeof template.id !== 'string' ||
+    !template.id ||
+    typeof template.version !== 'string' ||
+    !template.version ||
+    typeof template.digest !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(template.digest)
+  )
+    throw new Error('Core 结果缺少已选模板身份')
+  return {
+    schema_version: 'golden-deployment-v1',
+    source: `Core 结果 · ${plan.task_id} · r${plan.revision}`,
+    template,
+    execution_profile_digest:
+      typeof ext.execution_profile_digest === 'string' ? ext.execution_profile_digest : '',
+    engineering_binding_configured: !!ext.matching_evidence,
+  }
+}
+
 export function toProcessPlan(plan: LivePlan, deployment: Deployment): ProcessPlan {
   const ext = plan.payload.extensions
   if (

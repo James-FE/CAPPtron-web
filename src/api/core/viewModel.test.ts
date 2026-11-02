@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../e2e/fixtures/core-golden.json'
-import type { Deployment, LivePlan } from './contracts'
-import { parameterChanges, toProcessPlan } from './viewModel'
-import { goldenRequest, validateDeployment } from './golden'
+import type { LivePlan } from './contracts'
+import { deploymentFromPlan, parameterChanges, toProcessPlan } from './viewModel'
+import { templateRequestV2 } from './golden'
 import { cardPath } from './client'
 import { draftKey } from '../../features/process-planning/processPlan'
 
-const config = fixture.deployment as Deployment
 const plan = () => structuredClone(fixture.plan) as unknown as LivePlan
+const config = () => deploymentFromPlan(plan())
 describe('固定Golden结果映射与版本约束', () => {
   it('按实际sequence排序、保留插入钻孔的ID，不填补资源和参数', () => {
     const input = plan()
     input.payload.operations.reverse()
-    const vm = toProcessPlan(input, config)
+    const vm = toProcessPlan(input, config())
     expect(vm.operations).toHaveLength(7)
     expect(vm.operations[1]?.id).toBe('ring-op-7')
     expect(vm.operations[0]?.resources).toEqual([])
@@ -23,7 +23,7 @@ describe('固定Golden结果映射与版本约束', () => {
   })
   it('只接受离散值，禁止0.45及未知来源编辑', () => {
     const input = plan(),
-      vm = toProcessPlan(input, config)
+      vm = toProcessPlan(input, config())
     const key = draftKey('ring-op-2', 'parameters', 'rough_step')
     expect(parameterChanges(vm, { [key]: '0.4' })).toEqual([
       { operation_id: 'ring-op-2', parameter_id: 'rough_step', value: 0.4, unit: 'mm' },
@@ -32,32 +32,41 @@ describe('固定Golden结果映射与版本约束', () => {
     const rough = input.payload.operations.find((op) => op.id === 'ring-op-2')!
     delete rough.attributes.parameter_metadata
     rough.attributes.parameters!.unlabelled_speed = 123
-    const result = toProcessPlan(input, config).operations.find((op) => op.id === rough.id)!
+    const result = toProcessPlan(input, config()).operations.find((op) => op.id === rough.id)!
     expect(result.parameters.every((p) => !p.editable)).toBe(true)
     expect(result.parameters.find((p) => p.id === 'unlabelled_speed')?.unit).toBeUndefined()
   })
   it('摘要/输出协议错误拒绝，重复身份不使用下标修复', () => {
     const input = plan()
     input.payload.operations[1]!.id = input.payload.operations[0]!.id
-    expect(() => toProcessPlan(input, config)).toThrow('身份')
-    expect(() => toProcessPlan({ ...plan(), provider: 'mock' }, config)).toThrow('协议')
+    expect(() => toProcessPlan(input, config())).toThrow('身份')
+    expect(() => toProcessPlan({ ...plan(), provider: 'mock' }, config())).toThrow('协议')
     expect(() =>
       toProcessPlan(plan(), {
-        ...config,
-        template: { ...config.template, digest: 'f'.repeat(64) },
+        ...config(),
+        template: { ...config().template, digest: 'f'.repeat(64) },
       }),
     ).toThrow('身份')
   })
-  it('创建不伪造几何，缺binding及解析身份不匹配阻断', () => {
-    expect(() => validateDeployment({ ...config, engineering_binding_configured: false })).toThrow(
-      'EngineeringBinding',
-    )
+  it('创建不伪造几何，v2 请求只提交已验证输入引用', () => {
     const parsed = { ...fixture.parse, status: 'parsed' as const, execution_ready: false as const }
-    const body = goldenRequest(config, fixture.asset, parsed, 'create-command')
+    const body = templateRequestV2(fixture.asset, parsed, 'create-command')
+    expect(body.schema_version).toBe('template-request-v2')
+    expect(body.payload).not.toHaveProperty('template')
     expect(body.payload).not.toHaveProperty('part')
+    expect(body.payload).not.toHaveProperty('candidates')
+    expect(body.payload.source).toEqual({
+      asset_id: fixture.asset.asset_id,
+      sha256: fixture.asset.sha256,
+      parse_command_id: parsed.command_id,
+    })
     expect(() =>
-      goldenRequest(config, fixture.asset, { ...parsed, source_sha256: '0'.repeat(64) }, 'c'),
+      templateRequestV2(fixture.asset, { ...parsed, source_sha256: '0'.repeat(64) }, 'c'),
     ).toThrow('不匹配')
+    // Core 结果缺少已选模板身份时展示层明确报错，不静默补默认。
+    const broken = plan()
+    ;(broken.payload.extensions as Record<string, unknown>).template = undefined
+    expect(() => deploymentFromPlan(broken)).toThrow('模板身份')
   })
   it('工艺卡task_key使用UTF8 base64url，与planning路径分离', () => {
     const key = cardPath('task/中文', 2)

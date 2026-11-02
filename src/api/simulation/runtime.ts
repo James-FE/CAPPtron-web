@@ -3,7 +3,6 @@ import { randomId } from '../browserCrypto'
 import { cardPath, sameNcRef, samePlanRef } from '../core/client'
 import type { Asset, ParseResult } from '../core/client'
 import type { LivePlan } from '../core/contracts'
-import { parseIntegrationConfig } from '../core/integrationConfig'
 import { fileDigest } from '../core/journalTransport'
 import type { WorkflowRuntime } from '../../features/core/useLiveWorkflow'
 import { simulationZip } from './zip'
@@ -370,27 +369,4 @@ const fetcher: typeof fetch = async (input, init = {}) => {
 export const simulationRuntime: WorkflowRuntime = {
   scope: simulationKey,
   fetcher,
-  config: async () =>
-    parseIntegrationConfig({
-      schema_version: 'frontend-integration.v1',
-      templates: [
-        {
-          template: fixture.deployment.template,
-          execution_profile_id: fixture.approved.execution_profile_id,
-          matching_evidence: {
-            ...fixture.plan.payload.extensions.matching_evidence,
-            step_sha256: await fileDigest(simulationSample()),
-          },
-          operations: fixture.plan.payload.operations.map((op) => ({
-            id: op.id,
-            sequence: op.sequence,
-            name: op.name,
-            steps: op.steps,
-            parameter_metadata:
-              'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
-          })),
-          parameter_rules: fixture.plan.payload.extensions.parameter_rules,
-        },
-      ],
-    }),
 }

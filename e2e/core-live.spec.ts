@@ -143,11 +143,26 @@ test('丢失规划和CAM回执沿用原命令，保留精确body', async ({ page
   expect(start[0]).toEqual(start[1])
 })
 
-test('未发布Golden配置时不创建假任务', async ({ page }) => {
-  const core = await coreFixture(page, { missingConfig: true })
+test('无离线 descriptor 仍由 Core 选模并完成任务', async ({ page }) => {
+  // S10/S12：前端不再读取前端集成配置；模板身份来自 Core 结果。
+  const core = await coreFixture(page, {})
   await startPlanning(page)
-  await expect(page.getByRole('alert')).toContainText('Configuration HTTP 404')
-  expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(0)
+  await openPlan(page)
+  // commands 只记录 POST。
+  const tasks = core.commands.filter((c) => c.path === '/planning/tasks')
+  expect(tasks).toHaveLength(1)
+  const body = tasks[0]!.body as { schema_version?: string; payload?: Record<string, unknown> }
+  expect(body.schema_version).toBe('template-request-v2')
+  expect(body.payload).not.toHaveProperty('template')
+  expect(core.commands.every((c) => c.path !== '/frontend-integration.v1.json')).toBe(true)
+})
+
+test('仅支持 v1 的旧 Core 明确阻断，不降级重建任务', async ({ page }) => {
+  // S14：新 Web 对不支持 template-request-v2 的 Core 显示阻断信息。
+  const core = await coreFixture(page, { v1Only: true })
+  await startPlanning(page)
+  await expect(page.getByRole('alert')).toContainText('template-request-v2')
+  expect(core.commands.filter((c) => c.path === '/planning/tasks')).toHaveLength(1)
 })
 
 test('reference_only 缺匹配证据仍可读工序，批准和执行均阻断', async ({ page }) => {

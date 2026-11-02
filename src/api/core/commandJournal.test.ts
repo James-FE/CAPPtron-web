@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CommandJournal } from './commandJournal'
+import { CommandJournal, migrateJournalScopes } from './commandJournal'
 
 function storage() {
   const data = new Map<string, string>()
@@ -95,5 +95,62 @@ describe('CommandJournal', () => {
     const disk = storage()
     new CommandJournal(disk, 'http://core-a').update({ task_id: 'task-a' })
     expect(new CommandJournal(disk, 'http://core-b').read()).toEqual({})
+  })
+
+  it('migrates legacy descriptor-scoped journals preserving command and task identity', () => {
+    const disk = storage()
+    const legacy = new CommandJournal(disk, 'http://core|abc123')
+    legacy.update({
+      asset_id: 'asset-1',
+      parse_command_id: 'parse-1',
+      task_id: 'task-legacy',
+    })
+    legacy.begin({
+      domain: 'task',
+      command_id: 'cmd-v1-original',
+      request: {
+        command_id: 'cmd-v1-original',
+        schema_version: 'template-request-v1',
+        payload: { template: { id: 'golden-b7', version: '2.1.0', digest: 'x' } },
+      },
+      expected_version: null,
+      task_id: 'task-legacy',
+      asset_id: 'asset-1',
+    })
+    const next = new CommandJournal(disk, 'http://core')
+    migrateJournalScopes(disk, next, ['http://core|abc123', 'http://core|other'])
+    const migrated = next.read()
+    // 原命令 body 与身份原样迁移，不改写 v1 为 v2、不生成新命令。
+    expect(migrated.pending?.command_id).toBe('cmd-v1-original')
+    expect(migrated.pending?.request).toMatchObject({
+      schema_version: 'template-request-v1',
+    })
+    expect(migrated.task_id).toBe('task-legacy')
+    // 旧 scope 条目保留至兼容窗口结束。
+    expect(legacy.read().pending?.command_id).toBe('cmd-v1-original')
+    // 当前 scope 已有更晚的命令时，旧数据不覆盖。
+    const disk2 = storage()
+    const active = new CommandJournal(disk2, 'http://core')
+    active.update({ task_id: 'task-new', asset_id: 'asset-2' })
+    active.begin({
+      domain: 'task',
+      command_id: 'cmd-v2-new',
+      request: {
+        command_id: 'cmd-v2-new',
+        schema_version: 'template-request-v2',
+        payload: { source: {} },
+      },
+      expected_version: null,
+      task_id: 'task-new',
+      asset_id: 'asset-2',
+    })
+    new CommandJournal(disk2, 'http://core|old').update({ task_id: 'task-stale' })
+    disk2.setItem(
+      'capptron.core.workflow.v1.' + encodeURIComponent('http://core|corrupt'),
+      '{broken',
+    )
+    migrateJournalScopes(disk2, active, ['http://core|old', 'http://core|corrupt'])
+    expect(active.read().pending?.command_id).toBe('cmd-v2-new')
+    expect(active.read().task_id).toBe('task-new')
   })
 })

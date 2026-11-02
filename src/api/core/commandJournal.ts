@@ -57,6 +57,47 @@ function validNcRef(value: unknown) {
   )
 }
 
+// 旧 scope 曾嵌入集成配置摘要（`<base>|<configSha256>`）。新 scope 为 Core
+// 基地址本身；迁移把可识别的旧位置并入当前 scope，保留原命令身份、请求
+// body 与任务身份，不删除旧索引（兼容窗口结束后再清理）。
+export function migrateJournalScopes(
+  storage: StoragePort,
+  journal: CommandJournal,
+  legacyScopes: string[],
+) {
+  for (const scope of legacyScopes) {
+    if (scope === journal.scope) continue
+    let saved: WorkflowLocation
+    try {
+      saved = new CommandJournal(storage, scope).read()
+    } catch {
+      // 损坏的旧索引不阻断新会话；保留原条目交由后续清理。
+      continue
+    }
+    const current = journal.read()
+    const patch: Record<string, unknown> = {}
+    for (const key of [
+      'asset_id',
+      'parse_command_id',
+      'task_id',
+      'run_id',
+      'revision',
+      'cam_run_id',
+      'nc_ref',
+      'drafts',
+    ] as const) {
+      const value = saved[key]
+      if (value !== undefined && current[key] === undefined) patch[key] = value
+    }
+    // pending 携带命令身份，只有与迁移后的 task_id 一致才可并入；
+    // 一次写入保持位置自洽（pending.task_id 校验依赖同位置的 task_id）。
+    const taskId = (patch.task_id ?? current.task_id) as string | undefined
+    if (saved.pending && !current.pending && saved.pending.task_id === taskId)
+      patch.pending = saved.pending
+    if (Object.keys(patch).length) journal.update(patch)
+  }
+}
+
 export class CommandJournal {
   static readonly key = 'capptron.core.workflow.v1'
   readonly key: string

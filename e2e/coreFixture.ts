@@ -1,33 +1,10 @@
 import { expect } from '@playwright/test'
 import type { Page, Route } from '@playwright/test'
-import { createHash } from 'node:crypto'
 import Ajv from 'ajv'
 import fixture from './fixtures/core-golden.json' with { type: 'json' }
 import schemas from './fixtures/core-schemas.json' with { type: 'json' }
 import { cardPath } from '../src/api/core/client'
 
-export const integrationFixture = {
-  schema_version: 'frontend-integration.v1',
-  templates: [
-    {
-      template: fixture.deployment.template,
-      execution_profile_id: fixture.approved.execution_profile_id,
-      matching_evidence: fixture.plan.payload.extensions.matching_evidence,
-      operations: fixture.plan.payload.operations.map((op) => ({
-        id: op.id,
-        sequence: op.sequence,
-        name: op.name,
-        steps: op.steps,
-        parameter_metadata:
-          'parameter_metadata' in op.attributes ? op.attributes.parameter_metadata : {},
-      })),
-      parameter_rules: fixture.plan.payload.extensions.parameter_rules,
-    },
-  ],
-}
-export const integrationSha = createHash('sha256')
-  .update(JSON.stringify(integrationFixture))
-  .digest('hex')
 const ajv = new Ajv({ strict: false, validateFormats: false })
 const validators = Object.fromEntries(
   Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]),
@@ -39,6 +16,7 @@ export function validate(name: string, value: unknown) {
 export async function coreFixture(
   page: Page,
   options: {
+    v1Only?: boolean
     needsReplan?: boolean
     lostSupplementReceipt?: boolean
     parseDelay?: number
@@ -49,7 +27,6 @@ export async function coreFixture(
     camWait?: boolean
     camStages?: boolean
     lostCamReceipt?: boolean
-    missingConfig?: boolean
     lostReplanReceipt?: boolean
     referenceOnly?: boolean
     /** 开启只读对话 Agent；缺省与 Core 默认一致，/agent 路由不存在。 */
@@ -202,10 +179,6 @@ export async function coreFixture(
       })
       return send('TurnResponse', { conversation_id: id, turn_id: turnId, events })
     }
-    if (path === '/frontend-integration.v1.json')
-      return options.missingConfig
-        ? route.fulfill({ status: 404 })
-        : route.fulfill({ json: integrationFixture })
     if (path === '/cad/assets' && post) {
       expect(req.headers()['content-type']).toBe('application/octet-stream')
       expect(req.postDataBuffer()?.toString()).toBe('STEP TEST ONLY')
@@ -242,6 +215,14 @@ export async function coreFixture(
       })
     }
     if (path === '/planning/tasks' && post) {
+      if (options.v1Only)
+        return route.fulfill({
+          status: 422,
+          json: {
+            error: { code: 4002, message: 'Unsupported input schema' },
+            request_id: 'v1-only',
+          },
+        })
       const body = command('CreateTaskRequest')
       expect(body.payload).toEqual({
         template: fixture.deployment.template,

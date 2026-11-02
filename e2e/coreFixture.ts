@@ -215,6 +215,7 @@ export async function coreFixture(
       })
     }
     if (path === '/planning/tasks' && post) {
+      const body = command('CreateTaskRequest')
       if (options.v1Only)
         return route.fulfill({
           status: 422,
@@ -223,7 +224,6 @@ export async function coreFixture(
             request_id: 'v1-only',
           },
         })
-      const body = command('CreateTaskRequest')
       expect(body.schema_version).toBe('template-request-v2')
       expect(body.payload).toEqual({
         source: {

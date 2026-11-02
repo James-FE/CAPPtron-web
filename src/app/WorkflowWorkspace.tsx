@@ -53,11 +53,11 @@ export function WorkflowWorkspace({
         setAgentOpen: live.setAgentOpen,
         updateSession: live.updateSession,
         selectOperation: (id: string) =>
-          live.updateSession((s) => ({
-            ...s,
-            selectedId: id,
-            view: s.view === 'task' ? 'steps' : s.view,
-          })),
+          live.updateSession((s) =>
+            id
+              ? { ...s, selectedId: id, view: s.view === 'task' ? 'steps' : s.view }
+              : { ...s, view: 'task' },
+          ),
         updateDraft: (key: string, value: string) =>
           live.updateSession((s) => {
             const parameter = [

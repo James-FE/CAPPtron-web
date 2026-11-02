@@ -322,6 +322,59 @@ describe('刷新后恢复原写意图', () => {
     expect(result.current.canRetry).toBe(false)
     expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({ task_id: 'gone-task' })
   })
+  it('已准入方案保留 pending 工程问题时不阻断批准入口', async () => {
+    // 上游回归：preparation issues 在 blocked 判断之前转为 admission，
+    // 已准入方案的待准备诊断曾使批准按钮永远禁用。
+    const fixture = structuredClone(baseFixture)
+    const pendingIssues = [
+      { stage: 'availability', code: 'engineering_evidence_missing', detail: 'blank' },
+      { stage: 'readiness', code: 'capability_unverified', detail: 'golden-b7.geometry_binding' },
+    ]
+    ;(fixture.plan.payload.extensions as Record<string, unknown>).preparation = {
+      status: 'needs_preparation',
+      issues: pendingIssues,
+    }
+    const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const journalKey = 'capptron.core.workflow.v1'
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        asset_id: fixture.asset.asset_id,
+        parse_command_id: fixture.parse.command_id,
+        task_id: fixture.task.task_id,
+        revision: 1,
+        run_id: fixture.run.run_id,
+      }),
+    )
+    const fetcher = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/feedback'))
+        return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
+      const value = url.includes('/parse?')
+        ? fixture.parse
+        : url.includes('/cad/assets/')
+          ? fixture.asset
+          : url.includes('/cam/tasks/')
+            ? url.endsWith('/runs')
+              ? { runs: [] }
+              : fixture.approved
+            : url.includes('/process-cards/')
+              ? fixture.card
+              : url.includes('/results/')
+                ? fixture.plan
+                : url.includes('/runs/')
+                  ? fixture.run
+                  : fixture.task
+      return new Response(JSON.stringify(value))
+    })
+    vi.stubGlobal('fetch', fetcher)
+    const { result } = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
+    await waitFor(() => expect(result.current.plan?.revision).toBe(1))
+    // admission 为空：pending 工程问题只展示在诊断中，不构成批准阻断。
+    expect(result.current.admission).toBeUndefined()
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({
+      task_id: fixture.task.task_id,
+    })
+  })
   it('损坏日志禁止新上传，不能静默覆盖', async () => {
     // 当前 scope 损坏仍 fail-closed；旧 descriptor scope 的坏数据只跳过不阻断。
     localStorage.setItem('capptron.core.workflow.v1', '{broken')

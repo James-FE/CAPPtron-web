@@ -255,6 +255,14 @@ export class CommandJournal {
       throw new Error('Core workflow storage did not persist')
   }
 
+  archiveAndReset() {
+    const raw = JSON.stringify(this.read())
+    const backupKey = this.key + '.backup.' + crypto.randomUUID()
+    this.storage.setItem(backupKey, raw)
+    if (this.storage.getItem(backupKey) !== raw) throw new Error('旧任务备份失败，原会话已保留')
+    this.save({})
+  }
+
   update(patch: Partial<WorkflowLocation>) {
     this.save({ ...this.read(), ...patch })
   }

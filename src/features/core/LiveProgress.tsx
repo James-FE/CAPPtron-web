@@ -14,6 +14,11 @@ export function LiveFeedback({ live }: { live: LiveWorkflow }) {
           {live.error}
         </p>
       )}
+      {live.recovered && live.error && (
+        <button className="button" disabled={live.busy} onClick={live.restartMissingTask}>
+          核对旧任务并重新开始
+        </button>
+      )}
       {live.canRetry && (
         <button className="button" onClick={live.retry}>
           重试 / 继续查询

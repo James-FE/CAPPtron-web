@@ -1,4 +1,5 @@
 import type { LiveWorkflow } from './useLiveWorkflow'
+import { ExecutorResetActions } from './ExecutorResetActions'
 
 export function LiveFeedback({ live }: { live: LiveWorkflow }) {
   return (
@@ -104,13 +105,17 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
           {live.simulation ? '模拟运行状态' : '真实运行状态'} · 工艺批准与 NC 审核分别进行
         </p>
         {cam ? (
-          <button
-            className="button"
-            disabled={live.busy || live.canRetry || !live.cam}
-            onClick={live.refreshCam}
-          >
-            继续查询 CAM / NC
-          </button>
+          live.simulation ? (
+            <button
+              className="button"
+              disabled={live.busy || live.canRetry || !live.cam}
+              onClick={live.refreshCam}
+            >
+              继续查询 CAM / NC
+            </button>
+          ) : (
+            <ExecutorResetActions live={live} />
+          )
         ) : (
           <button
             className="button primary-button"

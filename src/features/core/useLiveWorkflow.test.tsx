@@ -7,15 +7,17 @@ import { useLiveWorkflow } from './useLiveWorkflow'
 import fixture from '../../../e2e/fixtures/core-golden.json'
 
 beforeEach(() => {
-  // 会话键由部署配置决定；单测固定来源，避免本机 .env.local 污染恢复用例。
+  // 会话键只由 Core 基地址决定；单测固定来源，避免本机 .env.local 污染恢复用例。
   vi.stubEnv('VITE_API_BASE_URL', '')
-  vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '')
-  vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', '')
   const values = new Map<string, string>()
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value),
     removeItem: (key: string) => values.delete(key),
+    get length() {
+      return values.size
+    },
+    key: (index: number) => [...values.keys()][index] ?? null,
   })
   vi.stubGlobal('crypto', webcrypto)
 })
@@ -114,6 +116,7 @@ describe('刷新后恢复原写意图', () => {
   })
   it('StrictMode 回放仍恢复已保存的上传解析身份，不清空日志', async () => {
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const journalKey = 'capptron.core.workflow.v1'
     const saved = { asset_id: fixture.asset.asset_id, parse_command_id: fixture.parse.command_id }
     localStorage.setItem(key, JSON.stringify(saved))
     const fetcher = vi
@@ -125,7 +128,7 @@ describe('刷新后恢复原写意图', () => {
     vi.stubGlobal('fetch', fetcher)
     const { result } = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
     await waitFor(() => expect(result.current.parsed?.command_id).toBe(fixture.parse.command_id))
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject(saved)
     expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
   })
   it('StrictMode 回放恢复已保存任务与当前工艺，不丢失身份或发送写请求', async () => {
@@ -153,6 +156,7 @@ describe('刷新后恢复原写意图', () => {
     vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '/config')
     vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', digest)
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|' + digest)
+    const journalKey = 'capptron.core.workflow.v1'
     const saved = {
       asset_id: fixture.asset.asset_id,
       parse_command_id: fixture.parse.command_id,
@@ -163,7 +167,6 @@ describe('刷新后恢复原写意图', () => {
     }
     localStorage.setItem(key, JSON.stringify(saved))
     const fetcher = vi.fn().mockImplementation(async (url: string) => {
-      if (url === '/config') return new Response(bytes)
       if (url.endsWith('/feedback'))
         return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
       const value = url.includes('/parse?')
@@ -189,7 +192,7 @@ describe('刷新后恢复原写意图', () => {
     await waitFor(() => expect(result.current.plan?.revision).toBe(1))
     expect(result.current.session?.plan.operations).toHaveLength(7)
     await waitFor(() => expect(result.current.session?.drafts).toEqual(saved.drafts))
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject(saved)
     const approvedBefore = result.current.approved
     const callsBefore = fetcher.mock.calls.length
     act(() => result.current.refreshReadiness())
@@ -208,11 +211,11 @@ describe('刷新后恢复原写意图', () => {
     await waitFor(() => expect(result.current.error).toBe(''))
     await waitFor(() => expect(result.current.busy).toBe(false))
 
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject(saved)
     first.unmount()
     const second = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
     await waitFor(() => expect(second.result.current.session?.drafts).toEqual(saved.drafts))
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject(saved)
     expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
   })
   const baseFixture = fixture
@@ -246,6 +249,7 @@ describe('刷新后恢复原写意图', () => {
     vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_URL', '/config')
     vi.stubEnv('VITE_CORE_INTEGRATION_CONFIG_SHA256', digest)
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|' + digest)
+    const journalKey = 'capptron.core.workflow.v1'
     const saved = {
       asset_id: fixture.asset.asset_id,
       parse_command_id: fixture.parse.command_id,
@@ -260,7 +264,6 @@ describe('刷新后恢复原写意图', () => {
         return new Response(
           JSON.stringify({ ...fixture.run, run_id: 'older-run', output_revision: 1 }),
         )
-      if (url === '/config') return new Response(bytes)
       if (url.endsWith('/feedback'))
         return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
       const value = url.includes('/parse?')
@@ -286,14 +289,14 @@ describe('刷新后恢复原写意图', () => {
     if (hasDraft) {
       await waitFor(() => expect(result.current.error).toContain('本地仍有旧版参数草稿'))
       expect(result.current.plan).toBeUndefined()
-      expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject(saved)
+      expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject(saved)
       expect(fetcher.mock.calls.every(([, init]) => init.method !== 'POST')).toBe(true)
       return
     }
     await waitFor(() => expect(result.current.plan?.revision).toBe(2))
     expect(result.current.session?.plan.operations).toHaveLength(7)
     await waitFor(() => expect(result.current.session?.drafts).toEqual(saved.drafts))
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({
       ...saved,
       revision: 2,
       run_id: fixture.run.run_id,
@@ -301,7 +304,7 @@ describe('刷新后恢复原写意图', () => {
     first.unmount()
     const second = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
     await waitFor(() => expect(second.result.current.session?.drafts).toEqual(saved.drafts))
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({
       ...saved,
       revision: 2,
       run_id: fixture.run.run_id,
@@ -310,13 +313,67 @@ describe('刷新后恢复原写意图', () => {
   })
   it('失效任务的404是终态，可明确换输入，不能被无限重试锁住', async () => {
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const journalKey = 'capptron.core.workflow.v1'
     localStorage.setItem(key, JSON.stringify({ task_id: 'gone-task' }))
     const fetcher = vi.fn().mockResolvedValue(new Response('{}', { status: 404 }))
     vi.stubGlobal('fetch', fetcher)
     const { result } = renderHook(() => useLiveWorkflow())
     await waitFor(() => expect(result.current.error).toContain('任务不可恢复'))
     expect(result.current.canRetry).toBe(false)
-    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ task_id: 'gone-task' })
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({ task_id: 'gone-task' })
+  })
+  it('已准入方案保留 pending 工程问题时不阻断批准入口', async () => {
+    // 上游回归：preparation issues 在 blocked 判断之前转为 admission，
+    // 已准入方案的待准备诊断曾使批准按钮永远禁用。
+    const fixture = structuredClone(baseFixture)
+    const pendingIssues = [
+      { stage: 'availability', code: 'engineering_evidence_missing', detail: 'blank' },
+      { stage: 'readiness', code: 'capability_unverified', detail: 'golden-b7.geometry_binding' },
+    ]
+    ;(fixture.plan.payload.extensions as Record<string, unknown>).preparation = {
+      status: 'needs_preparation',
+      issues: pendingIssues,
+    }
+    const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const journalKey = 'capptron.core.workflow.v1'
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        asset_id: fixture.asset.asset_id,
+        parse_command_id: fixture.parse.command_id,
+        task_id: fixture.task.task_id,
+        revision: 1,
+        run_id: fixture.run.run_id,
+      }),
+    )
+    const fetcher = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/feedback'))
+        return new Response(JSON.stringify({ feedback_version: 0, items: [] }))
+      const value = url.includes('/parse?')
+        ? fixture.parse
+        : url.includes('/cad/assets/')
+          ? fixture.asset
+          : url.includes('/cam/tasks/')
+            ? url.endsWith('/runs')
+              ? { runs: [] }
+              : fixture.approved
+            : url.includes('/process-cards/')
+              ? fixture.card
+              : url.includes('/results/')
+                ? fixture.plan
+                : url.includes('/runs/')
+                  ? fixture.run
+                  : fixture.task
+      return new Response(JSON.stringify(value))
+    })
+    vi.stubGlobal('fetch', fetcher)
+    const { result } = renderHook(() => useLiveWorkflow(), { wrapper: StrictMode })
+    await waitFor(() => expect(result.current.plan?.revision).toBe(1))
+    // admission 为空：pending 工程问题只展示在诊断中，不构成批准阻断。
+    expect(result.current.admission).toBeUndefined()
+    expect(JSON.parse(localStorage.getItem(journalKey)!)).toMatchObject({
+      task_id: fixture.task.task_id,
+    })
   })
   it.each([5001, 9999, -1])('仅确认任务丢失后备份并释放旧命令：%s', async (code) => {
     const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
@@ -363,6 +420,8 @@ describe('刷新后恢复原写意图', () => {
     vi.restoreAllMocks()
   })
   it('损坏日志禁止新上传，不能静默覆盖', async () => {
+    // 当前 scope 损坏仍 fail-closed；旧 descriptor scope 的坏数据只跳过不阻断。
+    localStorage.setItem('capptron.core.workflow.v1', '{broken')
     localStorage.setItem('capptron.core.workflow.v1.' + encodeURIComponent('|'), '{broken')
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
@@ -405,7 +464,6 @@ describe('CAM observe 与终态完成的竞态', () => {
     )
     let camGets = 0
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === '/config') return new Response(bytes)
       if (url.endsWith('/observe'))
         return new Response(
           JSON.stringify({

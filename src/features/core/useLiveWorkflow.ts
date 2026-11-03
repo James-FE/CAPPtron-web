@@ -27,18 +27,11 @@ import type {
   NcFile,
   PlanningRun,
 } from '../../api/core/contracts'
-import { goldenRequest } from '../../api/core/golden'
-import { CommandJournal } from '../../api/core/commandJournal'
+import { templateRequestV2 } from '../../api/core/golden'
+import { CommandJournal, migrateJournalScopes } from '../../api/core/commandJournal'
 import { recoverLocation, UnrecoverableTaskError } from '../../api/core/liveRecovery'
 import { journalFetcher, fileDigest } from '../../api/core/journalTransport'
-import {
-  loadIntegrationConfig,
-  deploymentFromTemplate,
-  matchIntegrationTemplate,
-  resolveIntegrationSource,
-} from '../../api/core/integrationConfig'
-import type { IntegrationConfig } from '../../api/core/integrationConfig'
-import { parameterChanges, toProcessPlan } from '../../api/core/viewModel'
+import { deploymentFromPlan, parameterChanges, toProcessPlan } from '../../api/core/viewModel'
 import type { PlanningSession } from '../process-planning/useWorkflowSession'
 
 type State = {
@@ -86,14 +79,12 @@ type Context = { api: CoreClient; signal: AbortSignal; update: (patch: Partial<S
 export type WorkflowRuntime = {
   fetcher: typeof fetch
   scope: string
-  config: () => Promise<IntegrationConfig>
 }
 
 export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
   const [state, setState] = useState<State>(initial)
   const [reviewer, setReviewer] = useState('')
   const [agentOpen, setAgentOpen] = useState(false)
-  const integration = useRef<IntegrationConfig | null>(null)
   const journal = useRef<CommandJournal | null>(null)
   const storageBlocked = useRef(false)
   const previousInput = useRef<{ file?: File; runtime?: WorkflowRuntime } | null>(null)
@@ -108,14 +99,17 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     retry.current = null
     locked.current = false
     storageBlocked.current = false
-    integration.current = null
     setState(initial)
     try {
       journal.current = new CommandJournal(
         localStorage,
-        runtime?.scope ??
-          `${import.meta.env.VITE_API_BASE_URL ?? ''}|${import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256 ?? ''}`,
+        runtime?.scope ?? `${import.meta.env.VITE_API_BASE_URL ?? ''}`,
       )
+      if (!runtime) {
+        // 兼容窗口：从存储实际枚举旧 <base>|<configSha> 索引并一次性迁移，
+        // 不依赖当前是否仍设置集成配置变量。
+        migrateJournalScopes(localStorage, journal.current)
+      }
       const saved = journal.current.read()
       const changed =
         previousInput.current !== null &&
@@ -319,31 +313,6 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         )
       : undefined
 
-  async function loadDeployment(signal: AbortSignal, stepSha?: string) {
-    if (runtime) {
-      const config = await runtime.config()
-      signal.throwIfAborted()
-      integration.current = config
-      const entry = config.templates.find(
-        (entry) => !stepSha || entry.matching_evidence.step_sha256 === stepSha,
-      )
-      if (!entry) throw new Error('模拟流程仅接受内置示例，请使用示例模型。')
-      return deploymentFromTemplate(entry, '模拟 JSON · 不代表真实制造结果')
-    }
-    const fetcher: typeof fetch = (input, init) => fetch(input, { ...init, signal })
-    const { url, sha256: digest } = await resolveIntegrationSource(
-      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_URL,
-      import.meta.env.VITE_CORE_INTEGRATION_CONFIG_SHA256,
-      fetcher,
-    )
-    const loaded = await loadIntegrationConfig(url, digest, fetcher)
-    integration.current = loaded.config
-    const entries = loaded.config.templates.filter(
-      (entry) => !stepSha || entry.matching_evidence.step_sha256 === stepSha,
-    )
-    if (entries.length !== 1) throw new Error('部署配置未唯一匹配当前 STEP，请核对受控输入')
-    return deploymentFromTemplate(entries[0]!, `${url} · SHA-256 ${loaded.sha256}`)
-  }
   async function restore(context: Context) {
     const location = journal.current!.read()
     const recovered = await recoverLocation(context.api, location)
@@ -359,8 +328,6 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       status: recovered.parsed ? '复用已验证解析 · 保留原命令与报告来源' : '已恢复服务端输入身份',
     })
     if (recovered.task) {
-      const deployment = await loadDeployment(context.signal, recovered.asset?.sha256)
-      context.update({ deployment })
       if (location.run_id) {
         let run = await context.api.get<PlanningRun>(
           `${path(recovered.task)}/runs/${encodeURIComponent(location.run_id)}`,
@@ -386,7 +353,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
             `${path(recovered.task)}/runs/${encodeURIComponent(latest.run_id)}`,
           )
         }
-        await readPlan(context, recovered.task, run, deployment)
+        await readPlan(context, recovered.task, run)
       } else if (recovered.task.current_revision > 0) {
         const plan = await context.api.get<LivePlan>(
           `${path(recovered.task)}/results/${recovered.task.current_revision}`,
@@ -394,7 +361,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         const run = await context.api.get<PlanningRun>(
           `${path(recovered.task)}/runs/${encodeURIComponent(plan.run_id)}`,
         )
-        await readPlan(context, recovered.task, run, deployment)
+        await readPlan(context, recovered.task, run)
       }
       context.signal.throwIfAborted()
       const drafts = location.drafts
@@ -512,7 +479,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     })
   }
 
-  async function readPlan(context: Context, task: Task, run: PlanningRun, deployment: Deployment) {
+  async function readPlan(context: Context, task: Task, run: PlanningRun) {
     const { api, signal, update } = context
     update({ planning: run })
     let current = await api.get<PlanningRun>(`${path(task)}/runs/${encodeURIComponent(run.run_id)}`)
@@ -557,7 +524,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
           plan.payload.extensions.reference_only ||
           plan.payload.extensions.source_unbound ||
           !plan.payload.extensions.matching_evidence
-        if (integration.current && !blocked) matchIntegrationTemplate(integration.current, plan)
+        const deployment = deploymentFromPlan(plan)
         const model = toProcessPlan(plan, deployment)
         if (runtime) {
           model.simulation = true
@@ -584,6 +551,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         update({
           task: nextTask,
           plan,
+          deployment,
           card,
           approved,
           status: '工艺方案已就绪',
@@ -598,13 +566,13 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
                 ? `现场输入需要修正：${model.onsiteAssessment.issues.map((x) => x.message).join('；')}`
                 : plan.payload.extensions.onsite_diagnostics?.length
                   ? plan.payload.extensions.onsite_diagnostics.map((x) => x.message).join('；')
-                  : plan.payload.extensions.preparation?.issues.length
-                    ? plan.payload.extensions.preparation.issues.map((x) => x.detail).join('；')
-                    : current.needs_replan
-                      ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
-                      : blocked
-                        ? '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
-                        : undefined,
+                  : current.needs_replan || blocked
+                    ? plan.payload.extensions.preparation?.issues.length
+                      ? plan.payload.extensions.preparation.issues.map((x) => x.detail).join('；')
+                      : current.needs_replan
+                        ? '本版工艺已生成，可查看；补充信息尚未满足规划与校验要求，当前不能批准或执行 CAM。'
+                        : '方案仅供参考：输入来源尚未绑定或缺少匹配证据，不能批准或执行 CAM。'
+                    : undefined,
           session: {
             taskKey: `${task.task_id}/${plan.revision}`,
             plan: model,
@@ -633,28 +601,31 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     const createCommand = uuid(),
       planCommand = uuid()
     let task: Task | undefined = state.task,
-      run: PlanningRun | undefined,
-      deployment: Deployment | undefined
+      run: PlanningRun | undefined
     void act(async (context) => {
-      const { api, signal, update } = context
+      const { api, update } = context
       update({
         status: '正在按最新补充信息重新规划',
         ...(state.session ? { session: { ...state.session, resultViewed: false } } : {}),
       })
-      if (!deployment) {
-        deployment = await loadDeployment(signal, asset.sha256)
+      try {
+        task ??= await api.post<Task>(
+          '/planning/tasks',
+          templateRequestV2(asset, parsed, createCommand),
+        )
+      } catch (error) {
+        // 旧 Core 不支持 v2：明确阻断，不改写 v1 或重建任务。
+        if (error instanceof CoreHttpError && error.code === 4002)
+          throw new Error('当前 Core 不支持 template-request-v2 模板选择协议，请升级 Core 后重试。')
+        throw error
       }
-      task ??= await api.post<Task>(
-        '/planning/tasks',
-        goldenRequest(deployment, asset, parsed, createCommand),
-      )
-      update({ task, deployment, status: '规划任务已创建' })
+      update({ task, status: '规划任务已创建' })
       run ??= await api.post<PlanningRun>(`${path(task)}/replan`, {
         command_id: planCommand,
         base_revision: task.current_revision,
         expected_feedback_version: task.feedback_version,
       })
-      await readPlan(context, task, run, deployment)
+      await readPlan(context, task, run)
     })
   }
   function submitChanges() {
@@ -670,8 +641,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       return
     const task = { ...state.task },
       plan = state.plan,
-      session = state.session,
-      deployment = state.deployment
+      session = state.session
     const fields = supplementFields(session.plan)
     const changedSupplement = fields.some(
       ({ key, p }) =>
@@ -743,7 +713,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
             }
           : {}),
       })
-      await readPlan(context, task, run, deployment)
+      await readPlan(context, task, run)
     })
   }
   function submitSupplement() {
@@ -798,8 +768,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       return
     const task = state.task,
       plan = state.plan,
-      session = state.session,
-      deployment = state.deployment
+      session = state.session
     let changes: ReturnType<typeof parameterChanges>
     try {
       changes = parameterChanges(session.plan, session.drafts)
@@ -837,7 +806,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
           changes,
         },
       })
-      await readPlan(context, task, run, deployment)
+      await readPlan(context, task, run)
     })
   }
   function refreshReadiness() {

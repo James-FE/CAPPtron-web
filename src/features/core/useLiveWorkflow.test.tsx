@@ -376,7 +376,7 @@ describe('刷新后恢复原写意图', () => {
     })
   })
   it.each([5001, 9999, -1])('仅确认任务丢失后备份并释放旧命令：%s', async (code) => {
-    const key = 'capptron.core.workflow.v1.' + encodeURIComponent('|')
+    const key = 'capptron.core.workflow.v1'
     const saved = {
       task_id: 'gone-task',
       drafts: { rough: '0.4' },

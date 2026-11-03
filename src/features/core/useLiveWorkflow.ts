@@ -268,7 +268,6 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       if (!window.confirm('Core 已确认旧任务不存在。备份本地记录和草稿后开始新会话？')) return
       journal.current!.archiveAndReset()
       retry.current = null
-      integration.current = null
       setAgentOpen(false)
       setState({ ...initial, status: '旧任务已丢失，本地记录已备份；请选择并上传 STEP' })
     }, true)

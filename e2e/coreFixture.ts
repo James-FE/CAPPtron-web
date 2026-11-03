@@ -89,6 +89,16 @@ export async function coreFixture(
       url = new URL(req.url()),
       path = decodeURIComponent(url.pathname)
     const post = req.method() === 'POST'
+    if (path === '/cam/executor')
+      return route.fulfill({
+        json: {
+          executor_id: 'fixture-executor',
+          availability: 'observed',
+          state: 'idle',
+          reset_required: false,
+          active_run_id: null,
+        },
+      })
     const send = (model: string, value: unknown, status = 200) => {
       validate(model, value)
       return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })

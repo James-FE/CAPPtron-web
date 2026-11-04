@@ -1,5 +1,7 @@
 # CAPPtron-web 快速启动指南
 
+真实 Core / NX / Mastercam 的本机启动、关闭网页后的恢复与重新测试，见[本机真实联调 Quick Start](LOCAL_LIVE_QUICK_START.md)。本文主要说明前端独立演示与开发环境。
+
 适用于 `main`，核对日期：2026-10-27。当前人工确认版本见 [UI 基线](UI-BASELINE.md)。
 
 ## 已有本地工程：直接启动

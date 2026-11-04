@@ -20,6 +20,8 @@ CAPPtron CNC Agentic Programming 项目的 Web 前端，技术基础为 **React 
 
 ## Quick Start｜快速启动
 
+**本机真实联调（Core＋Worker＋Web）、恢复上一轮与开始新一轮，见 [本机真实联调 Quick Start](docs/workflows/LOCAL_LIVE_QUICK_START.md)。** 已配置测试机使用 `http://127.0.0.1:5185/`；下文的 5173 是前端独立演示入口。
+
 准备 **Git、Node.js 22.12+ 和 npm**；推荐使用与 `.nvmrc` / CI 一致的 Node.js 22.x。体验已验收版本请使用 `main`。
 
 ### 首次获取并启动
@@ -53,7 +55,7 @@ npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 
 打开 [http://127.0.0.1:4173/](http://127.0.0.1:4173/)。构建产物为 `dist/` 静态文件；preview 用于检查构建结果，不提供开发模式下的本机私有 NC 读取。
 
-完整步骤、启动后的 Demo 路径、可选 NC 配置、端口占用与 PowerShell 常见问题见 **[快速启动指南](docs/workflows/QUICK_START.md)**。
+前端独立体验见 **[快速启动指南](docs/workflows/QUICK_START.md)**；本机启动、真实任务恢复、重新测试与复位见 **[本机真实联调 Quick Start](docs/workflows/LOCAL_LIVE_QUICK_START.md)**。
 
 查看数据大屏：点击顶部 **“数据底座”**。点击资源条、模型登记或知识入口可搜索、分页和查看只读详情；“返回智能工艺工作台”保留原工序、参数、NC 编辑及 Agent 会话。当前快照固定为 2026-10-20，页面中的演示日不是系统当天。
 

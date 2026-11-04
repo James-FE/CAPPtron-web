@@ -1,6 +1,8 @@
 # FE-CONTRACT-001｜全量接口与字段矩阵
 
 > 2026-10-23；Web `ce46313a4637947b9e31500509dc7661d1e7b201`；Core 上游 `a1cd73082a44de7732633ccbaa8b0d8c6e3eaaef`。技术审计完成稿，双方未冻结。
+>
+> 本矩阵是按日期出具的审计快照：Core 接口面以 Core 运行中生成的 OpenAPI 与 `docs/http.md` 为权威；审计更新时重新 pin 双方提交与日期，不做无基线改写。矩阵中的 B/C/D/E 状态描述前端消费侧，不表示 Core 端能力变化。
 
 [主文档](CAPPtron-Frontend-Consumer-Contracts-v1.0.md)定义身份、状态和实现边界；[后端交接](FE-CONTRACT-001-Backend-Handoff.md)回答 C/D 问题。所有 Proposed FE Method 都是消费层建议（现有 Reader/纯函数名除外），**不是新增 HTTP 承诺**。
 

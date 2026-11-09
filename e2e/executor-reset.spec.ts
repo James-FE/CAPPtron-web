@@ -104,6 +104,7 @@ test('回执丢失后刷新恢复同一命令，不再次提交', async ({ page 
   await page.getByRole('button', { name: '切换真实联调' }).click()
   await page.getByRole('button', { name: '03 程序审核' }).click()
   await expect(page.getByText(`复位待确认 · 命令 ${original}`)).toBeVisible()
+  await expect(page.getByText(/持续未确认时，请维护人员检查 Worker 恢复日志/)).toBeVisible()
   await screenshot(page, info, 'reset-pending-restored')
   remote.mode = 'success'
   await expect(page.getByText('复位成功 · 执行器空闲，请手动重新发起加工。')).toBeVisible()

@@ -97,6 +97,11 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
               CAM 异常 · {live.cam.error.code} · {live.cam.error.message}
             </p>
           )}
+          {cam && live.cam?.error?.code === 8101 && (
+            <p className="warning-text">
+              CAM 资源或契约校验失败，请维护人员检查部署；保留当前运行 ID 和诊断记录。
+            </p>
+          )}
           <LiveFeedback live={live} />
         </section>
       </div>

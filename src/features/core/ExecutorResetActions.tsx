@@ -111,6 +111,12 @@ export function ExecutorResetActions({ live }: { live: LiveWorkflow }) {
       <p role={error ? 'alert' : 'status'} className={error ? 'warning-text' : 'muted-text'}>
         {error || message}
       </p>
+      {pending && (
+        <p className="muted-text">
+          复位结果尚未确认，请继续查询原命令。持续未确认时，请维护人员检查 Worker
+          恢复日志；不要重复提交复位或删除恢复记录。
+        </p>
+      )}
       <div className="executor-reset-buttons">
         <button className="button" disabled={busy || live.busy} onClick={() => void check()}>
           {pending ? '继续查询复位' : '检查执行器状态'}

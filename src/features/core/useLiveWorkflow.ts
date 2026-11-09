@@ -227,10 +227,17 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         error.status < 500
       ) {
         retry.current = null
+        const camConflict = error.status === 409 && error.code === 8302
+        const camContract = error.code === 8101
         setState((s) => ({
           ...s,
-          status: 'Core 已拒绝命令，请修正输入或核对当前版本',
-          approved: undefined,
+          status: camConflict
+            ? 'CAM 状态冲突，请检查执行器状态及当前工艺版本'
+            : camContract
+              ? 'CAM 资源或契约校验失败，请维护人员检查部署'
+              : 'Core 已拒绝命令，请修正输入或核对当前版本',
+          // CAM 准入拒绝不等于工艺审批失效；再次执行仍由 Core 校验版本和资格。
+          approved: camConflict || camContract ? s.approved : undefined,
           session: s.session ? { ...s.session, resultViewed: true } : undefined,
         }))
       }

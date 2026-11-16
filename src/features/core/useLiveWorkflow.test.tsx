@@ -434,7 +434,12 @@ describe('刷新后恢复原写意图', () => {
 })
 
 describe('CAM observe 与终态完成的竞态', () => {
-  async function pollingCase(code: number, status: string, wrongIdentity = false) {
+  async function pollingCase(
+    code: number,
+    status: string,
+    wrongIdentity = false,
+    phase = 'collect',
+  ) {
     const config = {
       schema_version: 'frontend-integration.v1',
       templates: [
@@ -478,7 +483,7 @@ describe('CAM observe 与终态完成的竞态', () => {
         value =
           camGets <= 2
             ? { ...fixture.cam, status: 'running', allowed_actions: ['observe'] }
-            : { ...fixture.cam, status, cam_run_id: wrongIdentity ? 'other-run' : 'cam-1' }
+            : { ...fixture.cam, status, phase, cam_run_id: wrongIdentity ? 'other-run' : 'cam-1' }
       } else if (url.endsWith('/nc/versions/1')) value = fixture.nc
       else if (url.includes('/file?'))
         value = fixture.files.find(
@@ -509,6 +514,43 @@ describe('CAM observe 与终态完成的竞态', () => {
     expect(camGets()).toBe(3)
     const writes = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST')
     expect(writes.map(([url]) => url)).toEqual(['/cam/runs/cam-1/observe'])
+  })
+  it('构建明确失败后手动重跑使用新命令，连点不会重复提交', async () => {
+    const { result, fetcher } = await pollingCase(8302, 'failed', false, 'build')
+    expect(result.current.canRestartBuild).toBe(true)
+    expect(fetcher.mock.calls.filter(([url]) => url === '/cam/runs')).toHaveLength(0)
+    const original = fetcher.getMockImplementation()!
+    fetcher.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/cam/runs' && init?.method === 'POST')
+        return new Response(JSON.stringify({ context: { cam_run_id: 'new-run' } }))
+      if (url.endsWith('/cam/runs/new-run'))
+        return new Response(
+          JSON.stringify({
+            ...fixture.cam,
+            cam_run_id: 'new-run',
+            status: 'failed',
+            phase: 'build',
+          }),
+        )
+      return original(url, init)
+    })
+    act(() => {
+      result.current.startCam()
+      result.current.startCam()
+    })
+    await waitFor(() => expect(result.current.cam?.cam_run_id).toBe('new-run'))
+    const writes = fetcher.mock.calls.filter(([url]) => url === '/cam/runs')
+    expect(writes).toHaveLength(1)
+    const body = JSON.parse(String(writes[0]![1]?.body))
+    expect(body.command_id).not.toBe('cam-1')
+    expect(body.plan_ref).toEqual(fixture.approved.plans[0]!.plan_ref)
+    expect(body.expected_current_revision).toBe(fixture.task.current_revision)
+  })
+  it('执行阶段失败没有构建重跑入口', async () => {
+    const { result, fetcher } = await pollingCase(8302, 'failed', false, 'execute')
+    expect(result.current.canRestartBuild).toBe(false)
+    act(() => result.current.startCam())
+    expect(fetcher.mock.calls.filter(([url]) => url === '/cam/runs')).toHaveLength(0)
   })
   it.each([
     [8302, 'running', false],

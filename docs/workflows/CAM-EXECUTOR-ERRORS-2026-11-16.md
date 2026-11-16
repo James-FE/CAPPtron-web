@@ -1,0 +1,31 @@
+# CAM失败恢复与PR51兼容评估
+
+2026-11-16，Web基线065b4e7；Core整理基线a8a0803。未修改当前运行部署。
+
+## PR51评估
+
+PR51的08560ec不是今天的修复。它有价值：409/8302及8101拒绝保留工艺审批，
+复位未确认时引导查询原命令和Worker日志、不删除记录；原始错误及request ID保持。
+独立工作树两种视口复验12 passed；历史CI两项成功，不代表真实CAM。
+
+git merge-tree比较08560ec与今天4ad50e9，在useLiveWorkflow错误处理块发生内容冲突。
+PR51未覆盖503/8308、Core复位失败终态、PowerShell环境或构建重跑入口。
+按用户指令不作为前置合并依赖，PR51保持不动，从main整合；保留上述有用行为，
+不直接叠加两个旧补丁，后续评审避免重复应用PR51。
+
+## 整合行为
+
+- 区分不可达503/8308、恢复409/8125、冲突409/8302及契约8101，保留已有审批。
+- 标准503/8308回执可释放未准入请求；未知5xx、断连及回执丢失保留原命令身份。
+- 明确build失败提供手动新运行，沿用已批准版本、旧记录保留；不自动运行或连点重复派发。
+- execute失败或未知任务没有构建重跑入口；不新增毛坯、刀具及工艺校验。
+
+## 本轮验证
+
+npm run quality通过：383项Vitest、仓库/静态/类型/格式检查及构建通过，保留原大chunk提示。
+Chromium在1920×1080和1440×900共18 passed，覆盖PR51场景、新错误码及手动重跑。
+截图已检查按钮可见且无Agent遮挡；截图保留本地test-results，没有无关桌面。
+这些使用合成HTTP回执，不调用真实Worker/Mastercam，不替代实机验收。
+原始日志在本机worker-reconnect-20261116的pr51-e2e.log、web-new-e2e.log、
+web-integrated-final-quality.log。没有用历史计数替代本次结果。
+截图：[1920×1080](../api/cam-admission-retry-evidence/chromium-1920x1080/build-retry.png)、[1440×900](../api/cam-admission-retry-evidence/chromium-1440x900/build-retry.png)。

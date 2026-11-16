@@ -1,6 +1,7 @@
 import { sha256Hex } from '../browserCrypto'
 import { CommandJournal } from './commandJournal'
 import type { CommandDomain, PendingCommand } from './commandJournal'
+import { isRejectedResponse } from './client'
 
 export async function fileDigest(file: File) {
   const bytes =
@@ -104,7 +105,7 @@ export function journalFetcher(
         patch.cam_run_id = context?.cam_run_id
       }
       journal.update(patch)
-    } else if (pending && response.status >= 400 && response.status < 500) {
+    } else if (pending && response.status >= 400) {
       const receipt = await response
         .clone()
         .json()
@@ -112,7 +113,8 @@ export function journalFetcher(
       if (
         typeof receipt?.error?.code === 'number' &&
         typeof receipt?.error?.message === 'string' &&
-        receipt?.request_id
+        receipt?.request_id &&
+        isRejectedResponse(response.status, receipt.error.code)
       )
         journal.clearPending(pending.command_id)
     }

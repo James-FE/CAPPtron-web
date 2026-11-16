@@ -155,6 +155,10 @@ export class CoreHttpError extends Error {
     this.code = code
   }
 }
+
+// 8308 is emitted before run admission; other 5xx responses remain uncertain.
+export const isRejectedResponse = (status: number, code?: number) =>
+  (status >= 400 && status < 500) || (status === 503 && code === 8308)
 export class CoreClient {
   private pending = new Map<string, string>()
   constructor(
@@ -190,7 +194,11 @@ export class CoreClient {
       this.pending.delete(key)
       return result
     } catch (error) {
-      if (error instanceof CoreHttpError && error.status >= 400 && error.status < 500)
+      if (
+        error instanceof CoreHttpError &&
+        ((error.status >= 400 && error.status < 500) ||
+          (error.confirmed && isRejectedResponse(error.status, error.code)))
+      )
         this.pending.delete(key)
       throw error
     }

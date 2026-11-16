@@ -28,4 +28,4 @@ Chromium在1920×1080和1440×900共18 passed，覆盖PR51场景、新错误码�
 这些使用合成HTTP回执，不调用真实Worker/Mastercam，不替代实机验收。
 原始日志在本机worker-reconnect-20261116的pr51-e2e.log、web-new-e2e.log、
 web-integrated-final-quality.log。没有用历史计数替代本次结果。
-`n截图：[1920×1080](../api/cam-admission-retry-evidence/chromium-1920x1080/build-retry.png)、[1440×900](../api/cam-admission-retry-evidence/chromium-1440x900/build-retry.png)。
+截图：[1920×1080](../api/cam-admission-retry-evidence/chromium-1920x1080/build-retry.png)、[1440×900](../api/cam-admission-retry-evidence/chromium-1440x900/build-retry.png)。

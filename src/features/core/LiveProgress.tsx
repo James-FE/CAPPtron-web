@@ -75,7 +75,13 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
             value={complete ? 100 : live.busy && !live.error ? undefined : 0}
           />
           <p className="progress-percentage">
-            {complete ? '100%' : live.busy ? '处理中…' : '等待继续'}
+            {complete
+              ? '100%'
+              : live.busy
+                ? '处理中…'
+                : cam && live.cam?.status === 'failed'
+                  ? '本次运行已失败'
+                  : '等待继续'}
           </p>
           <p className="muted-text">
             {live.simulation
@@ -98,12 +104,29 @@ export function LiveProgress({ live, cam = false }: { live: LiveWorkflow; cam?: 
             </p>
           )}
           <LiveFeedback live={live} />
+          {cam && live.cam?.error?.code === 8101 && (
+            <p className="warning-text">
+              CAM 资源或契约校验失败，请维护人员检查部署；保留当前运行 ID 和诊断记录。
+            </p>
+          )}
         </section>
       </div>
       <footer className="planning-actions">
         <p className="muted-text">
           {live.simulation ? '模拟运行状态' : '真实运行状态'} · 工艺批准与 NC 审核分别进行
         </p>
+        {cam && live.cam?.status === 'failed' && live.cam.phase === 'build' && (
+          <div>
+            <p className="muted-text">原构建已失败；修复环境后，可使用已批准工艺发起新运行。</p>
+            <button
+              className="button primary-button"
+              disabled={!live.canRestartBuild}
+              onClick={live.startCam}
+            >
+              重新运行 CAM
+            </button>
+          </div>
+        )}
         {cam ? (
           live.simulation ? (
             <button

@@ -227,6 +227,9 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         isRejectedResponse(error.status, error.code)
       ) {
         retry.current = null
+        const camConflict = error.status === 409 && error.code === 8302
+        const camContract = error.code === 8101
+        const executorRejected = error.code === 8308 || error.code === 8125
         setState((s) => ({
           ...s,
           status:
@@ -234,8 +237,12 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
               ? 'Worker 不可达，CAM 尚未启动；请检查执行器连接'
               : error.code === 8125
                 ? '执行器需要恢复，CAM 尚未启动；请核对恢复状态'
-                : 'Core 已拒绝命令，请修正输入或核对当前版本',
-          approved: undefined,
+                : camConflict
+                  ? 'CAM 状态冲突，请检查执行器状态及当前工艺版本'
+                  : camContract
+                    ? 'CAM 资源或契约校验失败，请维护人员检查部署'
+                    : 'Core 已拒绝命令，请修正输入或核对当前版本',
+          approved: camConflict || camContract || executorRejected ? s.approved : undefined,
           session: s.session ? { ...s.session, resultViewed: true } : undefined,
         }))
       }
@@ -316,6 +323,9 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
             p.plan_ref.revision === state.task?.current_revision,
         )
       : undefined
+
+  const failedBuild = state.cam?.status === 'failed' && state.cam.phase === 'build'
+  const canRestartBuild = !!executable && failedBuild && !dirty && !state.busy && !retry.current
 
   async function restore(context: Context) {
     const location = journal.current!.read()
@@ -964,7 +974,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
       !state.task ||
       !state.approved?.execution_profile_id ||
       retry.current ||
-      state.cam
+      (state.cam && !canRestartBuild)
     )
       return
     const body = {
@@ -975,7 +985,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     }
     let runId: string | undefined
     void act(async (context) => {
-      context.update({ nc: undefined, files: undefined, status: 'CAM 请求待确认' })
+      context.update({ cam: undefined, nc: undefined, files: undefined, status: 'CAM 请求待确认' })
       runId ??= (await context.api.post<{ context: { cam_run_id: string } }>('/cam/runs', body))
         .context.cam_run_id
       await watchCam(context, runId)
@@ -1061,6 +1071,7 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
     hasUnplannedSupplement,
     activeCam,
     executable,
+    canRestartBuild,
     agentOpen,
     setAgentOpen,
     updateSession,

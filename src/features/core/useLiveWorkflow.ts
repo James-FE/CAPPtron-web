@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   CoreClient,
   CoreHttpError,
+  isRejectedResponse,
   cardPath,
   ncPath,
   sameNcRef,
@@ -223,13 +224,17 @@ export function useLiveWorkflow(file?: File, runtime?: WorkflowRuntime) {
         error instanceof CoreHttpError &&
         error.confirmed &&
         error.method === 'POST' &&
-        error.status >= 400 &&
-        error.status < 500
+        isRejectedResponse(error.status, error.code)
       ) {
         retry.current = null
         setState((s) => ({
           ...s,
-          status: 'Core 已拒绝命令，请修正输入或核对当前版本',
+          status:
+            error.code === 8308
+              ? 'Worker 不可达，CAM 尚未启动；请检查执行器连接'
+              : error.code === 8125
+                ? '执行器需要恢复，CAM 尚未启动；请核对恢复状态'
+                : 'Core 已拒绝命令，请修正输入或核对当前版本',
           approved: undefined,
           session: s.session ? { ...s.session, resultViewed: true } : undefined,
         }))
